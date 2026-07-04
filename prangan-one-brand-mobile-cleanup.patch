@@ -1,0 +1,1214 @@
+From 647f39cc2c05fa3c7095e122493f34dc3a32f792 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 4 Jul 2026 17:19:28 +0000
+Subject: [PATCH] Fix login branding bug, split demo mode, mobile fixes, brand
+ prominence, and finish doc cleanup
+
+- Session/login: added explicitSociety flag so /login no longer shows
+  Rajhans Tower's branding to every visitor by default. Only shows a
+  specific society once one was chosen on purpose (share link, resolved
+  membership, demo pick).
+- Split demo mode onto its own /demo page, out of /login entirely.
+- Fixed mobile: no way to reach /login from a phone (button was hidden
+  below sm breakpoint, mobile menu never got a login link). Public
+  header/footer now show the full wordmark at every size, not just a
+  bare symbol on mobile.
+- Public site now defaults to Gujarati, English is the toggle.
+- Prangan One branding now visible (with the name, not just the mark)
+  on resident, admin, and accountant screens, per explicit instruction.
+  Fixed a real contrast bug found in the process: the admin/accountant
+  sidebar's Powered By line used the navy mark on a navy background.
+- Fixed FAQ's premature 'isolated at the database level' claim, removed
+  Contact's broken wa.me link with no number, softened Pricing's
+  WhatsApp wording and added concrete per-flat-count examples.
+- Added light grouping to the admin sidebar nav (Overview/Money/
+  Operations/Communication/Settings), same items, same routes.
+- Finished the documentation cleanup: README (owner console framing,
+  payment-flow description, active-vs-deferred ordering, removed the
+  closing Essancia line), DESIGN_SYSTEM.md's stale /saas/* references,
+  robots.txt's unnecessary /home allow, .env.example's Razorpay/
+  WhatsApp placeholders, and two currently-actionable stale file paths
+  inside CLAUDE_CODE_NEXT_STEPS.md's own ready-to-paste prompts.
+  Historical session-log entries left alone on purpose, with a note
+  explaining why.
+---
+ .env.example                       |  35 ++++------
+ CLAUDE_CODE_NEXT_STEPS.md          |  30 ++++++--
+ QUICK_START.md                     |  11 +--
+ README.md                          |  16 ++---
+ docs/DESIGN_SYSTEM.md              |   4 +-
+ index.html                         |  10 +--
+ public/robots.txt                  |   3 +-
+ src/App.tsx                        |  30 ++++----
+ src/components/PranganBrand.tsx    |  17 +++--
+ src/layouts/Layouts.tsx            |  40 +++++++----
+ src/lib/demoMode.ts                |  15 ++--
+ src/lib/store.tsx                  |  14 ++--
+ src/lib/types.ts                   |   9 ++-
+ src/pages/Demo.tsx                 | 107 +++++++++++++++++++++++++++++
+ src/pages/Login.tsx                | 105 +++++++++-------------------
+ src/pages/__tests__/Demo.test.tsx  |  31 +++++++++
+ src/pages/__tests__/Home.test.tsx  |   5 +-
+ src/pages/__tests__/Login.test.tsx |  41 ++++++-----
+ src/pages/owner/Layout.tsx         |   3 +-
+ src/pages/public/Contact.tsx       |  18 ++---
+ src/pages/public/Faq.tsx           |   4 +-
+ src/pages/public/Pricing.tsx       |  20 +++++-
+ src/pages/public/PublicLayout.tsx  |  34 +++++----
+ src/pages/public/usePublicLang.ts  |  14 ++--
+ 24 files changed, 397 insertions(+), 219 deletions(-)
+ create mode 100644 src/pages/Demo.tsx
+ create mode 100644 src/pages/__tests__/Demo.test.tsx
+
+diff --git a/.env.example b/.env.example
+index 3c34e54..41aee48 100644
+--- a/.env.example
++++ b/.env.example
+@@ -4,13 +4,13 @@
+ # is connected. Nothing below is required for `npm run dev`.
+ # ---------------------------------------------------------------
+ 
+-# Demo mode: shows the role-picker shortcuts (resident/admin/accountant/
+-# owner) on the login screen, and simulates the magic-link "email sent"
+-# state with no real backend. Defaults ON in local dev (import.meta.env.DEV)
+-# and OFF in a production build unless explicitly set to true here - a
+-# real production deployment for a paying society should never show these
+-# shortcuts. Set to true only for a sales-demo deployment kept separate
+-# from the real production one.
++# Demo mode: turns on the /demo page (role-picker shortcuts for resident/
++# admin/accountant/owner, no password) and simulates the magic-link "email
++# sent" state on the real /login screen when Supabase isn't configured.
++# Defaults ON in local dev (import.meta.env.DEV) and OFF in a production
++# build unless explicitly set to true here - a real production deployment
++# for a paying society should never expose /demo. Set to true only for a
++# sales-demo deployment kept separate from the real production one.
+ # VITE_DEMO_MODE=true
+ 
+ # Demo/sample data (Rajhans Tower + 2 lead societies). Defaults to on so
+@@ -24,18 +24,9 @@
+ # VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+ # VITE_SUPABASE_ANON_KEY=your-anon-key
+ 
+-# ---------------------------------------------------------------
+-# Deferred, not part of the current build. Listed here only so they're
+-# not a surprise later - do not add these until the corresponding
+-# feature is actually being built (see CLAUDE_CODE_NEXT_STEPS.md).
+-# ---------------------------------------------------------------
+-
+-# Razorpay (deferred: online payments. Not needed to launch - manual UPI/
+-# bank/cash/cheque recording, confirmed by the committee, is the real
+-# payment flow in this build. Keep keys server-side, never in client env.)
+-# RAZORPAY_KEY_ID=
+-# RAZORPAY_KEY_SECRET=
+-
+-# WhatsApp Cloud API (deferred: automated reminders, needs a verified Meta
+-# Business account. wa.me share links already work today for free.)
+-# WHATSAPP_TOKEN=
++# An online payment gateway and automated WhatsApp messaging are deferred,
++# not part of the active build - see CLAUDE_CODE_NEXT_STEPS.md and
++# README.md's Next steps section for what's actually active right now.
++# Deliberately no variables listed here for either yet, so a future
++# session doesn't get tempted to wire them prematurely. Manual payment
++# recording and wa.me share links are the real, intended workflow for now.
+diff --git a/CLAUDE_CODE_NEXT_STEPS.md b/CLAUDE_CODE_NEXT_STEPS.md
+index 22049b1..9be5795 100644
+--- a/CLAUDE_CODE_NEXT_STEPS.md
++++ b/CLAUDE_CODE_NEXT_STEPS.md
+@@ -4,7 +4,7 @@ This file exists so a future Claude Code session (or a human) can pick this proj
+ 
+ ## Project identity
+ 
+-**What this is:** Prangan One, "The Society OS," a Gujarati-first, multi-tenant society management platform. It started as a single-society demo for Rajhans Tower (a real 24-flat society in Surat) and is being built out as a real product under this name: Essancia (the agency building this) operates the platform from an owner console and onboards societies one at a time, starting with Rajhans Tower as the first real, paying client. Domain: pranganone.com. Support: care@pranganone.com.
++**What this is:** Prangan One, "The Society OS," a Gujarati-first, multi-tenant society management platform. It started as a single-society demo for Rajhans Tower (a real 24-flat society in Surat), which remains the first real society on the platform, created from the owner console like any other, not hardcoded as the only one. Domain: pranganone.com. Support: care@pranganone.com.
+ 
+ **The core stance that shapes every screen:** the committee is the customer and the hero, residents are upside. A society must get full value from the committee side alone, with zero residents logged in. Resident self-service is a second adoption wave, never a dependency for the society to run.
+ 
+@@ -14,9 +14,29 @@ This file exists so a future Claude Code session (or a human) can pick this proj
+ - **Residents:** check their bill, pay, complain, read notices, vote, RSVP to events.
+ - **Committee (admin):** the treasurer/secretary/president running the society day to day. Almost never a software person, see "Designing for the committee's actual skill level" below.
+ - **Accountant:** a narrower role focused on the money side and audit exports.
+-- **Owner (Essancia):** creates and manages every society on the platform. This role can be more technical than the others, since it's Essancia's own tool, not a committee-facing one.
++- **Owner:** creates and manages every society on the platform from `/owner/*`. This role can be more technical than the others, since it's the platform owner's own tool, not a committee-facing one.
+ 
+-## Session 5 summary (this session): official brand assets, route correction, and pre-Supabase production cleanup
++*(Note on reading the session log below: earlier sessions correctly used "Essancia" when describing who was operating the platform at the time that was written. That's accurate history, left as-is rather than sanitized, the standing description above is what's current now.)*
++
++## Session 6 summary (this session): login architecture fix, demo/login split, mobile fixes, and the rest of the documentation cleanup
++
++Another external review (this time checking the actual live site plus real device screenshots, not just the code) caught two genuinely important things the previous sessions missed, both confirmed by reading the real code before touching anything, not just trusted on faith.
++
++- **Fixed the real bug: `/login` was showing Rajhans Tower's branding to every visitor.** Root cause: every fresh session defaults to `societyId: soc_rajhans` (reasonable, other pages need *some* active society to render against), and Login.tsx blindly rendered whatever society was active. Fix: `Session` gained an `explicitSociety: boolean` flag, true only when a society was chosen on purpose (a `/s/:slug` share link, a resolved membership, a demo flat pick), false for a session just sitting on the raw default. Login.tsx now shows Prangan One's own generic branding unless that flag is true. Didn't touch the default society resolution itself, that stays as-is since too much else depends on it.
++- **Split demo mode onto its own `/demo` page, out of `/login` entirely.** The real login screen now only ever has the honest email flow, never a "become the owner" button, regardless of `VITE_DEMO_MODE`. `/demo` has its own gate (the same flag) and its own honest "not available" state when it's off.
++- **Fixed a real mobile bug: there was no way to reach `/login` from a phone.** The desktop "Log in" button was `hidden` below the `sm` breakpoint, and the mobile hamburger menu never got a login link added when it was built. Confirmed by reading the actual JSX, not just the screenshot. Fixed: the mobile menu now leads with a prominent login button.
++- **Public header/footer show the full wordmark at every size now, including mobile.** Previously mobile showed the bare symbol with no name at all, which defeats the point of brand recognition on the exact surface most people will meet it on first.
++- **Public site now defaults to Gujarati, English is the toggle-in option.** This reverses the original roadmap's English-default assumption, on the person's explicit instruction, since real visitors are finding this through WhatsApp shares and word of mouth in Gujarati. `index.html`'s static fallback (what shows before any JS runs) was updated to match.
++- **Prangan One branding is now genuinely visible on resident, admin, and accountant screens, with the name, not just the mark**, on the explicit instruction that this is a deliberate brand-recognition decision, not an oversight: a thin "Powered by [wordmark]" strip above the resident header, a properly-sized (and finally *visible*, see below) lockup at the bottom of the admin/accountant sidebar, and a small mark in the admin/accountant mobile header. Society identity stays primary in all three, this is a visible secondary signature, not equal billing.
++- **Fixed a real contrast bug found while doing the above**: the admin/accountant sidebar's old "Powered by Prangan One" line used the navy-colored mark on a navy-900 background, nearly invisible. `PoweredByPrangan` now takes a `dark` prop and shows the real wordmark image (not just the symbol plus repeated text), so the name stays legible on both light and dark surfaces.
++- **Fixed the FAQ's premature claim** ("isolated at the database level") to honestly describe the current state (browser-local, no shared backend yet) and what's coming, instead of a claim that wasn't true yet.
++- **Removed the Contact page's broken WhatsApp button** (linked to bare `wa.me` with no number), softened the copy to only mention email until a real number exists. One-line comment marks exactly where to add it back.
++- **Pricing page**: softened "WhatsApp reminders" to "one-tap WhatsApp reminder sharing" (matches what actually exists, share links, not automation), and added two concrete examples (24 flats = ₹240/month, 100 flats = ₹1,000/month) addressing the "looks unfinished, too much empty space" feedback with actual content instead of decoration.
++- **Finished the documentation cleanup flagged as unsorted last session**: README's owner-console description, payment-flow description (was calling the real manual+pending-confirmation flow a "placeholder", it isn't one), and Next-steps ordering (Supabase work is now clearly "active", Razorpay/WhatsApp API clearly "deferred") are all fixed. Removed the closing Essancia attribution line, no legal requirement for it and it doesn't fit a standalone product identity. `docs/DESIGN_SYSTEM.md`'s stale `/saas/*` references fixed. `robots.txt`'s unnecessary `/home` allow removed (it only redirects) and `/demo` added to the disallow list. `.env.example`'s Razorpay/WhatsApp placeholders removed entirely, replaced with a plain explanatory comment, no vendor names. Found and fixed two *currently-actionable* stale file paths inside `CLAUDE_CODE_NEXT_STEPS.md`'s own ready-to-paste prompts (they still said `src/pages/saas/...`, which would have sent a future session to a path that doesn't exist), left the historical session-log entries alone, added one line at the top noting explicitly why those are historical, not current, so nobody mistakes one for the other later.
++
++**What this pass deliberately did not touch**: no redesign, no new dependencies, no Supabase work, no change to the working resident/admin/accountant product screens beyond the branding additions explicitly requested, no change to the official brand asset files themselves.
++
++## Session 5 summary: official brand assets, route correction, and pre-Supabase production cleanup
+ 
+ The repo went live on GitHub (https://github.com/optimisticjp/Prangan-One) between sessions, complete with a third-party Claude Code skills template layered on top (`.claude/skills/`, `CLAUDE.md`, `INSTALL_REPORT.md`, none of it from this project). This session worked directly against a fresh clone of that real repo, not a stale local copy, verified the baseline first (`npm ci`, `npm run build`, `npm test`, all passing before touching anything), then did a focused cleanup pass. Another AI's review (ChatGPT) proposed the task list; each item was independently checked against the actual code rather than taken on faith, one item (the `/`-is-login vs `/`-is-home question) turned out to be a genuine correction back to something already locked in `docs/PRANGAN_ONE_ROADMAP.md` section 10, not a new opinion.
+ 
+@@ -152,10 +172,10 @@ Paste these directly, in order. Each assumes the ones before it are done. Prereq
+ > In src/lib/store.tsx, replace the body of every write action (recordPayment through updateSocietyById, including addSociety) with Supabase insert/update calls against supabase/schema.sql. Keep every function's signature identical to the current Store interface. For vote(), rely on the UNIQUE(poll_id, flat_id) constraint on poll_votes and catch the conflict error rather than pre-checking in JS. For recordPayment's receipt numbering, do the receipt_seq increment atomically in the same transaction as the payment insert.
+ 
+ **5. Logo upload to real storage:**
+-> Wire real file upload to Supabase Storage for the logo step in src/pages/saas/Onboarding.tsx and src/pages/saas/SocietyDetail.tsx, replacing the current FileReader-to-data-URL logic. Store the resulting public or signed URL in societies.logo_url.
++> Wire real file upload to Supabase Storage for the logo step in src/pages/owner/Onboarding.tsx and src/pages/owner/SocietyDetail.tsx, replacing the current FileReader-to-data-URL logic. Store the resulting public or signed URL in societies.logo_url.
+ 
+ **6. Deploy to Cloudflare Pages:**
+ > Set up a Cloudflare Pages project connected to this repo's git remote, build command `npm run build`, output directory `dist`. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as Cloudflare Pages environment variables (not committed to the repo). Confirm the deployed build boots correctly against the live Supabase project.
+ 
+ **7. Payments (Razorpay), once there's real usage to justify it:**
+-> Add Razorpay UPI-first checkout to src/pages/resident/Bill.tsx, replacing the current placeholder payment modal. Payment verification should happen server-side via a webhook (a Supabase Edge Function) that calls the same recordPayment logic after verifying Razorpay's signature. Never trust a client-side "payment succeeded" callback alone.
++> Add Razorpay UPI-first checkout to src/pages/resident/Bill.tsx, as an additional option alongside the existing manual UPI/bank instructions and "I have paid" pending-confirmation flow, not a replacement for it, some societies may prefer to keep paying manually. Payment verification should happen server-side via a webhook (a Supabase Edge Function) that calls the same recordPayment logic after verifying Razorpay's signature. Never trust a client-side "payment succeeded" callback alone.
+diff --git a/QUICK_START.md b/QUICK_START.md
+index 4f6d278..37ebfd3 100644
+--- a/QUICK_START.md
++++ b/QUICK_START.md
+@@ -11,13 +11,15 @@ Open the URL it prints (usually `http://localhost:5173`). That's it, no environm
+ 
+ ## Try it in a few minutes
+ 
+-1. You'll land on the public homepage at `/`. Click **Log in** (or go straight to `/login`). The email box there ends at an honest "login service is being configured" message for now, since there's no live backend yet. Scroll to **ડેમો શોર્ટકટ**, pick **"હું રહેવાસી છું"** (I'm a resident), choose any flat, tap શરૂ કરો.
++1. You'll land on the public homepage at `/`, in Gujarati by default (English is the toggle). For the actual demo, go to `/demo` directly. Pick **"હું રહેવાસી છું"** (I'm a resident), choose any flat, tap શરૂ કરો.
+ 2. Look at the home screen, then tap **બિલ** to see a bill and try recording a payment.
+-3. Go back (રોલ બદલો in the profile tab), and this time pick **"હું કમિટી મેમ્બર છું"** (committee member).
++3. Go back (રોલ બદલો in the profile tab), then visit `/demo` again and this time pick **"હું કમિટી મેમ્બર છું"** (committee member).
+ 4. In the admin sidebar, try **બિલિંગ અને બાકી**: generate this month's bills, or check the dues list.
+ 5. Try **ફરિયાદ** (complaints): open one, advance its status, watch the timeline grow.
+ 6. Try **સેટિંગ્સ**: turn a module off, save, and watch it disappear from the sidebar.
+-7. Log out and try **Prangan One ઓનર કન્સોલ**. Tap **+ નવી સોસાયટી** to walk through the real 5-step onboarding wizard, pick a different color theme, and land straight in that new society's own (empty) admin panel.
++7. Log out and go back to `/demo`, try **Prangan One ઓનર કન્સોલ**. Tap **+ નવી સોસાયટી** to walk through the real 5-step onboarding wizard, pick a different color theme, and land straight in that new society's own (empty) admin panel.
++
++The real `/login` screen never shows these shortcuts, regardless of demo mode, that separation is deliberate. `/demo` itself only exists when `VITE_DEMO_MODE` is on (the default in local dev).
+ 
+ ## Reset the demo data
+ 
+@@ -28,7 +30,8 @@ Committee panel → સેટિંગ્સ → **ડેમો ડેટા ર
+ - `src/pages/resident/`: the resident-facing screens
+ - `src/pages/admin/`: the committee panel
+ - `src/pages/accountant/`: the accountant panel
+-- `src/pages/saas/`: owner console (`Preview.tsx`), onboarding wizard (`Onboarding.tsx`), society edit (`SocietyDetail.tsx`)
++- `src/pages/owner/`: owner console (`Layout.tsx`, `Dashboard.tsx`, `Societies.tsx`), onboarding wizard (`Onboarding.tsx`), society edit (`SocietyDetail.tsx`), platform billing, leads, activity log
++- `src/pages/public/`: the bilingual marketing site (home, features, pricing, FAQ, contact)
+ - `src/lib/store.tsx`: all the data logic, one file, one hook (`useData()`), now multi-tenant
+ - `src/lib/theme/`: the per-society color theme presets and how they get applied
+ - `sample-data/*.json`: the demo data, editable directly if you want different names/numbers
+diff --git a/README.md b/README.md
+index 7616505..9fa1598 100644
+--- a/README.md
++++ b/README.md
+@@ -20,7 +20,7 @@ Right now this is a working demo: every screen is real and functional, including
+ 
+ **Accountant**: a narrower lens on the same data: income/expense dashboard, audit-ready CSV exports, and manual adjustments (round-offs, corrections).
+ 
+-**Prangan One owner console** (Essancia's own tool, not committee-facing): create a new society through a 5-step onboarding wizard, edit any society's branding/setup/modules afterward, log in as any society's committee for support, and a live case study built from Rajhans Tower's actual demo numbers.
++**Prangan One owner console** (the platform owner's own tool, not committee-facing): create a new society through a 5-step onboarding wizard, edit any society's branding/setup/modules afterward, log in as any society's committee for support, and a live case study built from Rajhans Tower's actual demo numbers.
+ 
+ **Per-society configuration**: 6 curated color themes (not a raw color picker, each one pre-checked for contrast), optional logo upload with a generated-initials fallback, and 9 toggleable feature areas (billing, complaints, notices, documents, vendors, polls, events, parking, reports), enforced at the router level so a disabled module redirects away even on direct URL access, not just hidden from the menu.
+ 
+@@ -73,18 +73,20 @@ Nothing here is connected yet. This is the "here's exactly how to do it next" do
+ 
+ Worth knowing before showing this to anyone as more than a prototype:
+ 
+-- **No real login yet.** The email step ends at a "check your email" screen; nothing is actually sent. The demo role/flat picker underneath has no password and no verification, anyone with the URL can open the admin panel.
++- **No real login yet.** The email step ends at an honest "login service is being configured" message; nothing is actually sent. A separate `/demo` page has the role/flat shortcuts with no password, gated behind `VITE_DEMO_MODE` (on by default in local dev, off in a real production build unless explicitly enabled), so a real deployment for a paying society never exposes it.
+ - **No real access control.** `src/lib/permissions.ts` and `ModuleGate` shape what the UI shows and which routes render, but nothing stops a browser console from reading data outside that scope. Real enforcement needs the Supabase RLS policies in `supabase/schema.sql`, not yet connected.
+ - **File uploads are metadata-only**, and logos are a data-URL living in localStorage, not a real file. Adding a document or a complaint photo saves the filename and size, not the actual file, and an uploaded logo won't survive the eventual move to a real backend as-is.
+-- **WhatsApp buttons open a share picker**, they don't send automatically. That needs the WhatsApp Cloud API.
+-- **The payment button on the resident bill screen is a placeholder.** No real transaction happens; recording a payment is something the committee/accountant does manually today.
++- **WhatsApp buttons open a share picker**, they don't send automatically. That needs the WhatsApp Cloud API, deferred, see below.
++- **Resident payment is fully manual, by design, not a placeholder waiting to be finished.** A resident sees UPI/bank instructions, can mark "I have paid" (which creates a pending record, not an official payment), and the committee verifies and records it before a receipt is generated. That's the real, intended flow for this build, not a stand-in for something automated.
+ - **All data is invented.** Names, phone numbers (using the clearly-fake `90000 000XX` pattern), and amounts in `sample-data/` are for demonstration only.
+ 
+ Full detail on all of this, the free-tool cost research behind the hosting and auth choices, plus a DPDP-context privacy checklist for when real resident data does get involved: `docs/SECURITY_PRIVACY.md`.
+ 
+ ## 8. Next steps
+ 
+-Roughly in order: connect Supabase for real (auth, database, RLS, the membership-claim flow), deploy to Cloudflare Pages, wire the email magic-link login for real, migrate uploaded logos to Supabase Storage, then Razorpay for actual UPI payment collection and the WhatsApp Cloud API once there's real usage to justify them, neither is a launch blocker since manual payment recording and WhatsApp share links already work today.
++**Active, in order:** connect a real Supabase project (Mumbai region), apply `supabase/schema.sql`, wire the email magic-link login for real, build the membership-claim flow, turn on RLS, then run the hard checkpoint, create a second real society and try to break isolation, before trusting any of it. After that: deploy to Cloudflare Pages with the real environment variables, migrate uploaded logos to Supabase Storage.
++
++**Deferred, not part of the active build:** an online payment gateway (Razorpay or similar) and the WhatsApp Cloud API for automated messages. Neither is a launch blocker, manual payment recording and `wa.me` share links already cover the real workflow today. Native app and AI features are deferred too, further out.
+ 
+ The detailed plan, including the reasoning behind decisions already made and exact prompts for continuing this in Claude Code, lives in `CLAUDE_CODE_NEXT_STEPS.md`. The testing plan for the flows that matter most (payments, complaints, voting, exports) is in `docs/TESTING_PLAN.md`.
+ 
+@@ -97,15 +99,13 @@ src/lib/          data layer, formatting, copy, permissions, WhatsApp templates
+ src/lib/theme/     per-society color theme presets + runtime CSS-variable application
+ src/components/   shared UI kit, ModuleGate, SocietyLogo (branding/logo display)
+ src/layouts/      resident bottom-nav shell, admin/accountant sidebar shell
+-src/pages/        resident/, admin/, accountant/, saas/ (preview, onboarding wizard, society detail), plus Login.tsx
++src/pages/        resident/, admin/, accountant/, owner/ (dashboard, onboarding wizard, society detail, billing, leads, activity), public/ (marketing site), plus Login.tsx and Demo.tsx
+ sample-data/      the demo data, JSON, editable directly
+ supabase/         target schema + setup guide, including the Cloudflare Pages deploy steps
+ docs/             security/privacy notes, testing plan, design system reference
+ scripts/          the script that generated sample-data/ (deterministic, re-runnable)
+ ```
+ 
+-Built by Essancia (Infinite Weblinks) for Rajhans Tower, Surat.
+-
+ ## Official links
+ 
+ - Website: [pranganone.com](https://pranganone.com)
+diff --git a/docs/DESIGN_SYSTEM.md b/docs/DESIGN_SYSTEM.md
+index cf10dc3..ac17d14 100644
+--- a/docs/DESIGN_SYSTEM.md
++++ b/docs/DESIGN_SYSTEM.md
+@@ -22,7 +22,7 @@ Every society can turn off any of 9 feature areas (billing, complaints, notices,
+ 
+ These are two different audiences and the UI treats them differently on purpose. The committee-facing app (resident bottom nav, admin/accountant sidebar) is designed for someone who has likely never used a SaaS admin panel: a treasurer or secretary comfortable with WhatsApp and a UPI app, not with software jargon. Concretely, that means: internal vocabulary like "module," "tenant," or "theme key" never appears in any committee-facing copy, only in code comments and the docs; the onboarding wizard defaults everything to a sensible value rather than starting from a blank slate; branding is tap-to-choose preset cards, never a raw color input; every module toggle carries a one-line plain-language reason, not just a technical name.
+ 
+-The SaaS owner console (`/saas/*`) is the deliberate exception. It's Essancia's own operating tool, not something a committee member ever sees, so it can stay more information-dense and closer to a typical admin panel: a real data table, inline edit forms, status badges using their English names. Don't backport the owner console's density into committee-facing pages, and don't over-simplify the owner console at the cost of Essancia's own efficiency using it daily.
++The owner console (`/owner/*`) is the deliberate exception. It's the platform owner's own operating tool, not something a committee member ever sees, so it can stay more information-dense and closer to a typical admin panel: a real data table, inline edit forms, status badges using their English names. Don't backport the owner console's density into committee-facing pages, and don't over-simplify the owner console at the cost of the owner's own efficiency using it daily.
+ 
+ ## Color: 60/30/10
+ 
+@@ -35,7 +35,7 @@ Semantic colors are separate from the palette and never reused for anything else
+ - `pend` `#D97706` (amber): pending, in progress
+ - `over` `#DC2626` (red): overdue, urgent, failed
+ 
+-The SaaS preview page (`src/pages/saas/Preview.tsx`) is the one deliberate exception: full `navy-950` dark background with saffron accents, because it's simulating a different, more "product marketing" surface, not the day-to-day resident/admin tool.
++The owner console (`src/pages/owner/Layout.tsx` and `src/pages/owner/Dashboard.tsx`) is the one deliberate exception: full `navy-950`/`brand-navy` dark background with saffron accents, because it's simulating a different, more "product marketing" surface, not the day-to-day resident/admin tool.
+ 
+ ## Typography
+ 
+diff --git a/index.html b/index.html
+index 3468195..9eb39f5 100644
+--- a/index.html
++++ b/index.html
+@@ -1,12 +1,12 @@
+ <!doctype html>
+-<html lang="en">
++<html lang="gu">
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+-    <title>Prangan One | The Society OS</title>
+-    <meta name="description" content="One platform for every society workflow. Built for committees. Simple for residents." />
+-    <meta property="og:title" content="Prangan One | The Society OS" />
+-    <meta property="og:description" content="One platform for every society workflow. Built for committees. Simple for residents." />
++    <title>Prangan One | ધ સોસાયટી OS</title>
++    <meta name="description" content="સોસાયટીના દરેક કામ માટે એક જ પ્લેટફોર્મ. કમિટી માટે બનેલું, રહેવાસી માટે સરળ." />
++    <meta property="og:title" content="Prangan One | ધ સોસાયટી OS" />
++    <meta property="og:description" content="સોસાયટીના દરેક કામ માટે એક જ પ્લેટફોર્મ. કમિટી માટે બનેલું, રહેવાસી માટે સરળ." />
+     <meta property="og:type" content="website" />
+     <meta property="og:site_name" content="Prangan One" />
+     <meta name="theme-color" content="#10223F" />
+diff --git a/public/robots.txt b/public/robots.txt
+index 93b601a..417f31d 100644
+--- a/public/robots.txt
++++ b/public/robots.txt
+@@ -1,10 +1,11 @@
+ User-agent: *
+ Allow: /$
+-Allow: /home
+ Allow: /features
+ Allow: /pricing
+ Allow: /faq
+ Allow: /contact
++Disallow: /home
++Disallow: /demo
+ Disallow: /app
+ Disallow: /admin
+ Disallow: /accounts
+diff --git a/src/App.tsx b/src/App.tsx
+index 9c92160..f7cfee5 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -18,6 +18,7 @@ import { PageLoading } from './components/PageLoading'
+ // marketing pages are the only things in the main bundle, since they're
+ // what a first-time visitor actually needs immediately.
+ import Login from './pages/Login'
++import Demo from './pages/Demo'
+ import Home from './pages/public/Home'
+ import Features from './pages/public/Features'
+ import Pricing from './pages/public/Pricing'
+@@ -72,20 +73,20 @@ const OActivity = lazy(() => import('./pages/owner/Activity'))
+ const OwnerLegacyRedirect = lazy(() => import('./pages/owner/LegacyRedirect'))
+ 
+ const adminNav: NavItem[] = [
+-  { to: '/admin', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true },
+-  { to: '/admin/members', label: 'સભ્યો / ફ્લેટ', icon: Users },
+-  { to: '/admin/billing', label: 'બિલિંગ અને બાકી', icon: ReceiptText, module: 'billing' },
+-  { to: '/admin/payments', label: 'ચુકવણી અને રસીદ', icon: IndianRupee, module: 'billing' },
+-  { to: '/admin/expenses', label: 'ખર્ચ', icon: Wallet },
+-  { to: '/admin/vendors', label: 'વેન્ડર / AMC', icon: StoreIcon, module: 'vendors' },
+-  { to: '/admin/complaints', label: 'ફરિયાદ', icon: Wrench, module: 'complaints' },
+-  { to: '/admin/notices', label: 'નોટિસ', icon: Bell, module: 'notices' },
+-  { to: '/admin/documents', label: 'દસ્તાવેજો', icon: FolderOpen, module: 'documents' },
+-  { to: '/admin/polls', label: 'મતદાન', icon: Vote, module: 'polls' },
+-  { to: '/admin/events', label: 'ઇવેન્ટ / ફાળો', icon: PartyPopper, module: 'events' },
+-  { to: '/admin/parking', label: 'પાર્કિંગ / વાહન', icon: Car, module: 'parking' },
+-  { to: '/admin/reports', label: 'રિપોર્ટ', icon: BarChart3, module: 'reports' },
+-  { to: '/admin/settings', label: 'સેટિંગ્સ', icon: SettingsIcon },
++  { to: '/admin', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true, group: 'ઓવરવ્યૂ' },
++  { to: '/admin/billing', label: 'બિલિંગ અને બાકી', icon: ReceiptText, module: 'billing', group: 'હિસાબ' },
++  { to: '/admin/payments', label: 'ચુકવણી અને રસીદ', icon: IndianRupee, module: 'billing', group: 'હિસાબ' },
++  { to: '/admin/expenses', label: 'ખર્ચ', icon: Wallet, group: 'હિસાબ' },
++  { to: '/admin/reports', label: 'રિપોર્ટ', icon: BarChart3, module: 'reports', group: 'હિસાબ' },
++  { to: '/admin/members', label: 'સભ્યો / ફ્લેટ', icon: Users, group: 'કામકાજ' },
++  { to: '/admin/vendors', label: 'વેન્ડર / AMC', icon: StoreIcon, module: 'vendors', group: 'કામકાજ' },
++  { to: '/admin/complaints', label: 'ફરિયાદ', icon: Wrench, module: 'complaints', group: 'કામકાજ' },
++  { to: '/admin/parking', label: 'પાર્કિંગ / વાહન', icon: Car, module: 'parking', group: 'કામકાજ' },
++  { to: '/admin/notices', label: 'નોટિસ', icon: Bell, module: 'notices', group: 'સંવાદ' },
++  { to: '/admin/documents', label: 'દસ્તાવેજો', icon: FolderOpen, module: 'documents', group: 'સંવાદ' },
++  { to: '/admin/polls', label: 'મતદાન', icon: Vote, module: 'polls', group: 'સંવાદ' },
++  { to: '/admin/events', label: 'ઇવેન્ટ / ફાળો', icon: PartyPopper, module: 'events', group: 'સંવાદ' },
++  { to: '/admin/settings', label: 'સેટિંગ્સ', icon: SettingsIcon, group: 'સેટિંગ્સ' },
+ ]
+ const acctNav: NavItem[] = [
+   { to: '/accounts', label: 'હિસાબ ડેશબોર્ડ', icon: LayoutDashboard, end: true },
+@@ -114,6 +115,7 @@ export default function App() {
+         <Route path="/faq" element={<Faq />} />
+         <Route path="/contact" element={<Contact />} />
+         <Route path="/login" element={<Login />} />
++        <Route path="/demo" element={<Demo />} />
+ 
+         {/* Shareable, society-branded entry point: pranganone.com/s/rajhans-tower.
+             Looks up the society by slug (public metadata only: name, logo,
+diff --git a/src/components/PranganBrand.tsx b/src/components/PranganBrand.tsx
+index 6733a30..7490d15 100644
+--- a/src/components/PranganBrand.tsx
++++ b/src/components/PranganBrand.tsx
+@@ -12,8 +12,8 @@
+  *   - symbol-navy: mobile public header, 404/403/error screens, compact light surfaces
+  *   - symbol-white: compact dark navigation, dark owner-console mobile header
+  * For "Powered by Prangan One" contexts (receipts, admin footer), use
+- * PoweredByPrangan below instead of this component directly, it is sized
+- * and worded for that specific, small, secondary placement.
++ * PoweredByPrangan below instead of this component directly - it takes
++ * its own `dark` prop so it stays legible on both light and dark surfaces.
+  */
+ type Variant = 'wordmark-navy' | 'wordmark-white' | 'symbol-navy' | 'symbol-white'
+ 
+@@ -55,12 +55,17 @@ export function PranganBrand({ variant, height = 28, decorative = false, classNa
+   )
+ }
+ 
+-/** The small "Powered by Prangan One" mark for receipts and admin/accountant footers. Always the navy symbol, since it sits on light surfaces in both places. */
+-export function PoweredByPrangan({ className = '' }: { className?: string }) {
++/** The small "Powered by Prangan One" lockup for receipts and the admin/
++ * accountant sidebar footer. Shows the real wordmark image (not just the
++ * symbol plus separate text) so the name stays visible even at this small,
++ * secondary size. Pass dark=true on a dark surface (the admin/accountant
++ * sidebar) - a previous version hardcoded the navy variant everywhere,
++ * which made it nearly invisible on dark backgrounds. */
++export function PoweredByPrangan({ dark = false, className = '' }: { dark?: boolean; className?: string }) {
+   return (
+     <span className={`inline-flex items-center gap-1.5 ${className}`}>
+-      <PranganBrand variant="symbol-navy" height={14} decorative />
+-      <span>Powered by Prangan One</span>
++      <span className={dark ? 'text-cream-100/60' : 'text-navy-400'}>Powered by</span>
++      <PranganBrand variant={dark ? 'wordmark-white' : 'wordmark-navy'} height={13} decorative />
+     </span>
+   )
+ }
+diff --git a/src/layouts/Layouts.tsx b/src/layouts/Layouts.tsx
+index 0bae5ed..56a7878 100644
+--- a/src/layouts/Layouts.tsx
++++ b/src/layouts/Layouts.tsx
+@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react'
+ import { useData } from '../lib/store'
+ import { roleLabel } from '../lib/permissions'
+ import { SocietyLogo } from '../components/SocietyLogo'
+-import { PoweredByPrangan } from '../components/PranganBrand'
++import { PranganBrand, PoweredByPrangan } from '../components/PranganBrand'
+ import { useAppLang } from '../lib/useAppLang'
+ import { SubscriptionBanner } from '../components/SubscriptionBanner'
+ import type { SocietyModules } from '../lib/types'
+@@ -29,6 +29,14 @@ export function ResidentLayout() {
+ 
+   return (
+     <div className="min-h-screen max-w-2xl mx-auto flex flex-col">
++      {/* Society identity is primary here, this strip keeps Prangan One
++          genuinely visible (name included, not just the mark) on every
++          resident screen without competing with the society's own branding
++          just below it. */}
++      <div className="bg-navy-900 px-4 py-1 flex items-center justify-center gap-1.5">
++        <span className="text-[10.5px] text-cream-100/60">Powered by</span>
++        <PranganBrand variant="wordmark-white" height={12} decorative />
++      </div>
+       <SubscriptionBanner audience="resident" />
+       <header className="glass sticky top-0 z-40 px-4 py-3 flex items-center gap-3">
+         <SocietyLogo />
+@@ -66,7 +74,7 @@ export function ResidentLayout() {
+ }
+ 
+ /* ---------------- Admin / Accountant: sidebar shell ---------------- */
+-export interface NavItem { to: string; label: string; icon: LucideIcon; end?: boolean; module?: keyof SocietyModules }
++export interface NavItem { to: string; label: string; icon: LucideIcon; end?: boolean; module?: keyof SocietyModules; group?: string }
+ 
+ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
+   useAppLang()
+@@ -76,15 +84,20 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
+ 
+   const nav = (
+     <nav className="flex-1 overflow-y-auto py-3 space-y-0.5">
+-      {visibleItems.map(it => (
+-        <NavLink key={it.to} to={it.to} end={it.end} onClick={() => setOpen(false)}
+-          className={({ isActive }) =>
+-            `mx-3 flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14.5px] font-medium transition-colors ${isActive ? 'bg-navy-700 text-cream-50 shadow-soft' : 'text-navy-100/75 hover:bg-navy-800 hover:text-cream-50'}`}>
+-          {({ isActive }) => (<>
+-            <it.icon size={18} className={isActive ? 'text-saffron-400' : ''} />
+-            {it.label}
+-          </>)}
+-        </NavLink>
++      {visibleItems.map((it, i) => (
++        <div key={it.to}>
++          {it.group && it.group !== visibleItems[i - 1]?.group && (
++            <div className="mx-3 mt-4 mb-1 text-[10.5px] font-bold tracking-wide text-navy-400 uppercase first:mt-1">{it.group}</div>
++          )}
++          <NavLink to={it.to} end={it.end} onClick={() => setOpen(false)}
++            className={({ isActive }) =>
++              `mx-3 flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14.5px] font-medium transition-colors ${isActive ? 'bg-navy-700 text-cream-50 shadow-soft' : 'text-navy-100/75 hover:bg-navy-800 hover:text-cream-50'}`}>
++            {({ isActive }) => (<>
++              <it.icon size={18} className={isActive ? 'text-saffron-400' : ''} />
++              {it.label}
++            </>)}
++          </NavLink>
++        </div>
+       ))}
+     </nav>
+   )
+@@ -105,7 +118,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
+           <ArrowLeftRight size={17} /> રોલ બદલો
+           <span className="ml-auto text-[11.5px] bg-navy-800 rounded-full px-2 py-0.5">{session.role ? roleLabel[session.role] : ''}</span>
+         </Link>
+-        <p className="text-center text-[10.5px] text-navy-500 mt-2 flex items-center justify-center"><PoweredByPrangan /></p>
++        <p className="text-center mt-3 flex items-center justify-center"><PoweredByPrangan dark /></p>
+       </div>
+     </>
+   )
+@@ -132,7 +145,8 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
+         <SubscriptionBanner audience="admin" />
+         <header className="glass sticky top-0 z-40 px-4 py-3 flex items-center gap-3 md:hidden">
+           <button onClick={() => setOpen(true)} aria-label="મેનુ" className="h-10 w-10 rounded-xl bg-navy-800 text-cream-50 flex items-center justify-center"><Menu size={19} /></button>
+-          <div className="font-bold text-navy-900">{title}</div>
++          <div className="font-bold text-navy-900 flex-1">{title}</div>
++          <PranganBrand variant="wordmark-navy" height={16} className="opacity-70" />
+         </header>
+         <main className="p-4 sm:p-6 max-w-6xl">
+           <Outlet />
+diff --git a/src/lib/demoMode.ts b/src/lib/demoMode.ts
+index 10ad35c..f359db4 100644
+--- a/src/lib/demoMode.ts
++++ b/src/lib/demoMode.ts
+@@ -1,17 +1,18 @@
+ /**
+- * Whether the login screen should show its demo shortcuts (resident/admin/
+- * accountant/owner buttons that log in with no password). Split into its
+- * own module, separate from Login.tsx, specifically so tests can mock just
+- * this one function (see src/pages/__tests__/Login.test.tsx) instead of
+- * needing to reset and re-import the entire app's module graph to make a
+- * module-level env-derived constant re-evaluate.
++ * Whether the /demo page's role shortcuts (resident/admin/accountant/owner
++ * buttons that log in with no password) are reachable at all. Split into
++ * its own module, separate from Demo.tsx, specifically so tests can mock
++ * just this one function (see src/pages/__tests__/Demo.test.tsx) instead
++ * of needing to reset and re-import the entire app's module graph to make
++ * a module-level env-derived constant re-evaluate.
+  *
+  * Defaults on in local dev (import.meta.env.DEV, set automatically by
+  * `vite`/`vite build --mode development`) so `npm run dev` still works
+  * with no setup, and off in a real production build unless
+  * VITE_DEMO_MODE=true is explicitly set, e.g. for a sales-demo Cloudflare
+  * Pages branch deploy kept separate from the real production deployment
+- * for an actual paying society.
++ * for an actual paying society. The real /login screen never shows these
++ * shortcuts regardless of this flag, they only ever live on /demo.
+  */
+ export function isDemoModeEnabled(): boolean {
+   return import.meta.env.VITE_DEMO_MODE === 'true' || import.meta.env.DEV
+diff --git a/src/lib/store.tsx b/src/lib/store.tsx
+index a70d3da..94b863a 100644
+--- a/src/lib/store.tsx
++++ b/src/lib/store.tsx
+@@ -138,7 +138,7 @@ function loadSession(): Session {
+       if (parsed && parsed.societyId) return parsed
+     }
+   } catch { /* ignore */ }
+-  return { role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID }
++  return { role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false }
+ }
+ 
+ /* ------------------------------------------------------------------ */
+@@ -340,26 +340,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
+         if (flatId) {
+           const flat = db.flats.find(f => f.id === flatId)
+           const derivedRole: Role = flat?.occupancy === 'tenant' ? 'resident_tenant' : 'resident_owner'
+-          setSession({ role: role === 'resident_owner' || role === 'resident_tenant' ? derivedRole : role, flatId, societyId: flat?.societyId ?? DEFAULT_SOCIETY_ID })
++          setSession({ role: role === 'resident_owner' || role === 'resident_tenant' ? derivedRole : role, flatId, societyId: flat?.societyId ?? DEFAULT_SOCIETY_ID, explicitSociety: true })
+         } else {
+-          setSession({ role, flatId: null, societyId: DEFAULT_SOCIETY_ID })
++          setSession({ role, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false })
+         }
+       },
+-      logout: () => setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID }),
++      logout: () => setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false }),
+       enterSociety: (societyId, role, mode = 'readonly') => {
+         setDb(d => ({ ...d, impersonationLogs: [{ id: uid('imp'), societyId, enteredAt: new Date().toISOString(), mode }, ...d.impersonationLogs] }))
+-        setSession({ role, flatId: null, societyId })
++        setSession({ role, flatId: null, societyId, explicitSociety: true })
+       },
+       exitImpersonation: () => {
+         setDb(d => ({
+           ...d,
+           impersonationLogs: d.impersonationLogs.map((l, i) => i === 0 && l.societyId === session.societyId && !l.exitedAt ? { ...l, exitedAt: new Date().toISOString() } : l),
+         }))
+-        setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID })
++        setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false })
+       },
+       findSocietyBySlug: (slug) => db.societies.find(s => s.slug === slug),
+       setActiveSocietyContext: (societyId) =>
+-        setSession(s => ({ ...s, societyId, role: null, flatId: null })),
++        setSession(s => ({ ...s, societyId, role: null, flatId: null, explicitSociety: true })),
+ 
+       flatById, billStatus, flatPending, totalPending, monthIncome, monthExpense, moduleEnabled, adminCanToggle,
+ 
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+index 426c758..e8279b7 100644
+--- a/src/lib/types.ts
++++ b/src/lib/types.ts
+@@ -208,4 +208,11 @@ export interface DB {
+ // from their flat; for society_admin/committee_member/accountant, the
+ // society they logged into or were switched into via the owner console's
+ // "enter society" action.
+-export interface Session { role: Role | null; flatId: string | null; societyId: string }
++// explicitSociety is false for a brand-new session that hasn't chosen a
++// society on purpose yet - the default societyId below always resolves to
++// SOMETHING so pages that need an active society never break, but /login
++// checks this flag to know whether it's safe to show that society's own
++// branding, or whether this is just a generic visitor who hasn't told the
++// app which society they belong to. Set true by /s/:slug, a resolved
++// membership, or picking a flat in the demo. See src/pages/Login.tsx.
++export interface Session { role: Role | null; flatId: string | null; societyId: string; explicitSociety: boolean }
+diff --git a/src/pages/Demo.tsx b/src/pages/Demo.tsx
+new file mode 100644
+index 0000000..3c669db
+--- /dev/null
++++ b/src/pages/Demo.tsx
+@@ -0,0 +1,107 @@
++import { useState } from 'react'
++import { useNavigate } from 'react-router-dom'
++import { UserRound, ShieldCheck, Calculator, Rocket, ChevronRight, FlaskConical } from 'lucide-react'
++import { useData } from '../lib/store'
++import { isDemoModeEnabled } from '../lib/demoMode'
++import { Button, Card, Select } from '../components/ui'
++import { PranganBrand } from '../components/PranganBrand'
++import { useAppLang } from '../lib/useAppLang'
++
++/**
++ * Demo mode, on its own page and its own URL (pranganone.com/demo),
++ * deliberately separate from /login. Two reasons: a real visitor should
++ * never see "become the owner" as a clickable button on the real login
++ * screen, and having this on its own URL gives a clean link to hand a
++ * prospect for a walkthrough without any confusion about what's real.
++ *
++ * Gated by VITE_DEMO_MODE (on by default in local dev, off in a real
++ * production build unless explicitly enabled - see src/lib/demoMode.ts).
++ * When it's off, this page says so plainly instead of pretending not to
++ * exist or silently redirecting.
++ */
++export default function Demo() {
++  useAppLang()
++  const { db, login } = useData()
++  const nav = useNavigate()
++  const demoMode = isDemoModeEnabled()
++  const [flatId, setFlatId] = useState(db.flats[6]?.id ?? db.flats[0]?.id ?? '')
++
++  const roles = [
++    { key: 'society_admin' as const, to: '/admin', icon: ShieldCheck, title: 'હું કમિટી મેમ્બર છું', sub: 'બિલિંગ, ખર્ચ, ફરિયાદ, નોટિસ, રિપોર્ટ' },
++    { key: 'accountant' as const, to: '/accounts', icon: Calculator, title: 'હું એકાઉન્ટન્ટ છું', sub: 'આવક-ખર્ચ, રસીદ રેકોર્ડ, ઓડિટ એક્સપોર્ટ' },
++    { key: 'owner' as const, to: '/owner', icon: Rocket, title: 'Prangan One ઓનર કન્સોલ', sub: 'મલ્ટિ-સોસાયટી ડેશબોર્ડ, નવી સોસાયટી ઉમેરો' },
++  ]
++
++  if (!demoMode) {
++    return (
++      <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
++        <div className="text-center max-w-sm">
++          <PranganBrand variant="symbol-navy" height={40} className="mx-auto mb-4" />
++          <h1 className="font-bold text-navy-900 text-[19px]">ડેમો હાલમાં ચાલુ નથી</h1>
++          <p className="text-[13.5px] text-navy-500 mt-1.5">ડેમો જોવા માટે care@pranganone.com પર સંપર્ક કરો.</p>
++          <Button variant="soft" className="mt-4" onClick={() => nav('/login')}>લોગિન પર જાઓ</Button>
++        </div>
++      </div>
++    )
++  }
++
++  return (
++    <div className="min-h-screen flex flex-col">
++      <div className="bg-navy-900 text-cream-50 px-5 pt-10 pb-14 relative overflow-hidden">
++        <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-saffron-500/10" aria-hidden />
++        <div className="max-w-xl mx-auto relative animate-fadeUp">
++          <PranganBrand variant="wordmark-white" height={34} />
++          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-saffron-500/15 text-saffron-400 text-[12.5px] font-bold px-3 py-1">
++            <FlaskConical size={13} /> ડેમો મોડ
++          </div>
++          <p className="mt-4 text-[17px] leading-relaxed text-cream-100/90">
++            રાજહંસ ટાવરના ડેમો ડેટા સાથે,<br />
++            <span className="text-saffron-400 font-bold">દરેક રોલ જુઓ, પાસવર્ડ વગર.</span>
++          </p>
++        </div>
++      </div>
++
++      <div className="flex-1 px-5 -mt-7 pb-10">
++        <div className="max-w-xl mx-auto space-y-3">
++          <Card className="animate-fadeUp">
++            <div className="flex items-center gap-3 mb-3">
++              <div className="h-11 w-11 rounded-xl bg-saffron-50 border border-saffron-100 text-saffron-600 flex items-center justify-center"><UserRound size={22} /></div>
++              <div>
++                <div className="font-bold text-navy-900 text-[16.5px]">હું રહેવાસી છું</div>
++                <div className="text-[13px] text-navy-400">બિલ, રસીદ, ફરિયાદ, નોટિસ, ઇવેન્ટ</div>
++              </div>
++            </div>
++            <div className="flex gap-2">
++              <Select value={flatId} onChange={e => setFlatId(e.target.value)} aria-label="ફ્લેટ પસંદ કરો" className="flex-1">
++                {db.flats.map(f => (
++                  <option key={f.id} value={f.id}>ફ્લેટ {f.number} · {f.occupancy === 'tenant' && f.tenantName ? f.tenantName : f.ownerName}</option>
++                ))}
++              </Select>
++              <Button variant="accent" onClick={() => { login('resident_owner', flatId); nav('/app') }}>
++                શરૂ કરો <ChevronRight size={17} />
++              </Button>
++            </div>
++          </Card>
++
++          {roles.map((r, i) => (
++            <button key={r.key} onClick={() => { login(r.key); nav(r.to) }}
++              className="w-full text-left card p-4 sm:p-5 flex items-center gap-3 hover:shadow-lift transition-shadow animate-fadeUp"
++              style={{ animationDelay: `${(i + 1) * 70}ms` }}>
++              <div className="h-11 w-11 rounded-xl bg-navy-50 border border-navy-100 text-navy-700 flex items-center justify-center shrink-0"><r.icon size={22} /></div>
++              <div className="flex-1 min-w-0">
++                <div className="font-bold text-navy-900 text-[16px]">{r.title}</div>
++                <div className="text-[13px] text-navy-400 truncate">{r.sub}</div>
++              </div>
++              <ChevronRight size={19} className="text-navy-300 shrink-0" />
++            </button>
++          ))}
++
++          <p className="text-center text-[12.5px] text-navy-400 pt-2">
++            આ ડેમો છે: પાસવર્ડની જરૂર નથી, બધો ડેટા તમારા બ્રાઉઝરમાં જ સચવાય છે.<br />
++            વાસ્તવિક લોગિન <button onClick={() => nav('/login')} className="font-semibold text-saffron-600 underline">અહીં</button> છે.
++          </p>
++        </div>
++      </div>
++    </div>
++  )
++}
+diff --git a/src/pages/Login.tsx b/src/pages/Login.tsx
+index 318a01a..85c7285 100644
+--- a/src/pages/Login.tsx
++++ b/src/pages/Login.tsx
+@@ -1,20 +1,32 @@
+ import { useState } from 'react'
+ import { useNavigate } from 'react-router-dom'
+-import { Mail, UserRound, ShieldCheck, Calculator, Rocket, ChevronRight, CheckCircle2, ArrowLeft, AlertCircle, Info } from 'lucide-react'
++import { Mail, CheckCircle2, ArrowLeft, AlertCircle, Info } from 'lucide-react'
+ import { useData } from '../lib/store'
+ import { supabaseConfigured } from '../lib/supabase'
+ import { sendMagicLink } from '../lib/auth'
+-import { isDemoModeEnabled } from '../lib/demoMode'
+-import { Button, Card, Field, Input, Select } from '../components/ui'
++import { Button, Card, Input } from '../components/ui'
+ import { SocietyLogo } from '../components/SocietyLogo'
++import { PranganBrand } from '../components/PranganBrand'
+ import { useAppLang } from '../lib/useAppLang'
+ 
++/**
++ * The real, production login screen. No demo shortcuts here anymore -
++ * those live at /demo (src/pages/Demo.tsx), a clearly separate page, so
++ * this screen can never accidentally show "become the owner" buttons to
++ * a real visitor.
++ *
++ * Branding: a generic visitor (no explicit society context yet, see
++ * session.explicitSociety in src/lib/types.ts) sees Prangan One's own
++ * identity, not whichever society happens to be first in the database.
++ * Someone who arrived through their society's own share link
++ * (/s/:slug) sees that society's branding instead, with Prangan One as
++ * a visible secondary line. Never show a specific society's identity to
++ * a visitor who didn't ask for it.
++ */
+ export default function Login() {
+   useAppLang()
+-  const { db, society, login } = useData()
++  const { society, session } = useData()
+   const nav = useNavigate()
+-  const demoMode = isDemoModeEnabled()
+-  const [flatId, setFlatId] = useState(db.flats[6]?.id ?? db.flats[0]?.id ?? '')
+   const [email, setEmail] = useState('')
+   const [sent, setSent] = useState(false)
+   const [sending, setSending] = useState(false)
+@@ -34,26 +46,26 @@ export default function Login() {
+     }
+   }
+ 
+-  const roles = [
+-    { key: 'society_admin' as const, to: '/admin', icon: ShieldCheck, title: 'હું કમિટી મેમ્બર છું', sub: 'બિલિંગ, ખર્ચ, ફરિયાદ, નોટિસ, રિપોર્ટ' },
+-    { key: 'accountant' as const, to: '/accounts', icon: Calculator, title: 'હું એકાઉન્ટન્ટ છું', sub: 'આવક-ખર્ચ, રસીદ રેકોર્ડ, ઓડિટ એક્સપોર્ટ' },
+-    { key: 'owner' as const, to: '/owner', icon: Rocket, title: 'Prangan One ઓનર કન્સોલ', sub: 'મલ્ટિ-સોસાયટી ડેશબોર્ડ, નવી સોસાયટી ઉમેરો' },
+-  ]
+-
+   return (
+     <div className="min-h-screen flex flex-col">
+-      {/* hero band: society branding first, Prangan One second - never the other way around */}
+       <div className="bg-navy-900 text-cream-50 px-5 pt-10 pb-14 relative overflow-hidden">
+         <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-saffron-500/10" aria-hidden />
+         <div className="absolute right-14 top-16 h-20 w-20 rounded-full bg-saffron-500/10" aria-hidden />
+         <div className="max-w-xl mx-auto relative">
+-          <div className="flex items-center gap-3 animate-fadeUp">
+-            <SocietyLogo size={46} dark />
+-            <div>
+-              <h1 className="text-[24px] font-bold leading-tight">{society.name}</h1>
+-              <div className="text-saffron-400 font-semibold text-[13.5px]">Prangan One પર ડિજિટલ સોસાયટી · {society.address}</div>
++          {session.explicitSociety ? (
++            <div className="flex items-center gap-3 animate-fadeUp">
++              <SocietyLogo size={46} dark />
++              <div>
++                <h1 className="text-[24px] font-bold leading-tight">{society.name}</h1>
++                <div className="text-saffron-400 font-semibold text-[13.5px]">Prangan One પર ડિજિટલ સોસાયટી · {society.address}</div>
++              </div>
++            </div>
++          ) : (
++            <div className="animate-fadeUp">
++              <PranganBrand variant="wordmark-white" height={34} />
++              <div className="text-saffron-400 font-semibold text-[13.5px] mt-2">The Society OS</div>
+             </div>
+-          </div>
++          )}
+           <p className="mt-5 text-[17px] leading-relaxed text-cream-100/90 animate-fadeUp" style={{ animationDelay: '80ms' }}>
+             આપણી સોસાયટીનું બધું કામ,<br />
+             <span className="text-saffron-400 font-bold">સરળ ગુજરાતી માં, એક જ જગ્યાએ.</span>
+@@ -63,8 +75,6 @@ export default function Login() {
+ 
+       <div className="flex-1 px-5 -mt-7 pb-10">
+         <div className="max-w-xl mx-auto space-y-3">
+-
+-          {/* real login: email magic link */}
+           <Card className="animate-fadeUp">
+             <div className="flex items-center gap-3 mb-3">
+               <div className="h-11 w-11 rounded-xl bg-navy-50 border border-navy-100 text-navy-700 flex items-center justify-center shrink-0"><Mail size={21} /></div>
+@@ -100,56 +110,9 @@ export default function Login() {
+             )}
+           </Card>
+ 
+-          {/* demo shortcuts: only in local dev, or when a deployment explicitly
+-              opts in via VITE_DEMO_MODE=true (e.g. a sales-demo branch) -
+-              never on the real production login for a paying society */}
+-          {demoMode && (
+-            <>
+-              <div className="flex items-center gap-3 pt-1">
+-                <div className="h-px flex-1 bg-cream-300" />
+-                <span className="text-[11.5px] font-bold tracking-wide text-navy-300 uppercase">ડેમો શોર્ટકટ</span>
+-                <div className="h-px flex-1 bg-cream-300" />
+-              </div>
+-
+-              <Card className="animate-fadeUp">
+-                <div className="flex items-center gap-3 mb-3">
+-                  <div className="h-11 w-11 rounded-xl bg-saffron-50 border border-saffron-100 text-saffron-600 flex items-center justify-center"><UserRound size={22} /></div>
+-                  <div>
+-                    <div className="font-bold text-navy-900 text-[16.5px]">હું રહેવાસી છું</div>
+-                    <div className="text-[13px] text-navy-400">બિલ, રસીદ, ફરિયાદ, નોટિસ, ઇવેન્ટ</div>
+-                  </div>
+-                </div>
+-                <div className="flex gap-2">
+-                  <Select value={flatId} onChange={e => setFlatId(e.target.value)} aria-label="ફ્લેટ પસંદ કરો" className="flex-1">
+-                    {db.flats.map(f => (
+-                      <option key={f.id} value={f.id}>ફ્લેટ {f.number} · {f.occupancy === 'tenant' && f.tenantName ? f.tenantName : f.ownerName}</option>
+-                    ))}
+-                  </Select>
+-                  <Button variant="accent" onClick={() => { login('resident_owner', flatId); nav('/app') }}>
+-                    શરૂ કરો <ChevronRight size={17} />
+-                  </Button>
+-                </div>
+-              </Card>
+-
+-              {roles.map((r, i) => (
+-                <button key={r.key} onClick={() => { login(r.key); nav(r.to) }}
+-                  className="w-full text-left card p-4 sm:p-5 flex items-center gap-3 hover:shadow-lift transition-shadow animate-fadeUp"
+-                  style={{ animationDelay: `${(i + 1) * 70}ms` }}>
+-                  <div className="h-11 w-11 rounded-xl bg-navy-50 border border-navy-100 text-navy-700 flex items-center justify-center shrink-0"><r.icon size={22} /></div>
+-                  <div className="flex-1 min-w-0">
+-                    <div className="font-bold text-navy-900 text-[16px]">{r.title}</div>
+-                    <div className="text-[13px] text-navy-400 truncate">{r.sub}</div>
+-                  </div>
+-                  <ChevronRight size={19} className="text-navy-300 shrink-0" />
+-                </button>
+-              ))}
+-
+-              <p className="text-center text-[12.5px] text-navy-400 pt-2">
+-                આ ડેમો મોડ છે: પાસવર્ડની જરૂર નથી, બધો ડેટા તમારા બ્રાઉઝરમાં જ સચવાય છે.<br />
+-                લાઈવ પ્રોડક્શનમાં આ શોર્ટકટ દેખાતા નથી, ફક્ત ડેમો બતાવવા માટે ચાલુ છે.
+-              </p>
+-            </>
+-          )}
++          <p className="text-center text-[12.5px] text-navy-400 pt-1">
++            તમારી સોસાયટીની લિંક છે? <button onClick={() => nav('/contact')} className="font-semibold text-saffron-600">અમારો સંપર્ક કરો</button>, અમે તમને સાચી લિંક મોકલીશું.
++          </p>
+         </div>
+       </div>
+     </div>
+diff --git a/src/pages/__tests__/Demo.test.tsx b/src/pages/__tests__/Demo.test.tsx
+new file mode 100644
+index 0000000..3ca6fbb
+--- /dev/null
++++ b/src/pages/__tests__/Demo.test.tsx
+@@ -0,0 +1,31 @@
++import { afterEach, describe, expect, it, vi } from 'vitest'
++import { render, screen, cleanup } from '@testing-library/react'
++import { MemoryRouter } from 'react-router-dom'
++
++afterEach(() => {
++  cleanup()
++  localStorage.clear()
++  vi.doUnmock('../../lib/demoMode')
++  vi.resetModules()
++})
++
++async function renderDemoWith(demoMode: boolean) {
++  vi.doMock('../../lib/demoMode', () => ({ isDemoModeEnabled: () => demoMode }))
++  const { default: Demo } = await import('../Demo')
++  const { DataProvider } = await import('../../lib/store')
++  return render(<MemoryRouter><DataProvider><Demo /></DataProvider></MemoryRouter>)
++}
++
++describe('/demo page', () => {
++  it('shows the role shortcuts when demo mode is enabled', async () => {
++    await renderDemoWith(true)
++    expect(await screen.findByText('હું રહેવાસી છું')).toBeInTheDocument()
++    expect(screen.getByText('Prangan One ઓનર કન્સોલ')).toBeInTheDocument()
++  })
++
++  it('shows an honest not-available message instead when demo mode is disabled', async () => {
++    await renderDemoWith(false)
++    expect(await screen.findByText('ડેમો હાલમાં ચાલુ નથી')).toBeInTheDocument()
++    expect(screen.queryByText('હું રહેવાસી છું')).not.toBeInTheDocument()
++  })
++})
+diff --git a/src/pages/__tests__/Home.test.tsx b/src/pages/__tests__/Home.test.tsx
+index c335a21..a102dd7 100644
+--- a/src/pages/__tests__/Home.test.tsx
++++ b/src/pages/__tests__/Home.test.tsx
+@@ -17,8 +17,9 @@ describe('public homepage', () => {
+       </MemoryRouter>,
+     )
+     expect(screen.getAllByText(/Prangan One/i).length).toBeGreaterThan(0)
+-    // English default hero line (see src/pages/public/Home.tsx copy.en.h1b)
+-    expect(screen.getByText(/society workflow/i)).toBeInTheDocument()
++    // Gujarati is the default now (see src/pages/public/Home.tsx copy.gu.h1b),
++    // English is the toggle-in option, not the default.
++    expect(screen.getByText(/સોસાયટીના દરેક કામ/)).toBeInTheDocument()
+   })
+ })
+ 
+diff --git a/src/pages/__tests__/Login.test.tsx b/src/pages/__tests__/Login.test.tsx
+index 8ad7dfb..b82ab4f 100644
+--- a/src/pages/__tests__/Login.test.tsx
++++ b/src/pages/__tests__/Login.test.tsx
+@@ -5,46 +5,49 @@ import { MemoryRouter } from 'react-router-dom'
+ afterEach(() => {
+   cleanup()
+   localStorage.clear()
+-  vi.doUnmock('../../lib/demoMode')
+   vi.doUnmock('../../lib/supabase')
+   vi.resetModules()
+ })
+ 
+-async function renderLoginWith(demoMode: boolean, supabaseConfigured: boolean) {
+-  vi.doMock('../../lib/demoMode', () => ({ isDemoModeEnabled: () => demoMode }))
++async function renderLoginWith(supabaseConfigured: boolean) {
+   vi.doMock('../../lib/supabase', () => ({ supabaseConfigured, supabase: null }))
+-  // Import both from the same fresh resolution pass - Login pulls in
+-  // useData from store.tsx, and vi.resetModules() in the previous test's
+-  // afterEach means a stale, separately-imported DataProvider would be a
+-  // different module instance (different React Context object) than the
+-  // one Login's fresh copy of useData() looks up.
+   const { default: Login } = await import('../Login')
+   const { DataProvider } = await import('../../lib/store')
+   return render(<MemoryRouter><DataProvider><Login /></DataProvider></MemoryRouter>)
+ }
+ 
+-describe('Login demo mode gating', () => {
+-  it('shows demo shortcuts when demo mode is enabled', async () => {
+-    await renderLoginWith(true, true)
+-    expect(await screen.findByText('હું રહેવાસી છું')).toBeInTheDocument()
+-    expect(screen.getByText('Prangan One ઓનર કન્સોલ')).toBeInTheDocument()
+-  })
+-
+-  it('hides demo shortcuts when demo mode is disabled', async () => {
+-    await renderLoginWith(false, true)
++describe('Login never shows demo shortcuts, regardless of demo mode', () => {
++  it('has no resident/admin/accountant/owner shortcut buttons', async () => {
++    await renderLoginWith(true)
+     expect(await screen.findByText('લોગિન')).toBeInTheDocument()
+     expect(screen.queryByText('હું રહેવાસી છું')).not.toBeInTheDocument()
+     expect(screen.queryByText('Prangan One ઓનર કન્સોલ')).not.toBeInTheDocument()
+   })
+ 
+   it('shows the real email login form when Supabase is configured', async () => {
+-    await renderLoginWith(false, true)
++    await renderLoginWith(true)
+     expect(await screen.findByPlaceholderText('તમારો ઈમેલ')).toBeInTheDocument()
+   })
+ 
+   it('shows an honest not-configured message instead of a fake email form when Supabase is not configured', async () => {
+-    await renderLoginWith(false, false)
++    await renderLoginWith(false)
+     expect(await screen.findByText(/લોગિન સેવા હાલમાં સેટ થઈ રહી છે/)).toBeInTheDocument()
+     expect(screen.queryByPlaceholderText('તમારો ઈમેલ')).not.toBeInTheDocument()
+   })
+ })
++
++describe('Login branding depends on explicit society context, not the raw default', () => {
++  it('shows generic Prangan One branding for a brand-new session (the bug this fixes)', async () => {
++    await renderLoginWith(true)
++    // Rajhans Tower is the seeded default society - a generic visitor must
++    // never see it by name, only Prangan One's own identity.
++    expect(screen.queryByText('રાજહંસ ટાવર')).not.toBeInTheDocument()
++    expect(screen.getByText('The Society OS')).toBeInTheDocument()
++  })
++
++  it('shows the specific society once a share link set an explicit context', async () => {
++    localStorage.setItem('rt_session_v3', JSON.stringify({ role: null, flatId: null, societyId: 'soc_rajhans', explicitSociety: true }))
++    await renderLoginWith(true)
++    expect(await screen.findByText('રાજહંસ ટાવર')).toBeInTheDocument()
++  })
++})
+diff --git a/src/pages/owner/Layout.tsx b/src/pages/owner/Layout.tsx
+index 15fdc82..4d1695d 100644
+--- a/src/pages/owner/Layout.tsx
++++ b/src/pages/owner/Layout.tsx
+@@ -2,7 +2,8 @@
+  * Owner console shell. Deliberately separate from the tenant-facing Shell
+  * in src/layouts/Layouts.tsx: this one's branding is fixed to Prangan One
+  * itself, not whichever society happens to be active in session, since
+- * this is Essancia's own tool, not a committee-facing surface.
++ * this is the Prangan One platform owner's own console, not a
++ * committee-facing surface.
+  */
+ import { useState } from 'react'
+ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+diff --git a/src/pages/public/Contact.tsx b/src/pages/public/Contact.tsx
+index 95e705e..4ec9e70 100644
+--- a/src/pages/public/Contact.tsx
++++ b/src/pages/public/Contact.tsx
+@@ -1,5 +1,5 @@
+ import { useState } from 'react'
+-import { CheckCircle2, MessageCircle, Mail, Facebook, Instagram, Youtube } from 'lucide-react'
++import { CheckCircle2, Mail, Facebook, Instagram, Youtube } from 'lucide-react'
+ import { PublicLayout } from './PublicLayout'
+ import { usePublicLang } from './usePublicLang'
+ import { usePageMeta } from './usePageMeta'
+@@ -14,24 +14,24 @@ const socialLinks = [
+ const copy = {
+   en: {
+     title: 'Contact', desc: 'Request a society setup, or ask a question. We respond directly, no ticket queue.',
+-    h1: 'Request Society Setup', sub: 'Tell us about your society, we\u2019ll reach out directly. WhatsApp works too, if that\u2019s easier.',
++    h1: 'Request Society Setup', sub: 'Tell us about your society, we\u2019ll reach out directly.',
+     name: 'Your name', phone: 'Phone number', email: 'Email', societyName: 'Society name',
+     city: 'City / locality', flatCount: 'Number of flats', role: 'Your role', mainNeed: 'Main need', message: 'Message (optional)',
+     roleOptions: ['Chairman', 'Secretary', 'Treasurer', 'Resident', 'Other'],
+     needOptions: ['Billing', 'Complaints', 'Notices', 'Full app'],
+     submit: 'Send request', thanks: 'Thanks, we\u2019ve got your request. We\u2019ll reach out shortly.',
+-    orWhatsapp: 'Prefer WhatsApp or a call?',
++    orEmail: 'Prefer email?',
+     follow: 'Follow Prangan One',
+   },
+   gu: {
+     title: 'સંપર્ક', desc: 'સોસાયટી સેટઅપની વિનંતી કરો, અથવા સવાલ પૂછો. અમે સીધા જવાબ આપીએ છીએ.',
+-    h1: 'સોસાયટી સેટઅપની વિનંતી કરો', sub: 'તમારી સોસાયટી વિશે જણાવો, અમે સીધો સંપર્ક કરીશું. WhatsApp પણ ચાલશે.',
++    h1: 'સોસાયટી સેટઅપની વિનંતી કરો', sub: 'તમારી સોસાયટી વિશે જણાવો, અમે સીધો સંપર્ક કરીશું.',
+     name: 'તમારું નામ', phone: 'ફોન નંબર', email: 'ઈમેલ', societyName: 'સોસાયટીનું નામ',
+     city: 'શહેર / વિસ્તાર', flatCount: 'ફ્લેટની સંખ્યા', role: 'તમારો રોલ', mainNeed: 'મુખ્ય જરૂરિયાત', message: 'સંદેશ (વૈકલ્પિક)',
+     roleOptions: ['ચેરમેન', 'સેક્રેટરી', 'ટ્રેઝરર', 'રહેવાસી', 'અન્ય'],
+     needOptions: ['બિલિંગ', 'ફરિયાદ', 'નોટિસ', 'આખી એપ'],
+     submit: 'વિનંતી મોકલો', thanks: 'આભાર, તમારી વિનંતી મળી ગઈ. અમે ટૂંક સમયમાં સંપર્ક કરીશું.',
+-    orWhatsapp: 'WhatsApp કે કૉલ પસંદ કરો છો?',
++    orEmail: 'ઈમેલ પસંદ કરો છો?',
+     follow: 'Prangan One ને ફોલો કરો',
+   },
+ }
+@@ -99,12 +99,12 @@ export default function Contact() {
+           </div>
+         )}
+ 
++        {/* WhatsApp button intentionally removed until a real number exists -
++            a wa.me link with no number goes nowhere. Add it back here once
++            there's a number to link: href={`https://wa.me/91XXXXXXXXXX`}. */}
+         <div className="mt-8 pt-6 border-t border-cream-200 text-center">
+-          <p className="text-[13px] text-navy-400 mb-3">{t.orWhatsapp}</p>
++          <p className="text-[13px] text-navy-400 mb-3">{t.orEmail}</p>
+           <div className="flex justify-center gap-3">
+-            <a href="https://wa.me/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl bg-green-50 border border-green-200 text-paid px-4 py-2.5 text-[13.5px] font-semibold hover:bg-green-100">
+-              <MessageCircle size={16} /> WhatsApp
+-            </a>
+             <a href="mailto:care@pranganone.com" className="inline-flex items-center gap-1.5 rounded-xl bg-navy-50 border border-navy-100 text-navy-700 px-4 py-2.5 text-[13.5px] font-semibold hover:bg-navy-100">
+               <Mail size={16} /> care@pranganone.com
+             </a>
+diff --git a/src/pages/public/Faq.tsx b/src/pages/public/Faq.tsx
+index 352d4e9..5287a03 100644
+--- a/src/pages/public/Faq.tsx
++++ b/src/pages/public/Faq.tsx
+@@ -15,7 +15,7 @@ const copy = {
+       ['Can we disable features we don\u2019t need?', 'Yes. Every module can be turned off, some societies start with just billing and complaints and add the rest later.'],
+       ['Who controls member access?', 'Your committee does. You decide who gets added, what role they hold, and when access is removed.'],
+       ['What happens if we\u2019re late paying you?', 'You get a quiet heads-up first (grace period), never a public embarrassment in front of your residents. Only after that does the app pause, and history stays visible even then.'],
+-      ['Is our data private from other societies?', 'Yes. Every society\u2019s data is isolated at the database level, not just hidden in the interface.'],
++      ['Is our data private from other societies?', 'Not yet in a shared sense, there\u2019s no live backend connected today, everything runs in your own browser. Before any real society\u2019s data goes live, it moves to a database where every society\u2019s access rules are enforced at the database level, not just hidden in the interface.'],
+       ['Can we use Gujarati?', 'The whole app is Gujarati-first, written the way people actually speak, not translated from English.'],
+       ['Can older residents use this comfortably?', 'That was a design priority from day one: large text, simple navigation, no jargon.'],
+       ['What happens when our committee changes?', 'Admin access transfers in one click. Nothing is lost, no data, no history, across a committee handover.'],
+@@ -32,7 +32,7 @@ const copy = {
+       ['જે સુવિધા ના જોઈએ એ બંધ કરી શકાય?', 'હા. દરેક મોડ્યુલ બંધ કરી શકાય.'],
+       ['સભ્યની એક્સેસ કોણ નિયંત્રિત કરે?', 'તમારી કમિટી. કોણ ઉમેરાય, શું રોલ મળે, એ તમે નક્કી કરો.'],
+       ['ચુકવણી મોડી થાય તો શું?', 'પહેલા શાંતિથી યાદ અપાવીશું (ગ્રેસ પિરિયડ), રહેવાસીઓ સામે શરમ નહીં. પછી જ એપ થોભે, અને ઇતિહાસ તોય દેખાતો રહે.'],
+-      ['અમારો ડેટા બીજી સોસાયટીથી અલગ છે?', 'હા. દરેક સોસાયટીનો ડેટા ડેટાબેઝ લેવલે જ અલગ છે.'],
++      ['અમારો ડેટા બીજી સોસાયટીથી અલગ છે?', 'હાલમાં હજુ કોઈ શેર થયેલું બેકએન્ડ નથી, બધું તમારા બ્રાઉઝરમાં જ ચાલે છે. કોઈ સોસાયટીનો સાચો ડેટા લાઈવ થાય એ પહેલાં, એ ડેટાબેઝમાં જશે જ્યાં દરેક સોસાયટીના એક્સેસ નિયમો ડેટાબેઝ લેવલે જ લાગુ થશે, ફક્ત ઈન્ટરફેસમાં છુપાવેલા નહીં.'],
+       ['ગુજરાતીમાં વાપરી શકાય?', 'આખી એપ ગુજરાતી-ફર્સ્ટ છે, બોલાતી ભાષામાં લખાયેલી.'],
+       ['વૃદ્ધ સભ્યો સહેલાઈથી વાપરી શકે?', 'આ શરૂઆતથી જ ડિઝાઈનનું ધ્યાન હતું: મોટા અક્ષર, સાદું નેવિગેશન.'],
+       ['કમિટી બદલાય તો શું થાય?', 'એડમિન એક્સેસ એક ટેપમાં ટ્રાન્સફર થાય. કંઈ ખોવાય નહીં.'],
+diff --git a/src/pages/public/Pricing.tsx b/src/pages/public/Pricing.tsx
+index cda2457..4a12c7a 100644
+--- a/src/pages/public/Pricing.tsx
++++ b/src/pages/public/Pricing.tsx
+@@ -9,17 +9,21 @@ const copy = {
+     title: 'Pricing', desc: 'Flat ₹10 per flat per month. No online payment gateway needed, no hidden setup fee.',
+     h1: 'Simple pricing', sub: 'Less than one chai per flat, per month.',
+     perFlat: 'per flat / month',
+-    features: ['Every module included', 'Unlimited residents and committee members', 'Billing, receipts, and WhatsApp reminders', 'Complaints, notices, polls, and events', 'Export your data anytime, no lock-in', 'Setup handled personally, no self-serve signup form'],
++    features: ['Every module included', 'Unlimited residents and committee members', 'Billing, receipts, and one-tap WhatsApp reminder sharing', 'Complaints, notices, polls, and events', 'Export your data anytime, no lock-in', 'Setup handled personally, no self-serve signup form'],
+     note: 'Setup is manual and personal: we onboard your society directly, no online payment gateway required to get started.',
+     cta: 'Request Society Setup',
++    examplesTitle: 'What that actually costs',
++    examples: [['24-flat society', '\u20b9240 / month'], ['100-flat society', '\u20b91,000 / month']],
+   },
+   gu: {
+     title: 'કિંમત', desc: 'ફ્લેટ દીઠ મહિને ₹10, સાદી કિંમત. કોઈ ઓનલાઈન પેમેન્ટ ગેટવે જરૂરી નથી, કોઈ છુપો સેટઅપ ચાર્જ નથી.',
+     h1: 'સાદી કિંમત', sub: 'એક ચા કરતાં ઓછું, ફ્લેટ દીઠ, મહિને.',
+     perFlat: 'ફ્લેટ દીઠ / મહિનો',
+-    features: ['દરેક સુવિધા સામેલ', 'રહેવાસી અને કમિટી સભ્યની કોઈ લિમિટ નહીં', 'બિલિંગ, રસીદ, WhatsApp રિમાઇન્ડર', 'ફરિયાદ, નોટિસ, મતદાન, ઇવેન્ટ', 'ગમે ત્યારે તમારો ડેટા એક્સપોર્ટ કરો', 'સેટઅપ સીધું અમે કરીએ, કોઈ સેલ્ફ-સર્વ ફોર્મ નહીં'],
++    features: ['દરેક સુવિધા સામેલ', 'રહેવાસી અને કમિટી સભ્યની કોઈ લિમિટ નહીં', 'બિલિંગ, રસીદ, અને એક-ટેપ WhatsApp રિમાઇન્ડર શેર', 'ફરિયાદ, નોટિસ, મતદાન, ઇવેન્ટ', 'ગમે ત્યારે તમારો ડેટા એક્સપોર્ટ કરો', 'સેટઅપ સીધું અમે કરીએ, કોઈ સેલ્ફ-સર્વ ફોર્મ નહીં'],
+     note: 'સેટઅપ મેન્યુઅલી અને સીધું થાય છે: અમે તમારી સોસાયટીને સીધા ઓનબોર્ડ કરીએ છીએ, શરૂ કરવા માટે ઓનલાઈન પેમેન્ટ ગેટવેની જરૂર નથી.',
+     cta: 'સોસાયટી સેટઅપની વિનંતી કરો',
++    examplesTitle: 'ખરેખર કેટલો ખર્ચ થાય',
++    examples: [['24 ફ્લેટની સોસાયટી', '₹240 / મહિનો'], ['100 ફ્લેટની સોસાયટી', '₹1,000 / મહિનો']],
+   },
+ }
+ 
+@@ -51,6 +55,18 @@ export default function Pricing() {
+           </Link>
+         </div>
+         <p className="max-w-md mx-auto text-[13px] text-navy-400 mt-6">{t.note}</p>
++
++        <div className="max-w-sm mx-auto mt-8">
++          <div className="text-[12.5px] font-bold tracking-wide text-navy-400 uppercase mb-3">{t.examplesTitle}</div>
++          <div className="grid grid-cols-2 gap-3">
++            {t.examples.map(([label, price]) => (
++              <div key={label} className="rounded-xl border border-cream-200 bg-white px-4 py-3.5 text-left">
++                <div className="text-[12.5px] text-navy-400">{label}</div>
++                <div className="text-[17px] font-bold text-navy-900 mt-0.5">{price}</div>
++              </div>
++            ))}
++          </div>
++        </div>
+       </section>
+     </PublicLayout>
+   )
+diff --git a/src/pages/public/PublicLayout.tsx b/src/pages/public/PublicLayout.tsx
+index 14bbd47..94a4463 100644
+--- a/src/pages/public/PublicLayout.tsx
++++ b/src/pages/public/PublicLayout.tsx
+@@ -1,5 +1,5 @@
+ import { Link } from 'react-router-dom'
+-import { Menu, X, Facebook, Instagram, Youtube } from 'lucide-react'
++import { Menu, X, Facebook, Instagram, Youtube, LogIn } from 'lucide-react'
+ import { useState } from 'react'
+ import { PranganBrand } from '../../components/PranganBrand'
+ import type { PublicLang } from './usePublicLang'
+@@ -33,11 +33,13 @@ export function PublicLayout({ lang, setLang, children }: {
+ 
+   return (
+     <div className="min-h-screen bg-cream-50 text-navy-900">
+-      <header className="sticky top-0 z-40 bg-cream-50/90 backdrop-blur border-b border-cream-200 px-5 py-3.5">
+-        <div className="max-w-5xl mx-auto flex items-center gap-4">
+-          <Link to="/" className="flex items-center shrink-0">
+-            <PranganBrand variant="wordmark-navy" height={26} className="hidden sm:block" />
+-            <PranganBrand variant="symbol-navy" height={30} className="sm:hidden" />
++      <header className="sticky top-0 z-40 bg-cream-50/90 backdrop-blur border-b border-cream-200 px-4 sm:px-5 py-3">
++        <div className="max-w-5xl mx-auto flex items-center gap-3 sm:gap-4">
++          {/* Full wordmark at every size, mobile included - the whole point of
++              the brand is name recognition, a mark with no name defeats that
++              on the exact surface (mobile) most people will meet it on first. */}
++          <Link to="/" className="flex items-center shrink-0 min-w-0">
++            <PranganBrand variant="wordmark-navy" height={24} className="max-w-[150px] sm:max-w-none" />
+           </Link>
+           <nav className="hidden md:flex items-center gap-6 flex-1">
+             {nav.map(n => <Link key={n.to} to={n.to} className="text-[14.5px] font-medium text-navy-600 hover:text-saffron-600">{n.label}</Link>)}
+@@ -50,17 +52,25 @@ export function PublicLayout({ lang, setLang, children }: {
+             <Link to="/login" className="hidden sm:inline-flex rounded-xl bg-saffron-500 text-navy-900 px-3.5 py-2 text-[13.5px] font-bold hover:bg-saffron-400">
+               {lang === 'en' ? 'Log in' : 'લોગિન'}
+             </Link>
+-            <button onClick={() => setOpen(!open)} className="md:hidden h-9 w-9 flex items-center justify-center rounded-lg bg-cream-200" aria-label="Menu">
++            <button onClick={() => setOpen(!open)} className="sm:hidden h-9 w-9 shrink-0 flex items-center justify-center rounded-lg bg-cream-200" aria-label="Menu">
+               {open ? <X size={18} /> : <Menu size={18} />}
+             </button>
+           </div>
+         </div>
+         {open && (
+-          <div className="md:hidden max-w-5xl mx-auto mt-3 pb-2 flex flex-col gap-2">
+-            {nav.map(n => <Link key={n.to} to={n.to} onClick={() => setOpen(false)} className="text-[14.5px] font-medium text-navy-600 py-1.5">{n.label}</Link>)}
+-            <div className="flex gap-2 mt-1">
+-              <button onClick={() => setLang('en')} className={`px-2.5 py-1 rounded-full text-[12.5px] font-semibold ${lang === 'en' ? 'bg-navy-900 text-cream-50' : 'bg-cream-200 text-navy-500'}`}>EN</button>
+-              <button onClick={() => setLang('gu')} className={`px-2.5 py-1 rounded-full text-[12.5px] font-semibold ${lang === 'gu' ? 'bg-navy-900 text-cream-50' : 'bg-cream-200 text-navy-500'}`}>ગુ</button>
++          <div className="sm:hidden max-w-5xl mx-auto mt-3 pb-2 flex flex-col gap-1">
++            {/* Login is the very first thing in the mobile menu, not an
++                afterthought - on a phone, this menu is the ONLY way in,
++                there is no separate always-visible login button at this
++                width. */}
++            <Link to="/login" onClick={() => setOpen(false)}
++              className="flex items-center justify-center gap-2 rounded-xl bg-saffron-500 text-navy-900 px-4 py-3 text-[15px] font-bold mb-2">
++              <LogIn size={17} /> {lang === 'en' ? 'Log in' : 'લોગિન'}
++            </Link>
++            {nav.map(n => <Link key={n.to} to={n.to} onClick={() => setOpen(false)} className="text-[15px] font-medium text-navy-600 py-2">{n.label}</Link>)}
++            <div className="flex gap-2 mt-2">
++              <button onClick={() => setLang('en')} className={`px-3 py-1.5 rounded-full text-[13px] font-semibold ${lang === 'en' ? 'bg-navy-900 text-cream-50' : 'bg-cream-200 text-navy-500'}`}>EN</button>
++              <button onClick={() => setLang('gu')} className={`px-3 py-1.5 rounded-full text-[13px] font-semibold ${lang === 'gu' ? 'bg-navy-900 text-cream-50' : 'bg-cream-200 text-navy-500'}`}>ગુ</button>
+             </div>
+           </div>
+         )}
+diff --git a/src/pages/public/usePublicLang.ts b/src/pages/public/usePublicLang.ts
+index e67b0ef..9c396f4 100644
+--- a/src/pages/public/usePublicLang.ts
++++ b/src/pages/public/usePublicLang.ts
+@@ -4,15 +4,17 @@ export type PublicLang = 'en' | 'gu'
+ const KEY = 'prangan_public_lang'
+ 
+ /**
+- * Language toggle for the public marketing site only (English default,
+- * Gujarati toggle). The app itself (src/pages/resident, admin, etc.)
+- * never uses this and stays fully Gujarati - see docs/PRANGAN_ONE_ROADMAP.md
+- * section 7. Backed by localStorage so the choice persists across the
+- * site's 5 pages without needing a context provider threaded through App.tsx.
++ * Language toggle for the public marketing site only (Gujarati default,
++ * English toggle - most visitors are finding this through WhatsApp
++ * shares and word of mouth in Gujarati, so that's the first thing they
++ * should see). The app itself (src/pages/resident, admin, etc.) never
++ * uses this and stays fully Gujarati always, no toggle at all. Backed by
++ * localStorage so the choice persists across the site's pages without
++ * needing a context provider threaded through App.tsx.
+  */
+ export function usePublicLang(): [PublicLang, (l: PublicLang) => void] {
+   const [lang, setLang] = useState<PublicLang>(() => {
+-    try { return (localStorage.getItem(KEY) as PublicLang) || 'en' } catch { return 'en' }
++    try { return (localStorage.getItem(KEY) as PublicLang) || 'gu' } catch { return 'gu' }
+   })
+   useEffect(() => {
+     try { localStorage.setItem(KEY, lang) } catch { /* ignore */ }
+-- 
+2.43.0
+
