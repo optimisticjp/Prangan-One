@@ -35,10 +35,10 @@ cp .env.example .env
 
 ```
 VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
-The `VITE_` prefix matters. Vite only exposes env vars to client code if they're prefixed that way. Never put the `service_role` key in a `VITE_`-prefixed variable; that key bypasses RLS entirely and must only ever be used server-side.
+The `VITE_` prefix matters. Vite only exposes env vars to client code if they're prefixed that way, `NEXT_PUBLIC_...` (a different framework's convention) won't work here. "Publishable key" is Supabase's current name for the client-safe key (it replaces the older "anon key" name, same purpose, safe to ship in the browser, protected by RLS not secrecy). Never put a `secret` or `service_role` key in a `VITE_`-prefixed variable, that key bypasses RLS entirely and must only ever be used server-side.
 
 ## 4. Keep the free project from pausing itself
 
@@ -56,10 +56,10 @@ Pick one, both take a few minutes and both are free:
     ping:
       runs-on: ubuntu-latest
       steps:
-        - run: curl -s "$SUPABASE_URL/rest/v1/" -H "apikey: $SUPABASE_ANON_KEY"
+        - run: curl -s "$SUPABASE_URL/rest/v1/" -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
           env:
             SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-            SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+            SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
   ```
 - **UptimeRobot** (uptimerobot.com, free tier): add an HTTP monitor pointed at the deployed app's URL, checking every few hours. Doubles as basic uptime monitoring for free.
 
@@ -99,7 +99,7 @@ Worth being specific about this: Vercel's free Hobby plan is restricted by its o
 1. Push this repo to a Git provider (GitHub, GitLab) if it isn't already.
 2. In the Cloudflare dashboard, go to **Workers & Pages → Create → Pages → Connect to Git**, pick the repo.
 3. Build settings: framework preset **Vite**, build command `npm run build`, output directory `dist`.
-4. Under **Settings → Environment variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the same values from your `.env`, entered directly in the Cloudflare dashboard, not committed to the repo).
+4. Under **Settings → Environment variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the same values from your `.env`, entered directly in the Cloudflare dashboard, not committed to the repo).
 5. Deploy. Cloudflare gives a `*.pages.dev` URL immediately; a custom domain can be attached afterward under **Custom domains**.
 
 ## 8. What changes in the code

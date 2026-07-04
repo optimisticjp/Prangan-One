@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { CheckCircle2, Mail, Facebook, Instagram, Youtube } from 'lucide-react'
+import { CheckCircle2, Mail, Facebook, Instagram, Youtube, AlertCircle } from 'lucide-react'
 import { PublicLayout } from './PublicLayout'
 import { usePublicLang } from './usePublicLang'
 import { usePageMeta } from './usePageMeta'
 import { useData } from '../../lib/store'
+import { submitLeadToFormspree } from '../../lib/formspree'
 
 const socialLinks = [
   { href: 'https://www.facebook.com/pranganone/', icon: Facebook, label: 'Prangan One on Facebook' },
@@ -22,6 +23,8 @@ const copy = {
     submit: 'Send request', thanks: 'Thanks, we\u2019ve got your request. We\u2019ll reach out shortly.',
     orEmail: 'Prefer email?',
     follow: 'Follow Prangan One',
+    sending: 'Sending...',
+    error: 'Couldn\u2019t send that, please try again, or email us directly at care@pranganone.com.',
   },
   gu: {
     title: 'સંપર્ક', desc: 'સોસાયટી સેટઅપની વિનંતી કરો, અથવા સવાલ પૂછો. અમે સીધા જવાબ આપીએ છીએ.',
@@ -33,6 +36,8 @@ const copy = {
     submit: 'વિનંતી મોકલો', thanks: 'આભાર, તમારી વિનંતી મળી ગઈ. અમે ટૂંક સમયમાં સંપર્ક કરીશું.',
     orEmail: 'ઈમેલ પસંદ કરો છો?',
     follow: 'Prangan One ને ફોલો કરો',
+    sending: 'મોકલાય છે...',
+    error: 'મોકલવામાં ભૂલ થઈ, ફરી પ્રયત્ન કરો, અથવા સીધા care@pranganone.com પર ઈમેલ કરો.',
   },
 }
 
@@ -47,15 +52,26 @@ export default function Contact() {
     flatCount: '', role: t.roleOptions[0], mainNeed: t.needOptions[0], message: '',
   })
   const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState(false)
 
-  const submit = () => {
+  const submit = async () => {
     if (!form.name.trim() || !form.phone.trim() || !form.email.trim() || !form.societyName.trim()) return
-    addLead({
+    setSending(true); setError(false)
+    const payload = {
       name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(),
       societyName: form.societyName.trim(), city: form.city.trim(), flatCount: Number(form.flatCount) || 0,
       role: form.role, mainNeed: form.mainNeed, message: form.message.trim() || undefined,
-    })
-    setSent(true)
+    }
+    try {
+      await submitLeadToFormspree(payload)
+      addLead(payload) // also kept locally so the owner console's leads inbox shows it
+      setSent(true)
+    } catch {
+      setError(true)
+    } finally {
+      setSending(false)
+    }
   }
 
   const inputClass = "w-full rounded-xl border border-cream-300 bg-white px-3.5 min-h-[46px] text-[14.5px] focus:outline-none focus:ring-2 focus:ring-saffron-400/50 focus:border-saffron-400"
@@ -92,9 +108,10 @@ export default function Contact() {
               </select>
             </div>
             <textarea className={inputClass + ' min-h-[80px] py-2.5'} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder={t.message} />
-            <button onClick={submit} disabled={!form.name.trim() || !form.phone.trim() || !form.email.trim() || !form.societyName.trim()}
+            {error && <p className="text-[13px] text-over flex items-start gap-1.5"><AlertCircle size={15} className="shrink-0 mt-0.5" /> {t.error}</p>}
+            <button onClick={submit} disabled={!form.name.trim() || !form.phone.trim() || !form.email.trim() || !form.societyName.trim() || sending}
               className="w-full rounded-xl bg-navy-900 text-cream-50 py-3.5 text-[15px] font-bold hover:bg-navy-800 disabled:opacity-40">
-              {t.submit}
+              {sending ? t.sending : t.submit}
             </button>
           </div>
         )}
