@@ -1,9 +1,15 @@
 import { useState } from 'react'
-import { CheckCircle2, MessageCircle, Mail } from 'lucide-react'
+import { CheckCircle2, MessageCircle, Mail, Facebook, Instagram, Youtube } from 'lucide-react'
 import { PublicLayout } from './PublicLayout'
 import { usePublicLang } from './usePublicLang'
 import { usePageMeta } from './usePageMeta'
 import { useData } from '../../lib/store'
+
+const socialLinks = [
+  { href: 'https://www.facebook.com/pranganone/', icon: Facebook, label: 'Prangan One on Facebook' },
+  { href: 'https://www.instagram.com/pranganone/', icon: Instagram, label: 'Prangan One on Instagram' },
+  { href: 'https://www.youtube.com/@PranganOne', icon: Youtube, label: 'Prangan One on YouTube' },
+]
 
 const copy = {
   en: {
@@ -15,6 +21,7 @@ const copy = {
     needOptions: ['Billing', 'Complaints', 'Notices', 'Full app'],
     submit: 'Send request', thanks: 'Thanks, we\u2019ve got your request. We\u2019ll reach out shortly.',
     orWhatsapp: 'Prefer WhatsApp or a call?',
+    follow: 'Follow Prangan One',
   },
   gu: {
     title: 'સંપર્ક', desc: 'સોસાયટી સેટઅપની વિનંતી કરો, અથવા સવાલ પૂછો. અમે સીધા જવાબ આપીએ છીએ.',
@@ -25,6 +32,7 @@ const copy = {
     needOptions: ['બિલિંગ', 'ફરિયાદ', 'નોટિસ', 'આખી એપ'],
     submit: 'વિનંતી મોકલો', thanks: 'આભાર, તમારી વિનંતી મળી ગઈ. અમે ટૂંક સમયમાં સંપર્ક કરીશું.',
     orWhatsapp: 'WhatsApp કે કૉલ પસંદ કરો છો?',
+    follow: 'Prangan One ને ફોલો કરો',
   },
 }
 
@@ -100,6 +108,18 @@ export default function Contact() {
             <a href="mailto:care@pranganone.com" className="inline-flex items-center gap-1.5 rounded-xl bg-navy-50 border border-navy-100 text-navy-700 px-4 py-2.5 text-[13.5px] font-semibold hover:bg-navy-100">
               <Mail size={16} /> care@pranganone.com
             </a>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-cream-100 text-center">
+          <p className="text-[12px] text-navy-400 mb-2.5">{t.follow}</p>
+          <div className="flex justify-center gap-4">
+            {socialLinks.map(s => (
+              <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label}
+                className="text-navy-400 hover:text-saffron-600">
+                <s.icon size={19} />
+              </a>
+            ))}
           </div>
         </div>
       </section>

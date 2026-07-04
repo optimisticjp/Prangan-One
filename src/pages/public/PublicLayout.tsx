@@ -1,8 +1,14 @@
 import { Link } from 'react-router-dom'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Facebook, Instagram, Youtube } from 'lucide-react'
 import { useState } from 'react'
 import { PranganBrand } from '../../components/PranganBrand'
 import type { PublicLang } from './usePublicLang'
+
+const socialLinks = [
+  { href: 'https://www.facebook.com/pranganone/', icon: Facebook, label: 'Prangan One on Facebook' },
+  { href: 'https://www.instagram.com/pranganone/', icon: Instagram, label: 'Prangan One on Instagram' },
+  { href: 'https://www.youtube.com/@PranganOne', icon: Youtube, label: 'Prangan One on YouTube' },
+]
 
 const navByLang: Record<PublicLang, { to: string; label: string }[]> = {
   en: [
@@ -71,7 +77,17 @@ export function PublicLayout({ lang, setLang, children }: {
           <div className="flex gap-5 text-[13px] text-navy-500">
             {nav.map(n => <Link key={n.to} to={n.to} className="hover:text-saffron-600">{n.label}</Link>)}
           </div>
-          <a href="mailto:care@pranganone.com" className="text-[13px] text-navy-500 hover:text-saffron-600">care@pranganone.com</a>
+          <div className="flex items-center gap-4">
+            <a href="mailto:care@pranganone.com" className="text-[13px] text-navy-500 hover:text-saffron-600">care@pranganone.com</a>
+            <div className="flex items-center gap-2.5">
+              {socialLinks.map(s => (
+                <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label}
+                  className="text-navy-400 hover:text-saffron-600">
+                  <s.icon size={17} />
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="text-center text-[11.5px] text-navy-300 pb-6">© Prangan One. The Society OS.</div>
       </footer>

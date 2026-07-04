@@ -105,3 +105,11 @@ scripts/          the script that generated sample-data/ (deterministic, re-runn
 ```
 
 Built by Essancia (Infinite Weblinks) for Rajhans Tower, Surat.
+
+## Official links
+
+- Website: [pranganone.com](https://pranganone.com)
+- Support: [care@pranganone.com](mailto:care@pranganone.com)
+- Facebook: [facebook.com/pranganone](https://www.facebook.com/pranganone/)
+- Instagram: [instagram.com/pranganone](https://www.instagram.com/pranganone/)
+- YouTube: [youtube.com/@PranganOne](https://www.youtube.com/@PranganOne)

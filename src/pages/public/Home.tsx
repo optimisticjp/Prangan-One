@@ -68,9 +68,9 @@ export default function Home() {
   usePageMeta(t.metaTitle, t.metaDesc)
 
   useEffect(() => {
-    const script = document.createElement('script')
-    script.type = 'application/ld+json'
-    script.text = JSON.stringify({
+    const appScript = document.createElement('script')
+    appScript.type = 'application/ld+json'
+    appScript.text = JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'SoftwareApplication',
       name: 'Prangan One',
@@ -79,8 +79,31 @@ export default function Home() {
       description: 'Gujarati-first society management platform for housing society committees and residents.',
       offers: { '@type': 'Offer', price: '10', priceCurrency: 'INR', description: 'Per flat, per month' },
     })
-    document.head.appendChild(script)
-    return () => { document.head.removeChild(script) }
+    document.head.appendChild(appScript)
+
+    // Platform-level Organization schema, not tied to any one society -
+    // sameAs points search engines and social platforms at the official
+    // Prangan One channels. Do not add this to society-specific pages.
+    const orgScript = document.createElement('script')
+    orgScript.type = 'application/ld+json'
+    orgScript.text = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: 'Prangan One',
+      url: 'https://pranganone.com',
+      email: 'care@pranganone.com',
+      sameAs: [
+        'https://www.facebook.com/pranganone/',
+        'https://www.instagram.com/pranganone/',
+        'https://www.youtube.com/@PranganOne',
+      ],
+    })
+    document.head.appendChild(orgScript)
+
+    return () => {
+      document.head.removeChild(appScript)
+      document.head.removeChild(orgScript)
+    }
   }, [])
 
   return (
