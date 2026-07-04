@@ -1,0 +1,5 @@
+[
+  { "id": "mem_001", "societyId": "soc_rajhans", "email": "ramesh.savaliya@example.com", "role": "society_admin", "phone": "90000 00001", "createdAt": "2026-04-01" },
+  { "id": "mem_002", "societyId": "soc_rajhans", "email": "jitendra.katharia@example.com", "role": "committee_member", "phone": "90000 00010", "canManageBilling": false, "createdAt": "2026-04-01" },
+  { "id": "mem_003", "societyId": "soc_rajhans", "email": "hardik.gajera@example.com", "role": "accountant", "phone": "90000 00019", "createdAt": "2026-04-01" }
+]

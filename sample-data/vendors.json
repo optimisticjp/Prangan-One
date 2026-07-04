@@ -1,0 +1,79 @@
+[
+  {
+    "id": "ven_lift",
+    "societyId": "soc_rajhans",
+    "name": "ઓમ લિફ્ટ કેર",
+    "service": "લિફ્ટ AMC",
+    "contactPerson": "મયુરભાઈ",
+    "phone": "+91 90000 00151",
+    "amcStart": "2026-01-01",
+    "amcEnd": "2026-12-31",
+    "notes": "ત્રિમાસિક સર્વિસ, 24x7 ઈમરજન્સી"
+  },
+  {
+    "id": "ven_plumb",
+    "societyId": "soc_rajhans",
+    "name": "શ્રી ગણેશ પ્લમ્બિંગ",
+    "service": "પ્લમ્બિંગ",
+    "contactPerson": "ગણેશભાઈ",
+    "phone": "+91 90000 00152"
+  },
+  {
+    "id": "ven_elec",
+    "societyId": "soc_rajhans",
+    "name": "પાવર ઇલેક્ટ્રિકલ્સ",
+    "service": "ઇલેક્ટ્રિક કામ",
+    "contactPerson": "રાજુભાઈ",
+    "phone": "+91 90000 00153"
+  },
+  {
+    "id": "ven_water",
+    "societyId": "soc_rajhans",
+    "name": "જય જલારામ વોટર ટેન્કર",
+    "service": "પાણી ટેન્કર",
+    "contactPerson": "ભરતભાઈ",
+    "phone": "+91 90000 00154"
+  },
+  {
+    "id": "ven_clean",
+    "societyId": "soc_rajhans",
+    "name": "સ્વચ્છ સફાઈ સર્વિસ",
+    "service": "સફાઈ",
+    "contactPerson": "મંજુબેન",
+    "phone": "+91 90000 00155",
+    "amcStart": "2026-04-01",
+    "amcEnd": "2027-03-31"
+  },
+  {
+    "id": "ven_sec",
+    "societyId": "soc_rajhans",
+    "name": "રક્ષક સિક્યુરિટી એજન્સી",
+    "service": "સિક્યુરિટી",
+    "contactPerson": "વિક્રમભાઈ",
+    "phone": "+91 90000 00156",
+    "amcStart": "2025-08-01",
+    "amcEnd": "2026-07-31",
+    "notes": "રિન્યુઅલ બાકી છે"
+  },
+  {
+    "id": "ven_cctv",
+    "societyId": "soc_rajhans",
+    "name": "વિઝન CCTV",
+    "service": "CCTV AMC",
+    "contactPerson": "સમીરભાઈ",
+    "phone": "+91 90000 00157",
+    "amcStart": "2025-08-16",
+    "amcEnd": "2026-08-15"
+  },
+  {
+    "id": "ven_fire",
+    "societyId": "soc_rajhans",
+    "name": "અગ્નિ ફાયર સેફ્ટી",
+    "service": "ફાયર સેફ્ટી",
+    "contactPerson": "હરેશભાઈ",
+    "phone": "+91 90000 00158",
+    "amcStart": "2025-07-01",
+    "amcEnd": "2026-06-30",
+    "notes": "AMC પૂરું, નવો કરાર કરવાનો છે"
+  }
+]

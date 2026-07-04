@@ -1,0 +1,14 @@
+[
+  {
+    "id": "lead_001", "name": "કિરણભાઈ પટેલ", "phone": "90000 05001", "email": "kiran.demo@example.com",
+    "societyName": "સ્વસ્તિક એપાર્ટમેન્ટ", "city": "સુરત", "flatCount": 32,
+    "role": "secretary", "mainNeed": "billing", "message": "અમારે બિલિંગ અને ફરિયાદ બંને જોઈએ છે.",
+    "status": "new", "createdAt": "2026-07-01"
+  },
+  {
+    "id": "lead_002", "name": "ભાવનાબેન શાહ", "phone": "90000 05002", "email": "bhavna.demo@example.com",
+    "societyName": "ઓમ રેસિડન્સી", "city": "વડોદરા", "flatCount": 18,
+    "role": "treasurer", "mainNeed": "full app", "message": "",
+    "status": "contacted", "internalNote": "ફોન પર વાત થઈ, ડેમો બતાવવાનું બાકી છે.", "createdAt": "2026-06-28"
+  }
+]

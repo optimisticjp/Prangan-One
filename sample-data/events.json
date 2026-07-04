@@ -1,0 +1,222 @@
+[
+  {
+    "id": "evt_01",
+    "societyId": "soc_rajhans",
+    "name": "નવરાત્રી મહોત્સવ 2026",
+    "type": "નવરાત્રી",
+    "date": "2026-10-11",
+    "note": "કોમન પ્લોટમાં ગરબા. ફ્લેટ દીઠ ₹500 યોગદાન.",
+    "contributions": [
+      {
+        "flatId": "flat_101",
+        "amount": 500,
+        "date": "2026-06-21"
+      },
+      {
+        "flatId": "flat_102",
+        "amount": 500,
+        "date": "2026-06-22"
+      },
+      {
+        "flatId": "flat_104",
+        "amount": 500,
+        "date": "2026-06-23"
+      },
+      {
+        "flatId": "flat_202",
+        "amount": 500,
+        "date": "2026-06-24"
+      },
+      {
+        "flatId": "flat_302",
+        "amount": 500,
+        "date": "2026-06-25"
+      },
+      {
+        "flatId": "flat_402",
+        "amount": 500,
+        "date": "2026-06-26"
+      },
+      {
+        "flatId": "flat_501",
+        "amount": 500,
+        "date": "2026-06-27"
+      },
+      {
+        "flatId": "flat_602",
+        "amount": 500,
+        "date": "2026-06-28"
+      }
+    ],
+    "volunteers": [
+      "સુરેશભાઈ કાથરિયા",
+      "મુકેશભાઈ વઘાસિયા",
+      "સંજયભાઈ પટેલ",
+      "મનીષભાઈ હિરપરા"
+    ],
+    "expenses": [
+      {
+        "label": "ડેકોરેશન એડવાન્સ",
+        "amount": 2000
+      }
+    ]
+  },
+  {
+    "id": "evt_02",
+    "societyId": "soc_rajhans",
+    "name": "વાર્ષિક સભા",
+    "type": "સોસાયટી મીટિંગ",
+    "date": "2026-07-12",
+    "note": "સાંજે 6 વાગ્યે, કોમન પ્લોટ. વર્ષનો હિસાબ રજૂ થશે.",
+    "contributions": [],
+    "volunteers": [],
+    "expenses": []
+  },
+  {
+    "id": "evt_03",
+    "societyId": "soc_rajhans",
+    "name": "બ્લડ ડોનેશન કેમ્પ",
+    "type": "બ્લડ ડોનેશન કેમ્પ",
+    "date": "2026-06-15",
+    "note": "રેડ ક્રોસ સાથે. 22 યુનિટ બ્લડ ડોનેટ થયું.",
+    "contributions": [],
+    "volunteers": [
+      "રમેશભાઈ સાવલિયા",
+      "હાર્દિકભાઈ ગજેરા",
+      "ભાવેશભાઈ ભાલાળા",
+      "દિનેશભાઈ વેકરિયા",
+      "કમલેશભાઈ બોરડ",
+      "અશોકભાઈ કોરાટ"
+    ],
+    "expenses": [
+      {
+        "label": "નાસ્તો અને પાણી",
+        "amount": 1500
+      }
+    ]
+  },
+  {
+    "id": "evt_04",
+    "societyId": "soc_rajhans",
+    "name": "ઉત્તરાયણ મિલન 2026",
+    "type": "ઉત્તરાયણ",
+    "date": "2026-01-14",
+    "note": "ટેરેસ પર ઉંધિયું-જલેબી સાથે મિલન.",
+    "contributions": [
+      {
+        "flatId": "flat_101",
+        "amount": 200,
+        "date": "2026-01-01"
+      },
+      {
+        "flatId": "flat_102",
+        "amount": 200,
+        "date": "2026-01-02"
+      },
+      {
+        "flatId": "flat_103",
+        "amount": 200,
+        "date": "2026-01-03"
+      },
+      {
+        "flatId": "flat_104",
+        "amount": 200,
+        "date": "2026-01-04"
+      },
+      {
+        "flatId": "flat_201",
+        "amount": 200,
+        "date": "2026-01-05"
+      },
+      {
+        "flatId": "flat_202",
+        "amount": 200,
+        "date": "2026-01-06"
+      },
+      {
+        "flatId": "flat_203",
+        "amount": 200,
+        "date": "2026-01-07"
+      },
+      {
+        "flatId": "flat_204",
+        "amount": 200,
+        "date": "2026-01-08"
+      },
+      {
+        "flatId": "flat_301",
+        "amount": 200,
+        "date": "2026-01-09"
+      },
+      {
+        "flatId": "flat_302",
+        "amount": 200,
+        "date": "2026-01-01"
+      },
+      {
+        "flatId": "flat_303",
+        "amount": 200,
+        "date": "2026-01-02"
+      },
+      {
+        "flatId": "flat_304",
+        "amount": 200,
+        "date": "2026-01-03"
+      },
+      {
+        "flatId": "flat_401",
+        "amount": 200,
+        "date": "2026-01-04"
+      },
+      {
+        "flatId": "flat_402",
+        "amount": 200,
+        "date": "2026-01-05"
+      },
+      {
+        "flatId": "flat_403",
+        "amount": 200,
+        "date": "2026-01-06"
+      },
+      {
+        "flatId": "flat_404",
+        "amount": 200,
+        "date": "2026-01-07"
+      },
+      {
+        "flatId": "flat_501",
+        "amount": 200,
+        "date": "2026-01-08"
+      },
+      {
+        "flatId": "flat_502",
+        "amount": 200,
+        "date": "2026-01-09"
+      },
+      {
+        "flatId": "flat_503",
+        "amount": 200,
+        "date": "2026-01-01"
+      },
+      {
+        "flatId": "flat_504",
+        "amount": 200,
+        "date": "2026-01-02"
+      }
+    ],
+    "volunteers": [
+      "જીતેન્દ્રભાઈ ડોબરિયા",
+      "નિલેશભાઈ સોરઠિયા"
+    ],
+    "expenses": [
+      {
+        "label": "ઉંધિયું-જલેબી",
+        "amount": 3200
+      },
+      {
+        "label": "દોરી-પતંગ બાળકો માટે",
+        "amount": 600
+      }
+    ]
+  }
+]

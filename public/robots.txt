@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /$
+Allow: /home
+Allow: /features
+Allow: /pricing
+Allow: /faq
+Allow: /contact
+Disallow: /app
+Disallow: /admin
+Disallow: /accounts
+Disallow: /owner
+Disallow: /saas

@@ -1,0 +1,866 @@
+[
+  {
+    "id": "bill_2026-04_101",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_101",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_102",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_102",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_103",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_103",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_104",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_104",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_201",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_201",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_202",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_202",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_203",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_203",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_204",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_204",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_301",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_301",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_302",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_302",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_303",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_303",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_304",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_304",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_401",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_401",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_402",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_402",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_403",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_403",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_404",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_404",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_501",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_501",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_502",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_502",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_503",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_503",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_504",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_504",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_601",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_601",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_602",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_602",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_603",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_603",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-04_604",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_604",
+    "month": "2026-04",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-04-10"
+  },
+  {
+    "id": "bill_2026-05_101",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_101",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_102",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_102",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_103",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_103",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_104",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_104",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_201",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_201",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_202",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_202",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_203",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_203",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_204",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_204",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_301",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_301",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_302",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_302",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_303",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_303",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_304",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_304",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_401",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_401",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_402",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_402",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_403",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_403",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_404",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_404",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_501",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_501",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_502",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_502",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_503",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_503",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_504",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_504",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_601",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_601",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_602",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_602",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_603",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_603",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-05_604",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_604",
+    "month": "2026-05",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-05-10"
+  },
+  {
+    "id": "bill_2026-06_101",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_101",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_102",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_102",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_103",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_103",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_104",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_104",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_201",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_201",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_202",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_202",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_203",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_203",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_204",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_204",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_301",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_301",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_302",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_302",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_303",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_303",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_304",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_304",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_401",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_401",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_402",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_402",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_403",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_403",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_404",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_404",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_501",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_501",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_502",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_502",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_503",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_503",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_504",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_504",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_601",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_601",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 600,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_602",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_602",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_603",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_603",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-06_604",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_604",
+    "month": "2026-06",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-06-10"
+  },
+  {
+    "id": "bill_2026-07_101",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_101",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_102",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_102",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_103",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_103",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_104",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_104",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_201",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_201",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_202",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_202",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_203",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_203",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_204",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_204",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_301",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_301",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_302",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_302",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_303",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_303",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_304",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_304",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_401",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_401",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_402",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_402",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_403",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_403",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_404",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_404",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_501",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_501",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_502",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_502",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_503",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_503",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_504",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_504",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_601",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_601",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_602",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_602",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 1200,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_603",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_603",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  },
+  {
+    "id": "bill_2026-07_604",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_604",
+    "month": "2026-07",
+    "amount": 1200,
+    "paidAmount": 0,
+    "dueDate": "2026-07-10"
+  }
+]

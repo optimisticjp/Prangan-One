@@ -1,0 +1,128 @@
+[
+  {
+    "id": "doc_01",
+    "societyId": "soc_rajhans",
+    "name": "સોસાયટી રજીસ્ટ્રેશન સર્ટિફિકેટ.pdf",
+    "folder": "સોસાયટી રજીસ્ટ્રેશન",
+    "permission": "public",
+    "date": "2018-03-12",
+    "size": "1.2 MB"
+  },
+  {
+    "id": "doc_02",
+    "societyId": "soc_rajhans",
+    "name": "ઓડિટ રિપોર્ટ 2024-25.pdf",
+    "folder": "ઓડિટ રિપોર્ટ",
+    "permission": "public",
+    "date": "2025-09-30",
+    "size": "2.8 MB"
+  },
+  {
+    "id": "doc_03",
+    "societyId": "soc_rajhans",
+    "name": "ઓડિટ વર્કિંગ 2025-26 (ડ્રાફ્ટ).xlsx",
+    "folder": "ઓડિટ રિપોર્ટ",
+    "permission": "accountant",
+    "date": "2026-06-28",
+    "size": "340 KB"
+  },
+  {
+    "id": "doc_04",
+    "societyId": "soc_rajhans",
+    "name": "વાર્ષિક સભા મિનિટ્સ 2025.pdf",
+    "folder": "મીટિંગ મિનિટ્સ",
+    "permission": "public",
+    "date": "2025-07-14",
+    "size": "860 KB"
+  },
+  {
+    "id": "doc_05",
+    "societyId": "soc_rajhans",
+    "name": "કમિટી મીટિંગ મિનિટ્સ જૂન 2026.pdf",
+    "folder": "મીટિંગ મિનિટ્સ",
+    "permission": "committee",
+    "date": "2026-06-08",
+    "size": "420 KB"
+  },
+  {
+    "id": "doc_06",
+    "societyId": "soc_rajhans",
+    "name": "સોસાયટીના નિયમો (2024 સુધારેલ).pdf",
+    "folder": "નિયમો",
+    "permission": "public",
+    "date": "2024-04-01",
+    "size": "640 KB"
+  },
+  {
+    "id": "doc_07",
+    "societyId": "soc_rajhans",
+    "name": "લિફ્ટ AMC કરાર 2026.pdf",
+    "folder": "વેન્ડર કરાર",
+    "permission": "committee",
+    "date": "2026-01-01",
+    "size": "510 KB"
+  },
+  {
+    "id": "doc_08",
+    "societyId": "soc_rajhans",
+    "name": "સિક્યુરિટી એજન્સી કરાર.pdf",
+    "folder": "વેન્ડર કરાર",
+    "permission": "committee",
+    "date": "2025-08-01",
+    "size": "480 KB"
+  },
+  {
+    "id": "doc_09",
+    "societyId": "soc_rajhans",
+    "name": "બિલ્ડિંગ વીમા પોલિસી 2026.pdf",
+    "folder": "વીમો",
+    "permission": "committee",
+    "date": "2026-02-15",
+    "size": "1.9 MB"
+  },
+  {
+    "id": "doc_10",
+    "societyId": "soc_rajhans",
+    "name": "ફાયર સેફ્ટી NOC.pdf",
+    "folder": "ફાયર સેફ્ટી",
+    "permission": "public",
+    "date": "2025-11-20",
+    "size": "720 KB"
+  },
+  {
+    "id": "doc_11",
+    "societyId": "soc_rajhans",
+    "name": "લિફ્ટ લાયસન્સ 2026.pdf",
+    "folder": "લિફ્ટ દસ્તાવેજ",
+    "permission": "public",
+    "date": "2026-01-10",
+    "size": "380 KB"
+  },
+  {
+    "id": "doc_12",
+    "societyId": "soc_rajhans",
+    "name": "ભાડૂત NOC ફોર્મ (કોરું).pdf",
+    "folder": "ફોર્મ",
+    "permission": "public",
+    "date": "2024-06-01",
+    "size": "120 KB"
+  },
+  {
+    "id": "doc_13",
+    "societyId": "soc_rajhans",
+    "name": "પાણી કનેક્શન કાનૂની પત્ર.pdf",
+    "folder": "કાનૂની નોટિસ",
+    "permission": "admin",
+    "date": "2025-05-19",
+    "size": "260 KB"
+  },
+  {
+    "id": "doc_14",
+    "societyId": "soc_rajhans",
+    "name": "મેન્ટેનન્સ રસીદ બુક સ્કેન (જૂની).pdf",
+    "folder": "મેન્ટેનન્સ રસીદ",
+    "permission": "accountant",
+    "date": "2025-04-02",
+    "size": "5.1 MB"
+  }
+]

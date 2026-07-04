@@ -1,0 +1,134 @@
+[
+  {
+    "id": "soc_rajhans",
+    "name": "રાજહંસ ટાવર",
+    "nameEn": "Rajhans Tower",
+    "address": "મોટા વરાછા, સુરત",
+    "city": "સુરત",
+    "area": "મોટા વરાછા",
+    "maintenanceAmount": 1200,
+    "dueDay": 10,
+    "upiId": "rajhanstower@upi (demo)",
+    "plan": "pro",
+    "flatsLimit": 50,
+    "receiptPrefix": "RT",
+    "themeKey": "navy-saffron",
+    "supportPhone": "90000 00001",
+    "createdAt": "2026-04-01",
+    "receiptSeq": 81,
+    "subscriptionStatus": "active",
+    "tenantAccess": "full",
+    "modules": {
+      "ownerEnabled": {
+        "billing": true,
+        "complaints": true,
+        "notices": true,
+        "documents": true,
+        "vendors": true,
+        "polls": true,
+        "events": true,
+        "parking": true,
+        "reports": true
+      },
+      "adminVisible": {
+        "billing": true,
+        "complaints": true,
+        "notices": true,
+        "documents": true,
+        "vendors": true,
+        "polls": true,
+        "events": true,
+        "parking": true,
+        "reports": true
+      }
+    }
+  },
+  {
+    "id": "soc_shreehari",
+    "name": "શ્રી હરિ રેસિડન્સી",
+    "nameEn": "Shree Hari Residency",
+    "address": "કતારગામ, સુરત",
+    "city": "સુરત",
+    "area": "કતારગામ",
+    "maintenanceAmount": 1000,
+    "dueDay": 5,
+    "upiId": "",
+    "plan": "trial",
+    "flatsLimit": 80,
+    "receiptPrefix": "SHR",
+    "themeKey": "deep-teal-marigold",
+    "supportPhone": "",
+    "createdAt": "2026-06-10",
+    "receiptSeq": 1,
+    "subscriptionStatus": "trial",
+    "tenantAccess": "full",
+    "modules": {
+      "ownerEnabled": {
+        "billing": true,
+        "complaints": true,
+        "notices": true,
+        "documents": true,
+        "vendors": true,
+        "polls": true,
+        "events": true,
+        "parking": true,
+        "reports": true
+      },
+      "adminVisible": {
+        "billing": true,
+        "complaints": true,
+        "notices": true,
+        "documents": true,
+        "vendors": true,
+        "polls": true,
+        "events": true,
+        "parking": true,
+        "reports": true
+      }
+    }
+  },
+  {
+    "id": "soc_greenvalley",
+    "name": "ગ્રીન વેલી હાઈટ્સ",
+    "nameEn": "Green Valley Heights",
+    "address": "પાલ, સુરત",
+    "city": "સુરત",
+    "area": "પાલ",
+    "maintenanceAmount": 1500,
+    "dueDay": 10,
+    "upiId": "",
+    "plan": "lead",
+    "flatsLimit": 120,
+    "receiptPrefix": "GVH",
+    "themeKey": "forest-green-amber",
+    "supportPhone": "",
+    "createdAt": "2026-06-25",
+    "receiptSeq": 1,
+    "subscriptionStatus": "trial",
+    "tenantAccess": "full",
+    "modules": {
+      "ownerEnabled": {
+        "billing": true,
+        "complaints": true,
+        "notices": true,
+        "documents": true,
+        "vendors": true,
+        "polls": true,
+        "events": true,
+        "parking": true,
+        "reports": true
+      },
+      "adminVisible": {
+        "billing": true,
+        "complaints": true,
+        "notices": true,
+        "documents": true,
+        "vendors": true,
+        "polls": true,
+        "events": true,
+        "parking": true,
+        "reports": true
+      }
+    }
+  }
+]

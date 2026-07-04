@@ -1,0 +1,290 @@
+[
+  {
+    "id": "veh_1",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_101",
+    "kind": "2W",
+    "number": "GJ05AB 1200",
+    "slot": "P-01",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_2",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_101",
+    "kind": "4W",
+    "number": "GJ05CA 4300",
+    "slot": "C-01",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_3",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_102",
+    "kind": "2W",
+    "number": "GJ05BC 1237",
+    "slot": "P-02",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_4",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_103",
+    "kind": "2W",
+    "number": "GJ05CD 1274",
+    "slot": "P-03",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_5",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_104",
+    "kind": "2W",
+    "number": "GJ05DE 1311",
+    "slot": "P-04",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_6",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_104",
+    "kind": "4W",
+    "number": "GJ05FD 4459",
+    "slot": "C-02",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_7",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_201",
+    "kind": "2W",
+    "number": "GJ05EF 1348",
+    "slot": "P-05",
+    "ownerType": "ભાડૂત"
+  },
+  {
+    "id": "veh_8",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_202",
+    "kind": "2W",
+    "number": "GJ05FG 1385",
+    "slot": "P-06",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_9",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_203",
+    "kind": "2W",
+    "number": "GJ05GH 1422",
+    "slot": "P-07",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_10",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_203",
+    "kind": "4W",
+    "number": "GJ05IG 4618",
+    "slot": "C-03",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_11",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_204",
+    "kind": "2W",
+    "number": "GJ05HI 1459",
+    "slot": "P-08",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_12",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_301",
+    "kind": "2W",
+    "number": "GJ05IJ 1496",
+    "slot": "P-09",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_13",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_302",
+    "kind": "2W",
+    "number": "GJ05JK 1533",
+    "slot": "P-10",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_14",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_302",
+    "kind": "4W",
+    "number": "GJ05LJ 4777",
+    "slot": "P-07",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_15",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_303",
+    "kind": "2W",
+    "number": "GJ05KL 1570",
+    "slot": "P-11",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_16",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_304",
+    "kind": "2W",
+    "number": "GJ05LM 1607",
+    "slot": "P-12",
+    "ownerType": "ભાડૂત"
+  },
+  {
+    "id": "veh_17",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_401",
+    "kind": "2W",
+    "number": "GJ05MN 1644",
+    "slot": "P-13",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_18",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_401",
+    "kind": "4W",
+    "number": "GJ05OM 4936",
+    "slot": "C-05",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_19",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_402",
+    "kind": "2W",
+    "number": "GJ05NO 1681",
+    "slot": "P-14",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_20",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_403",
+    "kind": "2W",
+    "number": "GJ05OP 1718",
+    "slot": "P-15",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_21",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_404",
+    "kind": "2W",
+    "number": "GJ05PQ 1755",
+    "slot": "P-16",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_22",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_404",
+    "kind": "4W",
+    "number": "GJ05RP 5095",
+    "slot": "C-06",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_23",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_501",
+    "kind": "2W",
+    "number": "GJ05QR 1792",
+    "slot": "P-17",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_24",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_502",
+    "kind": "2W",
+    "number": "GJ05RS 1829",
+    "slot": "P-18",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_25",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_503",
+    "kind": "2W",
+    "number": "GJ05SB 1866",
+    "slot": "P-19",
+    "ownerType": "ભાડૂત"
+  },
+  {
+    "id": "veh_26",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_503",
+    "kind": "4W",
+    "number": "GJ05DS 5254",
+    "slot": "C-07",
+    "ownerType": "ભાડૂત"
+  },
+  {
+    "id": "veh_27",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_504",
+    "kind": "2W",
+    "number": "GJ05TC 1903",
+    "slot": "P-20",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_28",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_601",
+    "kind": "2W",
+    "number": "GJ05AD 1940",
+    "slot": "P-21",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_29",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_602",
+    "kind": "2W",
+    "number": "GJ05BE 1977",
+    "slot": "P-22",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_30",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_602",
+    "kind": "4W",
+    "number": "GJ05GA 5413",
+    "slot": "C-08",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_31",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_603",
+    "kind": "2W",
+    "number": "GJ05CF 2014",
+    "slot": "P-23",
+    "ownerType": "માલિક"
+  },
+  {
+    "id": "veh_32",
+    "societyId": "soc_rajhans",
+    "flatId": "flat_604",
+    "kind": "2W",
+    "number": "GJ05DG 2051",
+    "slot": "P-24",
+    "ownerType": "માલિક"
+  }
+]

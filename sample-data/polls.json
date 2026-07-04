@@ -1,0 +1,89 @@
+[
+  {
+    "id": "poll_01",
+    "societyId": "soc_rajhans",
+    "question": "સોસાયટીમાં 4 નવા CCTV કેમેરા લગાવવા? (અંદાજિત ખર્ચ ₹28,000)",
+    "type": "yesno",
+    "options": [
+      "હા, લગાવવા",
+      "ના, હમણાં નહીં"
+    ],
+    "votes": {
+      "flat_101": 0,
+      "flat_102": 0,
+      "flat_103": 0,
+      "flat_104": 0,
+      "flat_202": 0,
+      "flat_301": 0,
+      "flat_302": 0,
+      "flat_303": 0,
+      "flat_402": 0,
+      "flat_501": 0,
+      "flat_504": 0,
+      "flat_602": 0,
+      "flat_203": 1,
+      "flat_401": 1
+    },
+    "status": "open",
+    "resultVisible": true,
+    "endDate": "2026-07-12"
+  },
+  {
+    "id": "poll_02",
+    "societyId": "soc_rajhans",
+    "question": "નવરાત્રી ડેકોરેશન કઈ થીમમાં કરવું?",
+    "type": "multi",
+    "options": [
+      "પરંપરાગત ગરબા થીમ",
+      "ફૂલોની સજાવટ",
+      "લાઈટિંગ થીમ"
+    ],
+    "votes": {
+      "flat_101": 0,
+      "flat_103": 1,
+      "flat_201": 2,
+      "flat_204": 0,
+      "flat_302": 1,
+      "flat_304": 2,
+      "flat_403": 0,
+      "flat_502": 1,
+      "flat_601": 2
+    },
+    "status": "open",
+    "resultVisible": false,
+    "endDate": "2026-08-31"
+  },
+  {
+    "id": "poll_03",
+    "societyId": "soc_rajhans",
+    "question": "ટેરેસ પર નાનો ગાર્ડન બનાવવો?",
+    "type": "yesno",
+    "options": [
+      "હા",
+      "ના"
+    ],
+    "votes": {
+      "flat_101": 1,
+      "flat_102": 0,
+      "flat_103": 0,
+      "flat_104": 0,
+      "flat_201": 0,
+      "flat_202": 1,
+      "flat_203": 0,
+      "flat_204": 0,
+      "flat_301": 0,
+      "flat_302": 0,
+      "flat_303": 1,
+      "flat_304": 0,
+      "flat_401": 0,
+      "flat_402": 0,
+      "flat_403": 0,
+      "flat_404": 1,
+      "flat_501": 0,
+      "flat_502": 0
+    },
+    "status": "closed",
+    "resultVisible": true,
+    "endDate": "2026-05-31"
+  }
+]

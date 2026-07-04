@@ -1,0 +1,114 @@
+[
+  {
+    "id": "con_01",
+    "societyId": "soc_rajhans",
+    "name": "રમેશભાઈ સાવલિયા",
+    "role": "પ્રમુખ (ફ્લેટ 101)",
+    "phone": "+91 90000 00010",
+    "category": "committee"
+  },
+  {
+    "id": "con_02",
+    "societyId": "soc_rajhans",
+    "name": "સંજયભાઈ પટેલ",
+    "role": "મંત્રી (ફ્લેટ 302)",
+    "phone": "+91 90000 00019",
+    "category": "committee"
+  },
+  {
+    "id": "con_03",
+    "societyId": "soc_rajhans",
+    "name": "હાર્દિકભાઈ ગજેરા",
+    "role": "ખજાનચી (ફ્લેટ 103)",
+    "phone": "+91 90000 00012",
+    "category": "committee"
+  },
+  {
+    "id": "con_04",
+    "societyId": "soc_rajhans",
+    "name": "રાજેશભાઈ ટાંક",
+    "role": "કમિટી સભ્ય (ફ્લેટ 403)",
+    "phone": "+91 90000 00024",
+    "category": "committee"
+  },
+  {
+    "id": "con_05",
+    "societyId": "soc_rajhans",
+    "name": "અશોકભાઈ કોરાટ",
+    "role": "કમિટી સભ્ય (ફ્લેટ 504)",
+    "phone": "+91 90000 00029",
+    "category": "committee"
+  },
+  {
+    "id": "con_06",
+    "societyId": "soc_rajhans",
+    "name": "પોલીસ કંટ્રોલ રૂમ",
+    "role": "ઈમરજન્સી",
+    "phone": "100",
+    "category": "emergency"
+  },
+  {
+    "id": "con_07",
+    "societyId": "soc_rajhans",
+    "name": "ફાયર બ્રિગેડ",
+    "role": "ઈમરજન્સી",
+    "phone": "101",
+    "category": "emergency"
+  },
+  {
+    "id": "con_08",
+    "societyId": "soc_rajhans",
+    "name": "એમ્બ્યુલન્સ",
+    "role": "ઈમરજન્સી",
+    "phone": "108",
+    "category": "emergency"
+  },
+  {
+    "id": "con_09",
+    "societyId": "soc_rajhans",
+    "name": "સ્મીમેર હોસ્પિટલ",
+    "role": "હોસ્પિટલ",
+    "phone": "0261 2900000",
+    "category": "emergency"
+  },
+  {
+    "id": "con_10",
+    "societyId": "soc_rajhans",
+    "name": "ઓમ લિફ્ટ કેર (ઈમરજન્સી)",
+    "role": "લિફ્ટમાં ફસાવ તો",
+    "phone": "+91 90000 00151",
+    "category": "service"
+  },
+  {
+    "id": "con_11",
+    "societyId": "soc_rajhans",
+    "name": "શ્રી ગણેશ પ્લમ્બિંગ",
+    "role": "પ્લમ્બર",
+    "phone": "+91 90000 00152",
+    "category": "service"
+  },
+  {
+    "id": "con_12",
+    "societyId": "soc_rajhans",
+    "name": "પાવર ઇલેક્ટ્રિકલ્સ",
+    "role": "ઇલેક્ટ્રિશિયન",
+    "phone": "+91 90000 00153",
+    "category": "service"
+  },
+  {
+    "id": "con_13",
+    "societyId": "soc_rajhans",
+    "name": "જય જલારામ વોટર ટેન્કર",
+    "role": "પાણી ટેન્કર",
+    "phone": "+91 90000 00154",
+    "category": "service"
+  },
+  {
+    "id": "con_14",
+    "societyId": "soc_rajhans",
+    "name": "વોચમેન કેબિન",
+    "role": "ગેટ",
+    "phone": "+91 90000 00160",
+    "category": "service"
+  }
+]

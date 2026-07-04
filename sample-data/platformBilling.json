@@ -1,0 +1,5 @@
+[
+  { "id": "pb_001", "societyId": "soc_rajhans", "periodMonth": "2026-06", "flatCount": 24, "ratePerFlat": 10, "expectedAmount": 240, "receivedAmount": 240, "paymentDate": "2026-06-05", "mode": "upi", "status": "paid" },
+  { "id": "pb_002", "societyId": "soc_rajhans", "periodMonth": "2026-07", "flatCount": 24, "ratePerFlat": 10, "expectedAmount": 240, "receivedAmount": 0, "status": "unpaid" },
+  { "id": "pb_003", "societyId": "soc_shreehari", "periodMonth": "2026-07", "flatCount": 0, "ratePerFlat": 10, "expectedAmount": 0, "receivedAmount": 0, "status": "waived", "internalNote": "ટ્રાયલ ચાલુ છે, હજુ ફ્લેટ ડેટા નથી" }
+]

@@ -1,0 +1,86 @@
+/* Self-hosted fonts (via @fontsource), not the Google Fonts CDN: no
+   third-party request on every page load, and no resident IP addresses
+   leaked to Google, which matters for the "data in India" positioning. */
+@import '@fontsource/noto-sans-gujarati/400.css';
+@import '@fontsource/noto-sans-gujarati/500.css';
+@import '@fontsource/noto-sans-gujarati/600.css';
+@import '@fontsource/noto-sans-gujarati/700.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * Default theme variables. These match the original hardcoded navy/saffron
+   * hex values exactly (see src/lib/theme/presets.ts, "navy-saffron" preset),
+   * so the app looks identical on first paint, before src/lib/theme/apply.ts
+   * runs and (if a society picked a different preset) overwrites these on
+   * :root. Values are "R G B" triplets, not hex, so Tailwind's rgb(var(...) /
+   * <alpha-value>) opacity syntax works.
+   */
+  :root {
+    --color-navy-50: 238 241 246;
+    --color-navy-100: 217 223 234;
+    --color-navy-300: 138 153 181;
+    --color-navy-400: 91 110 146;
+    --color-navy-600: 44 62 93;
+    --color-navy-700: 34 49 73;
+    --color-navy-800: 27 39 64;
+    --color-navy-900: 20 29 48;
+    --color-navy-950: 11 18 32;
+    --color-saffron-50: 254 246 231;
+    --color-saffron-100: 252 234 203;
+    --color-saffron-300: 245 190 107;
+    --color-saffron-400: 239 165 60;
+    --color-saffron-500: 230 143 27;
+    --color-saffron-600: 201 119 16;
+    --color-saffron-700: 160 94 12;
+  }
+  html { -webkit-tap-highlight-color: transparent; }
+  body {
+    @apply bg-cream-100 text-navy-800 font-guj antialiased;
+    font-size: 16.5px;
+    line-height: 1.6;
+  }
+  ::selection { @apply bg-saffron-100 text-navy-900; }
+}
+
+@layer components {
+  /* light glassmorphism: headers/cards only, readability first */
+  .glass {
+    background: rgba(253, 251, 247, 0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(27, 39, 64, 0.08);
+  }
+  .card {
+    @apply bg-white rounded-2xl shadow-soft border border-cream-200;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print: show only the receipt area */
+@media print {
+  body { background: #fff !important; }
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area {
+    position: absolute; inset: 0; width: 100%;
+    box-shadow: none !important; border: none !important;
+  }
+  .no-print { display: none !important; }
+}

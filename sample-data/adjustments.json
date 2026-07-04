@@ -1,0 +1,19 @@
+[
+  {
+    "id": "adj_01",
+    "societyId": "soc_rajhans",
+    "date": "2026-06-12",
+    "flatId": "flat_504",
+    "amount": 200,
+    "type": "credit",
+    "reason": "મે મહિનામાં ₹200 વધુ ચૂકવાયા હતા, જૂનમાં જમા"
+  },
+  {
+    "id": "adj_02",
+    "societyId": "soc_rajhans",
+    "date": "2026-06-30",
+    "amount": 118,
+    "type": "debit",
+    "reason": "બેંક ચાર્જ (ચેક બુક)"
+  }
+]

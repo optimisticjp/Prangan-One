@@ -1,0 +1,207 @@
+[
+  {
+    "id": "exp_001",
+    "societyId": "soc_rajhans",
+    "date": "2026-04-01",
+    "category": "સફાઈ પગાર",
+    "amount": 6000,
+    "mode": "cash",
+    "vendorId": "ven_clean"
+  },
+  {
+    "id": "exp_002",
+    "societyId": "soc_rajhans",
+    "date": "2026-04-03",
+    "category": "સિક્યુરિટી પગાર",
+    "amount": 9500,
+    "mode": "bank",
+    "vendorId": "ven_sec"
+  },
+  {
+    "id": "exp_003",
+    "societyId": "soc_rajhans",
+    "date": "2026-04-07",
+    "category": "કોમન લાઈટ બિલ",
+    "amount": 3200,
+    "mode": "bank",
+    "note": "DGVCL બિલ",
+    "billFile": "dgvcl-bill.pdf"
+  },
+  {
+    "id": "exp_004",
+    "societyId": "soc_rajhans",
+    "date": "2026-04-12",
+    "category": "પાણી ટેન્કર",
+    "amount": 800,
+    "mode": "cash",
+    "vendorId": "ven_water"
+  },
+  {
+    "id": "exp_005",
+    "societyId": "soc_rajhans",
+    "date": "2026-04-24",
+    "category": "પાણી ટેન્કર",
+    "amount": 800,
+    "mode": "cash",
+    "vendorId": "ven_water"
+  },
+  {
+    "id": "exp_006",
+    "societyId": "soc_rajhans",
+    "date": "2026-05-01",
+    "category": "સફાઈ પગાર",
+    "amount": 6000,
+    "mode": "cash",
+    "vendorId": "ven_clean"
+  },
+  {
+    "id": "exp_007",
+    "societyId": "soc_rajhans",
+    "date": "2026-05-03",
+    "category": "સિક્યુરિટી પગાર",
+    "amount": 9500,
+    "mode": "bank",
+    "vendorId": "ven_sec"
+  },
+  {
+    "id": "exp_008",
+    "societyId": "soc_rajhans",
+    "date": "2026-05-07",
+    "category": "કોમન લાઈટ બિલ",
+    "amount": 3840,
+    "mode": "bank",
+    "note": "DGVCL બિલ",
+    "billFile": "dgvcl-bill.pdf"
+  },
+  {
+    "id": "exp_009",
+    "societyId": "soc_rajhans",
+    "date": "2026-05-12",
+    "category": "પાણી ટેન્કર",
+    "amount": 800,
+    "mode": "cash",
+    "vendorId": "ven_water"
+  },
+  {
+    "id": "exp_010",
+    "societyId": "soc_rajhans",
+    "date": "2026-05-24",
+    "category": "પાણી ટેન્કર",
+    "amount": 800,
+    "mode": "cash",
+    "vendorId": "ven_water"
+  },
+  {
+    "id": "exp_011",
+    "societyId": "soc_rajhans",
+    "date": "2026-06-01",
+    "category": "સફાઈ પગાર",
+    "amount": 6000,
+    "mode": "cash",
+    "vendorId": "ven_clean"
+  },
+  {
+    "id": "exp_012",
+    "societyId": "soc_rajhans",
+    "date": "2026-06-03",
+    "category": "સિક્યુરિટી પગાર",
+    "amount": 9500,
+    "mode": "bank",
+    "vendorId": "ven_sec"
+  },
+  {
+    "id": "exp_013",
+    "societyId": "soc_rajhans",
+    "date": "2026-06-07",
+    "category": "કોમન લાઈટ બિલ",
+    "amount": 4110,
+    "mode": "bank",
+    "note": "DGVCL બિલ",
+    "billFile": "dgvcl-bill.pdf"
+  },
+  {
+    "id": "exp_014",
+    "societyId": "soc_rajhans",
+    "date": "2026-06-12",
+    "category": "પાણી ટેન્કર",
+    "amount": 800,
+    "mode": "cash",
+    "vendorId": "ven_water"
+  },
+  {
+    "id": "exp_015",
+    "societyId": "soc_rajhans",
+    "date": "2026-06-24",
+    "category": "પાણી ટેન્કર",
+    "amount": 800,
+    "mode": "cash",
+    "vendorId": "ven_water"
+  },
+  {
+    "id": "exp_016",
+    "societyId": "soc_rajhans",
+    "date": "2026-04-05",
+    "category": "લિફ્ટ AMC",
+    "amount": 4500,
+    "mode": "cheque",
+    "vendorId": "ven_lift",
+    "note": "ત્રિમાસિક હપ્તો",
+    "billFile": "lift-amc-q1.pdf"
+  },
+  {
+    "id": "exp_017",
+    "societyId": "soc_rajhans",
+    "date": "2026-05-14",
+    "category": "રિપેરિંગ",
+    "amount": 850,
+    "mode": "cash",
+    "vendorId": "ven_plumb",
+    "note": "ટેરેસ પાઈપ લીકેજ રિપેર"
+  },
+  {
+    "id": "exp_018",
+    "societyId": "soc_rajhans",
+    "date": "2026-06-09",
+    "category": "રિપેરિંગ",
+    "amount": 2400,
+    "mode": "upi",
+    "vendorId": "ven_elec",
+    "note": "પાણીની મોટર રિપેર"
+  },
+  {
+    "id": "exp_019",
+    "societyId": "soc_rajhans",
+    "date": "2026-06-20",
+    "category": "CCTV AMC",
+    "amount": 1800,
+    "mode": "upi",
+    "vendorId": "ven_cctv"
+  },
+  {
+    "id": "exp_020",
+    "societyId": "soc_rajhans",
+    "date": "2026-06-27",
+    "category": "અન્ય",
+    "amount": 350,
+    "mode": "cash",
+    "note": "સ્ટેશનરી અને ઝેરોક્ષ"
+  },
+  {
+    "id": "exp_021",
+    "societyId": "soc_rajhans",
+    "date": "2026-07-01",
+    "category": "સફાઈ પગાર",
+    "amount": 6000,
+    "mode": "cash",
+    "vendorId": "ven_clean"
+  },
+  {
+    "id": "exp_022",
+    "societyId": "soc_rajhans",
+    "date": "2026-07-02",
+    "category": "પાણી ટેન્કર",
+    "amount": 800,
+    "mode": "cash",
+    "vendorId": "ven_water"
+  }
+]
