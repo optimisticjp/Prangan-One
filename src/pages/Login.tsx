@@ -113,6 +113,9 @@ export default function Login() {
           <p className="text-center text-[12.5px] text-navy-400 pt-1">
             તમારી સોસાયટીની લિંક છે? <button onClick={() => nav('/contact')} className="font-semibold text-saffron-600">અમારો સંપર્ક કરો</button>, અમે તમને સાચી લિંક મોકલીશું.
           </p>
+          <p className="text-center text-[12.5px] text-navy-400">
+            સોસાયટી કોડ છે? <button onClick={() => nav('/join')} className="font-semibold text-saffron-600">જોડાઓ</button>
+          </p>
         </div>
       </div>
     </div>

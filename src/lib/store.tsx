@@ -34,6 +34,18 @@ import type {
   Role, Session, Society, SocietyEvent, SocietyModules, SubscriptionStatus, TenantAccessMode, Vehicle,
 } from './types'
 import { uid } from './id'
+
+// A short, human-typeable code a resident enters at /join to find their
+// society - like a Google Classroom class code. Derived from the
+// society's English name (first consonant-ish letters) plus a couple of
+// random digits, so it's memorable and shareable in a WhatsApp group
+// message, not a random opaque string. Collision handling (regenerate on
+// clash) lives in the addSociety call site below.
+function generateJoinCode(nameEn: string): string {
+  const letters = nameEn.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6) || 'SOCIETY'
+  const digits = Math.floor(10 + Math.random() * 89) // 2 digits, 10-98
+  return `${letters}${digits}`
+}
 import { todayISO } from './format'
 import { applyTheme } from './theme/apply'
 import { defaultThemeKey } from './theme/presets'
@@ -83,6 +95,7 @@ function buildSeed(): DB {
     memberships: membershipsJson as unknown as Membership[],
     platformBilling: platformBillingJson as unknown as import('./types').PlatformBillingRecord[],
     leads: leadsJson as unknown as PublicLead[],
+    unmatchedLoginAttempts: [],
     auditLogs: auditLogsJson as unknown as AuditLogEntry[],
     impersonationLogs: impersonationLogsJson as unknown as ImpersonationLog[],
   }
@@ -96,6 +109,7 @@ function buildSeed(): DB {
 function emptySeed(): DB {
   const placeholder: Society = {
     id: 'soc_placeholder', name: 'તમારી સોસાયટી', nameEn: 'Your Society', slug: 'your-society',
+    joinCode: 'WELCOME',
     address: '', city: '', area: '', maintenanceAmount: 1000, dueDay: 10, upiId: '',
     plan: 'trial', flatsLimit: 50, receiptPrefix: 'SOC',
     themeKey: defaultThemeKey, receiptSeq: 1, createdAt: todayISO(),
@@ -109,7 +123,7 @@ function emptySeed(): DB {
     version: 3, societies: [placeholder], flats: [], bills: [], payments: [],
     expenses: [], vendors: [], complaints: [], notices: [], documents: [],
     polls: [], events: [], vehicles: [], contacts: [], adjustments: [],
-    memberships: [], platformBilling: [], leads: [], auditLogs: [], impersonationLogs: [],
+    memberships: [], platformBilling: [], leads: [], unmatchedLoginAttempts: [], auditLogs: [], impersonationLogs: [],
   }
 }
 
@@ -138,7 +152,7 @@ function loadSession(): Session {
       if (parsed && parsed.societyId) return parsed
     }
   } catch { /* ignore */ }
-  return { role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false }
+  return { role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false }
 }
 
 /* ------------------------------------------------------------------ */
@@ -166,7 +180,7 @@ interface Store {
   /* session */
   login: (role: Role, flatId?: string) => void
   logout: () => void
-  enterSociety: (societyId: string, role: Role, mode?: 'readonly' | 'write') => void
+  enterSociety: (societyId: string, role: Role, mode?: 'readonly' | 'write', reason?: string) => void
   exitImpersonation: () => void
   /** Public lookup by slug (pranganone.com/s/rajhans-tower) - only exposes
    * non-sensitive metadata the caller already gets: name, logo, theme,
@@ -177,6 +191,34 @@ interface Store {
    * granting any role or access - the actual login step still happens
    * separately. Used by the share-link handoff. */
   setActiveSocietyContext: (societyId: string) => void
+  /** Public lookup by join code (Google Classroom-style, entered at
+   * /join) - only exposes non-sensitive metadata, same spirit as
+   * findSocietyBySlug. */
+  findSocietyByJoinCode: (code: string) => Society | undefined
+  /** A resident self-enrolling via /join: society join code + their flat
+   * number + name/phone/email. Auto-confirms (status 'active') when the
+   * phone matches what's already on file for that flat; otherwise creates
+   * a 'pending' membership a committee member has to approve. Never lets
+   * a tenant in when the society's tenantAccess is 'disabled'. */
+  selfEnrollResident: (input: { joinCode: string; flatNumber: string; name: string; phone: string; email: string }) =>
+    { ok: true; status: 'active' | 'pending' } | { ok: false; error: 'society_not_found' | 'flat_not_found' | 'tenant_access_disabled' | 'already_enrolled' }
+  /** Committee approves a resident's pending self-enrollment (see
+   * selfEnrollResident above). Flips status to 'active', nothing else. */
+  approveMembership: (membershipId: string) => void
+  /** Committee rejects a pending self-enrollment - removes it outright,
+   * rather than leaving a rejected row around; they can just try again
+   * with the committee's help if it was a genuine mistake. */
+  rejectMembership: (membershipId: string) => void
+  /** Logs an email that was typed at /login but matched no membership
+   * anywhere - see NoAccess.tsx. Deliberately just the email, no other
+   * PII, and separate from the full lead-capture flow on /contact. */
+  logUnmatchedLoginAttempt: (email: string) => void
+  /** Sets the session directly from a real, claimed Supabase membership
+   * (see claimMemberships in auth.ts) - used only by AuthCallback.tsx,
+   * once real login has resolved to exactly one membership. Distinct from
+   * login()/enterSociety(), which are demo and owner-support-mode paths
+   * with their own logging semantics. */
+  resolveRealSession: (membership: { role: Role; societyId: string; flatId: string | null }) => void
   /* derived helpers */
   flatById: (id: string) => Flat | undefined
   billStatus: (b: Bill) => 'paid' | 'pending' | 'overdue'
@@ -223,7 +265,7 @@ interface Store {
   addAdjustment: (a: { date: string; flatId?: string; amount: number; type: 'credit' | 'debit'; reason: string }) => void
   updateSociety: (patch: Partial<Society>) => void
   /* membership */
-  addMembership: (m: { societyId: string; email: string; role: Role; flatId?: string; phone?: string; whatsapp?: string; canManageBilling?: boolean }) => Membership
+  addMembership: (m: { societyId: string; email: string; role: Role; flatId?: string; phone?: string; whatsapp?: string; canManageBilling?: boolean; name?: string }) => Membership
   /* owner backend */
   addSociety: (s: NewSocietyInput) => Society
   updateSocietyById: (id: string, patch: Partial<Society>) => void
@@ -283,6 +325,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       memberships: scope(db.memberships),
       platformBilling: db.platformBilling, // owner-only concern, stays global like societies
       leads: db.leads, // owner-only concern, stays global
+      unmatchedLoginAttempts: db.unmatchedLoginAttempts, // owner-only concern, stays global
       auditLogs: scope(db.auditLogs),
       impersonationLogs: scope(db.impersonationLogs),
     }
@@ -340,26 +383,69 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (flatId) {
           const flat = db.flats.find(f => f.id === flatId)
           const derivedRole: Role = flat?.occupancy === 'tenant' ? 'resident_tenant' : 'resident_owner'
-          setSession({ role: role === 'resident_owner' || role === 'resident_tenant' ? derivedRole : role, flatId, societyId: flat?.societyId ?? DEFAULT_SOCIETY_ID, explicitSociety: true })
+          setSession({ role: role === 'resident_owner' || role === 'resident_tenant' ? derivedRole : role, flatId, societyId: flat?.societyId ?? DEFAULT_SOCIETY_ID, explicitSociety: true, actingAsOwner: false })
         } else {
-          setSession({ role, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false })
+          setSession({ role, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false })
         }
       },
-      logout: () => setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false }),
-      enterSociety: (societyId, role, mode = 'readonly') => {
-        setDb(d => ({ ...d, impersonationLogs: [{ id: uid('imp'), societyId, enteredAt: new Date().toISOString(), mode }, ...d.impersonationLogs] }))
-        setSession({ role, flatId: null, societyId, explicitSociety: true })
+      logout: () => setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false }),
+      enterSociety: (societyId, role, mode = 'readonly', reason) => {
+        setDb(d => ({ ...d, impersonationLogs: [{ id: uid('imp'), societyId, enteredAt: new Date().toISOString(), mode, reason }, ...d.impersonationLogs] }))
+        setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true })
       },
       exitImpersonation: () => {
         setDb(d => ({
           ...d,
           impersonationLogs: d.impersonationLogs.map((l, i) => i === 0 && l.societyId === session.societyId && !l.exitedAt ? { ...l, exitedAt: new Date().toISOString() } : l),
         }))
-        setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false })
+        setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false })
       },
       findSocietyBySlug: (slug) => db.societies.find(s => s.slug === slug),
       setActiveSocietyContext: (societyId) =>
-        setSession(s => ({ ...s, societyId, role: null, flatId: null, explicitSociety: true })),
+        setSession(s => ({ ...s, societyId, role: null, flatId: null, explicitSociety: true, actingAsOwner: false })),
+
+      findSocietyByJoinCode: (code) =>
+        db.societies.find(s => s.joinCode.toLowerCase() === code.trim().toLowerCase()),
+
+      selfEnrollResident: (input) => {
+        const society = db.societies.find(s => s.joinCode.toLowerCase() === input.joinCode.trim().toLowerCase())
+        if (!society) return { ok: false, error: 'society_not_found' }
+
+        const flat = db.flats.find(f => f.societyId === society.id && f.number.trim().toLowerCase() === input.flatNumber.trim().toLowerCase())
+        if (!flat) return { ok: false, error: 'flat_not_found' }
+
+        const derivedRole: Role = flat.occupancy === 'tenant' ? 'resident_tenant' : 'resident_owner'
+        if (derivedRole === 'resident_tenant' && society.tenantAccess === 'disabled') {
+          return { ok: false, error: 'tenant_access_disabled' }
+        }
+
+        const email = input.email.trim().toLowerCase()
+        const alreadyThere = db.memberships.some(m => m.societyId === society.id && m.email.toLowerCase() === email)
+        if (alreadyThere) return { ok: false, error: 'already_enrolled' }
+
+        const normalize = (p: string) => p.replace(/\D/g, '').slice(-10) // last 10 digits, ignores +91/spaces/dashes
+        const phoneMatches = !!flat.phone && normalize(flat.phone) === normalize(input.phone)
+        const status: 'active' | 'pending' = phoneMatches ? 'active' : 'pending'
+
+        const mem: Membership = {
+          id: uid('mem'), createdAt: todayISO(), status,
+          societyId: society.id, email, role: derivedRole, flatId: flat.id, phone: input.phone.trim(), name: input.name.trim(),
+        }
+        setDb(d => ({ ...d, memberships: [...d.memberships, mem] }))
+        return { ok: true, status }
+      },
+
+      approveMembership: (membershipId) =>
+        setDb(d => ({ ...d, memberships: d.memberships.map(m => m.id === membershipId ? { ...m, status: 'active' } : m) })),
+
+      rejectMembership: (membershipId) =>
+        setDb(d => ({ ...d, memberships: d.memberships.filter(m => m.id !== membershipId) })),
+
+      logUnmatchedLoginAttempt: (email) =>
+        setDb(d => ({ ...d, unmatchedLoginAttempts: [{ id: uid('ula'), email: email.trim().toLowerCase(), at: new Date().toISOString() }, ...d.unmatchedLoginAttempts] })),
+
+      resolveRealSession: (membership) =>
+        setSession({ role: membership.role, flatId: membership.flatId, societyId: membership.societyId, explicitSociety: true, actingAsOwner: false }),
 
       flatById, billStatus, flatPending, totalPending, monthIncome, monthExpense, moduleEnabled, adminCanToggle,
 
@@ -516,7 +602,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         guardedSetDb(d => ({ ...d, societies: d.societies.map(s => s.id === activeSocietyId ? { ...s, ...patch } : s) })),
 
       addMembership: (m) => {
-        const mem: Membership = { id: uid('mem'), createdAt: todayISO(), ...m }
+        const mem: Membership = { id: uid('mem'), createdAt: todayISO(), status: 'active', ...m }
         setDb(d => ({ ...d, memberships: [...d.memberships, mem] }))
         return mem
       },
@@ -526,8 +612,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const taken = new Set(db.societies.map(x => x.slug))
         let slug = base, n = 2
         while (taken.has(slug)) { slug = `${base}-${n}`; n++ }
+        const takenCodes = new Set(db.societies.map(x => x.joinCode))
+        let joinCode = generateJoinCode(s.nameEn)
+        while (takenCodes.has(joinCode)) joinCode = generateJoinCode(s.nameEn)
         const newSoc: Society = {
-          id: uid('soc'), upiId: '', plan: 'trial', flatsLimit: 60, slug,
+          id: uid('soc'), upiId: '', plan: 'trial', flatsLimit: 60, slug, joinCode,
           subscriptionStatus: 'trial', receiptSeq: 1, createdAt: todayISO(), ...s,
         }
         setDb(d => ({ ...d, societies: [...d.societies, newSoc] }))

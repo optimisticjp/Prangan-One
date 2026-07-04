@@ -9,13 +9,13 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, ArrowLeftRight, Check, Upload, ReceiptText, Wrench, Bell,
-  FolderOpen, Store as StoreIcon, Vote, PartyPopper, Car, BarChart3, CheckCircle2, Mail, UserPlus,
+  FolderOpen, Store as StoreIcon, Vote, PartyPopper, Car, BarChart3, CheckCircle2, Mail, UserPlus, KeyRound, Copy,
 } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { themePresets } from '../../lib/theme/presets'
 import { effectiveStatus, graceDaysRemaining } from '../../lib/subscription'
 import { roleLabel } from '../../lib/permissions'
-import { Badge, Button, Card, Field, Input, PageHeader, Select } from '../../components/ui'
+import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select } from '../../components/ui'
 import { SocietyBadge } from '../../components/SocietyLogo'
 import type { Role, SocietyModules, SubscriptionStatus, TenantAccessMode } from '../../lib/types'
 
@@ -43,6 +43,13 @@ export default function SocietyDetail() {
 
   const soc = rawDb.societies.find(s => s.id === id)
   const [saved, setSaved] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const copyJoinCode = () => {
+    if (!soc) return
+    navigator.clipboard?.writeText(soc.joinCode).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
+  }
   const [newMemberEmail, setNewMemberEmail] = useState('')
   const [newMemberRole, setNewMemberRole] = useState<Role>('committee_member')
 
@@ -92,6 +99,14 @@ export default function SocietyDetail() {
   }
 
   const enterAsAdmin = (mode: 'readonly' | 'write') => { enterSociety(soc.id, 'society_admin', mode); nav('/admin') }
+  const [reasonPrompt, setReasonPrompt] = useState(false)
+  const [reason, setReason] = useState('')
+  const confirmWriteSupport = () => {
+    if (!reason.trim()) return
+    enterSociety(soc.id, 'society_admin', 'write', reason.trim())
+    setReasonPrompt(false)
+    nav('/admin')
+  }
   const addMember = () => {
     if (!newMemberEmail.trim()) return
     addMembership({ societyId: soc.id, email: newMemberEmail.trim(), role: newMemberRole })
@@ -107,7 +122,7 @@ export default function SocietyDetail() {
       <PageHeader title={soc.name} sub={soc.nameEn}
         actions={<>
           <Button variant="soft" onClick={() => enterAsAdmin('readonly')}><ArrowLeftRight size={16} /> Read-only જુઓ</Button>
-          <Button variant="danger" onClick={() => enterAsAdmin('write')}>Write-capable સપોર્ટ</Button>
+          <Button variant="danger" onClick={() => setReasonPrompt(true)}>Write-capable સપોર્ટ</Button>
         </>} />
 
       {/* subscription lifecycle */}
@@ -216,6 +231,15 @@ export default function SocietyDetail() {
       </div>
 
       <Card className="mt-4">
+        <h2 className="font-bold text-navy-800 mb-1 inline-flex items-center gap-2"><KeyRound size={17} /> રહેવાસી જોડાવા કોડ</h2>
+        <p className="text-[12.5px] text-navy-400 mb-3">આ કોડ WhatsApp ગ્રુપ કે નોટિસ બોર્ડ પર શેર કરો. રહેવાસી pranganone.com/join પર આ કોડ અને પોતાનો ફ્લેટ નંબર નાખીને જોડાઈ શકે છે.</p>
+        <div className="flex items-center gap-3">
+          <div className="font-mono font-bold text-[20px] text-navy-900 bg-cream-100 rounded-lg px-4 py-2 tracking-wide">{soc.joinCode}</div>
+          <Button variant="soft" onClick={copyJoinCode}><Copy size={15} /> {copied ? 'કોપી થયું!' : 'કોપી કરો'}</Button>
+        </div>
+      </Card>
+
+      <Card className="mt-4">
         <h2 className="font-bold text-navy-800 mb-3">સભ્યો (memberships)</h2>
         <div className="space-y-2 mb-3">
           {memberships.map(m => (
@@ -244,6 +268,12 @@ export default function SocietyDetail() {
           </div>
         </Card>
       </div>
+
+      <Modal open={reasonPrompt} onClose={() => setReasonPrompt(false)} title="સપોર્ટ કારણ જણાવો">
+        <p className="text-[13px] text-navy-500 mb-3">Write-capable સપોર્ટ મોડમાં તમે આ સોસાયટી માટે ખરેખર ફેરફાર કરી શકશો. કારણ લખો, જેથી પછી એક્ટિવિટી લોગમાં દેખાય.</p>
+        <Input value={reason} onChange={e => setReason(e.target.value)} placeholder="દા.ત. સેક્રેટરીએ ફોન કર્યો, એપ્રિલ બિલ બનાવવામાં તકલીફ છે" className="mb-3" />
+        <Button variant="danger" className="w-full" onClick={confirmWriteSupport} disabled={!reason.trim()}>સપોર્ટ મોડમાં જાઓ</Button>
+      </Modal>
     </div>
   )
 }

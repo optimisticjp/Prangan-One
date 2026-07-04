@@ -35,7 +35,7 @@ export async function signOut(): Promise<void> {
 }
 
 export interface ClaimedMembership {
-  membershipId: string; societyId: string; role: string; flatId: string | null
+  membershipId: string; societyId: string; societyName: string; role: string; flatId: string | null
 }
 
 /**
@@ -53,12 +53,17 @@ export async function claimMemberships(userId: string, email: string): Promise<C
     .update({ user_id: userId })
     .is('user_id', null)
     .eq('email', email.toLowerCase())
+    .eq('status', 'active') // a pending self-enrollment isn't claimable until a committee member approves it
 
   const { data, error } = await supabase
     .from('memberships')
-    .select('id, society_id, role, flat_id')
+    .select('id, society_id, role, flat_id, societies:society_id (name_en)')
     .eq('user_id', userId)
+    .eq('status', 'active')
 
   if (error) throw error
-  return (data ?? []).map(m => ({ membershipId: m.id, societyId: m.society_id, role: m.role, flatId: m.flat_id }))
+  return (data ?? []).map(m => ({
+    membershipId: m.id, societyId: m.society_id, role: m.role, flatId: m.flat_id,
+    societyName: (m.societies as unknown as { name_en: string } | null)?.name_en ?? m.society_id,
+  }))
 }

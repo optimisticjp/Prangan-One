@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Download, Plus, Search, Upload, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Download, Plus, Search, Upload, AlertTriangle, CheckCircle2, UserPlus, X, Clock3 } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { inr } from '../../lib/format'
 import { exportCsv, parseCsv, validateFlatImport } from '../../lib/csv'
@@ -7,10 +7,16 @@ import type { FlatImportResult } from '../../lib/csv'
 import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, TableWrap, td, th } from '../../components/ui'
 
 export default function Members() {
-  const { db, flatPending, addFlat, addFlatsBulk } = useData()
+  const { db, flatPending, addFlat, addFlatsBulk, approveMembership, rejectMembership } = useData()
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ number: '', floor: 1, ownerName: '', phone: '', email: '', occupancy: 'owner' as 'owner' | 'tenant', tenantName: '', tenantEmail: '', sqft: 980 })
+
+  // Self-enrolled residents (via /join) whose phone didn't match the flat
+  // record on file - a committee member confirms with one tap before
+  // they can actually log in. See selfEnrollResident() in store.tsx.
+  const pendingResidents = useMemo(() => db.memberships.filter(m => m.status === 'pending'), [db.memberships])
+  const flatNumberFor = (flatId?: string) => db.flats.find(f => f.id === flatId)?.number ?? '?'
 
   const [importOpen, setImportOpen] = useState(false)
   const [importResult, setImportResult] = useState<FlatImportResult | null>(null)
@@ -64,6 +70,27 @@ export default function Members() {
           <Button variant="soft" onClick={() => setImportOpen(true)}><Upload size={16} /> CSV આયાત</Button>
           <Button variant="accent" onClick={() => setOpen(true)}><Plus size={16} /> ફ્લેટ ઉમેરો</Button>
         </>} />
+
+      {pendingResidents.length > 0 && (
+        <Card className="mb-4 border-saffron-300 bg-saffron-50/40">
+          <h2 className="font-bold text-navy-800 mb-1 inline-flex items-center gap-2"><Clock3 size={17} className="text-pend" /> મંજૂરીની રાહ જોતા રહેવાસી ({pendingResidents.length})</h2>
+          <p className="text-[12.5px] text-navy-400 mb-3">આ લોકોએ /join પર કોડ નાખીને જોડાવાનો પ્રયત્ન કર્યો, પણ તેમની વિગતો ફ્લેટના રેકોર્ડ સાથે સીધી મળી નથી.</p>
+          <div className="space-y-2">
+            {pendingResidents.map(m => (
+              <div key={m.id} className="flex items-center justify-between bg-white rounded-xl border border-cream-200 px-3.5 py-2.5">
+                <div className="text-[13.5px]">
+                  <div className="font-semibold text-navy-900">{m.name ?? m.email} <span className="text-navy-400 font-normal">· ફ્લેટ {flatNumberFor(m.flatId)}</span></div>
+                  <div className="text-[12px] text-navy-400">{m.email} · {m.phone}</div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button variant="soft" onClick={() => approveMembership(m.id)}><CheckCircle2 size={15} /> મંજૂર</Button>
+                  <button onClick={() => rejectMembership(m.id)} className="h-9 w-9 rounded-lg text-navy-400 hover:bg-cream-100 flex items-center justify-center" aria-label="નકારો"><X size={16} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="relative mb-3 max-w-sm">
         <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-300" />

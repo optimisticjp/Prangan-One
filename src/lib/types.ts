@@ -68,6 +68,13 @@ export interface Society {
   // by design, since a resident needs it to find their own society -
   // never anything sensitive.
   slug: string
+  // Short, human-typeable code (e.g. "RAJHANS7"), Google Classroom-style.
+  // A resident types this into /join to self-enroll. Identifies WHICH
+  // society, nothing more - it never grants access by itself, see
+  // selfEnrollResident() in store.tsx for the actual matching/approval
+  // logic. Fine to be guessable/shared in a WhatsApp group; the real
+  // gate is matching flat + phone, or committee approval when they don't.
+  joinCode: string
   maintenanceAmount: number; dueDay: number; upiId: string
   plan: string; flatsLimit: number
   receiptPrefix: string; themeKey: string; logoDataUrl?: string
@@ -93,8 +100,30 @@ export interface PlatformBillingRecord {
 export interface Membership {
   id: string; societyId: string; email: string; userId?: string
   role: Role; flatId?: string; phone?: string; whatsapp?: string
+  // The name given at invite time (admin-added) or self-enrollment time
+  // (/join) - not necessarily the same as Flat.ownerName/tenantName,
+  // which is what the committee already had on file. Showing both side
+  // by side is exactly what makes a pending approval easy to judge.
+  name?: string
   canManageBilling?: boolean  // only meaningful for committee_member
+  // 'active': usable immediately, this is every committee/accountant/owner
+  // invite the admin added, plus a resident self-enrollment whose name or
+  // phone matched what's already on file for that flat. 'pending': a
+  // resident self-enrolled via a join code but nothing on file confirmed
+  // they're really that flat's resident, so a committee member has to
+  // approve it first, see approveMembership/rejectMembership in store.tsx.
+  status: 'active' | 'pending'
   createdAt: string
+}
+
+// A logged attempt where someone entered an email at /login that matched
+// no membership anywhere on the platform. Deliberately lightweight (just
+// the email and when), separate from a full PublicLead - this captures
+// real intent-to-log-in, which the owner console surfaces as its own
+// signal, not mixed into the sales lead inbox. See NoAccess.tsx and
+// Owner/UnmatchedAttempts.tsx.
+export interface UnmatchedLoginAttempt {
+  id: string; email: string; at: string
 }
 
 export interface PublicLead {
@@ -111,6 +140,11 @@ export interface PublicLead {
 export interface ImpersonationLog {
   id: string; societyId: string; enteredAt: string; mode: 'readonly' | 'write'
   exitedAt?: string
+  // Required for write-mode entries - readonly "just looking" entries can
+  // skip it, but taking real action on a society's behalf needs a stated
+  // reason, shown back to the owner in the activity log and in the
+  // persistent support-mode banner while it's active.
+  reason?: string
 }
 
 export interface AuditLogEntry {
@@ -201,6 +235,7 @@ export interface DB {
   memberships: Membership[]
   platformBilling: PlatformBillingRecord[]
   leads: PublicLead[]
+  unmatchedLoginAttempts: UnmatchedLoginAttempt[]
   impersonationLogs: ImpersonationLog[]
   auditLogs: AuditLogEntry[]
 }
@@ -215,4 +250,10 @@ export interface DB {
 // branding, or whether this is just a generic visitor who hasn't told the
 // app which society they belong to. Set true by /s/:slug, a resolved
 // membership, or picking a flat in the demo. See src/pages/Login.tsx.
-export interface Session { role: Role | null; flatId: string | null; societyId: string; explicitSociety: boolean }
+//
+// actingAsOwner is true only while the platform owner is inside a society
+// via "support mode" (enterSociety) - it's what shows the persistent
+// support-mode banner and is logged alongside the reason they gave, kept
+// separate from explicitSociety since an owner acting as admin still has
+// an explicit society, just also needs the extra visibility/accountability.
+export interface Session { role: Role | null; flatId: string | null; societyId: string; explicitSociety: boolean; actingAsOwner: boolean }

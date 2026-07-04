@@ -49,6 +49,16 @@ create table societies (
   id               uuid primary key default gen_random_uuid(),
   name             text not null,
   name_en          text not null,
+  -- URL-safe, unique across the platform: pranganone.com/s/{slug}. Public
+  -- by design. Genuinely missing from this schema until now, a leftover
+  -- gap from before that route existed - the app-level code has assumed
+  -- it since Society.slug was added to src/lib/types.ts.
+  slug             text not null unique,
+  -- Short, human-typeable code (Google Classroom-style) a resident enters
+  -- at /join to self-enroll. Identifies the society only, never grants
+  -- access by itself - see the can-write policies on memberships below
+  -- and selfEnrollResident() in src/lib/store.tsx for the actual gate.
+  join_code        text not null unique,
   address          text not null,
   city             text not null default '',
   area             text not null default '',
@@ -113,6 +123,7 @@ create table memberships (
   id             uuid primary key default gen_random_uuid(),
   user_id        uuid references auth.users(id) on delete cascade,  -- null until claimed
   email          text not null,  -- set at invite time; matched against auth.users.email on claim
+  name           text,  -- given at invite time or self-enrollment time, see /join
   society_id     uuid not null references societies(id) on delete cascade,
   flat_id        uuid,  -- fk added after flats table exists, see below
   role           text not null check (role in (
@@ -122,9 +133,22 @@ create table memberships (
   phone          text,
   whatsapp       text,
   can_manage_billing boolean not null default false,  -- only meaningful when role = committee_member
+  -- 'active': usable immediately (every admin-added invite, or a /join
+  -- self-enrollment whose phone matched the flat on file). 'pending': a
+  -- self-enrollment nothing on file could confirm, needs committee
+  -- approval (see can_write-style write policies below) before it's
+  -- claimable - claimMemberships() in src/lib/auth.ts only claims
+  -- status = 'active' rows on purpose.
+  status         text not null default 'active' check (status in ('active', 'pending')),
   created_at     timestamptz not null default now(),
   unique (society_id, email)
 );
+-- The trigger that enforces self-enrollment rules server-side attaches
+-- further down, right after enforce_membership_insert() is defined - it
+-- needs both this table AND that function to exist, and the function
+-- lives in the Helper functions section below (which itself has to come
+-- after Core tables, for the unrelated language-sql-functions reason
+-- explained at the top of this file). See "Triggers" section.
 
 create table flats (
   id            uuid primary key default gen_random_uuid(),
@@ -387,6 +411,20 @@ create table public_leads (
   created_at    timestamptz not null default now()
 );
 
+-- An email that was typed at /login, verified via a real magic-link click,
+-- and matched no membership anywhere on the platform - see
+-- AuthCallback.tsx and NoAccess.tsx. Deliberately just the email and
+-- when, nothing else, and kept separate from public_leads: this is a
+-- product-usage signal (someone genuinely tried to get in), not
+-- something the person agreed to being contacted about, see the owner
+-- console's read of this table for the "convert to a lead" step that
+-- asks permission before treating it as one.
+create table unmatched_login_attempts (
+  id         uuid primary key default gen_random_uuid(),
+  email      text not null,
+  created_at timestamptz not null default now()
+);
+
 -- General audit trail for financial and administrative changes that need
 -- a permanent record (subscription status changes, receipt cancellations,
 -- etc). Deliberately generic (action + detail as text) rather than a
@@ -512,6 +550,101 @@ begin
   return false; -- paused or archived
 end;
 $$;
+
+-- Decides active vs pending for a resident self-enrollment (/join) -
+-- SERVER-SIDE, deliberately never trusting whatever `status` the client
+-- tried to insert. A privileged inviter (committee/admin/owner adding a
+-- member from the admin console, already a vetted human decision) passes
+-- through untouched. Anyone else attempting an insert only ever gets a
+-- resident role, and only ever gets 'active' if the phone they gave
+-- matches what's already on file for that flat - matched on the last 10
+-- digits only, so +91/spaces/dashes formatting differences don't matter,
+-- mirroring the same normalize() logic in src/lib/store.tsx's
+-- selfEnrollResident(), which this function is the real-database version
+-- of. See the memberships_insert policy below for the matching RLS side.
+--
+-- Important: this checks session_user, not just auth.uid()/has_role(),
+-- and that's deliberate, not redundant. A direct SQL editor session (used
+-- to manually bootstrap the very first owner/admin membership, since
+-- nothing privileged exists yet to grant it through the app) and a
+-- genuinely anonymous public /join submission both have auth.uid() = null
+-- - there's no JWT in either case. The only real difference is *which
+-- Postgres role* the connection is using: 'postgres'/'service_role' for a
+-- direct/trusted connection, 'anon'/'authenticated' for anything that
+-- came through Supabase's public API. Checking has_role() alone would
+-- have blocked the exact manual bootstrap step this project's own setup
+-- instructions rely on. Using session_user specifically, not current_user
+-- - this function is security definer, so current_user inside it would
+-- report the function's OWNER, not whoever actually opened the
+-- connection; session_user isn't affected by that switch.
+-- Narrow, deliberately limited lookup for /join: resolves a flat NUMBER
+-- to its id within one society, nothing else. flats_select (below) stays
+-- member-only on purpose, since a flat row includes owner_name, phone,
+-- and tenant_name/email - broadening that SELECT policy so an anonymous
+-- /join visitor could look up a flat would leak every resident's contact
+-- details to anyone who knows or guesses a join code and a flat number.
+-- This function is the safe alternative: it runs as security definer
+-- (so it can read flats internally despite the caller having no SELECT
+-- access), and returns only an opaque id, never the row itself.
+create or replace function find_flat_for_join(target_society uuid, target_flat_number text)
+returns uuid
+language sql
+security definer
+stable
+as $$
+  select id from flats
+  where society_id = target_society
+    and lower(trim(number)) = lower(trim(target_flat_number))
+  limit 1;
+$$;
+
+create or replace function enforce_membership_insert()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if session_user in ('postgres', 'service_role', 'supabase_admin')
+     or has_role(new.society_id, array['owner', 'society_admin', 'committee_member']) then
+    return new;
+  end if;
+
+  if new.role not in ('resident_owner', 'resident_tenant') then
+    raise exception 'self-enrollment can only create a resident membership';
+  end if;
+  if new.flat_id is null then
+    raise exception 'self-enrollment requires a flat_id';
+  end if;
+
+  new.user_id := null; -- never let a self-enrollment insert claim a user_id directly
+  new.status := case
+    when exists (
+      select 1 from flats f
+      where f.id = new.flat_id and f.society_id = new.society_id
+        and f.phone is not null
+        and right(regexp_replace(f.phone, '\D', '', 'g'), 10) = right(regexp_replace(coalesce(new.phone, ''), '\D', '', 'g'), 10)
+    ) then 'active'
+    else 'pending'
+  end;
+
+  return new;
+end;
+$$;
+
+-- -----------------------------------------------------------------
+-- Triggers
+-- -----------------------------------------------------------------
+-- Placed here specifically because this is the first point in the file
+-- where both memberships (Core tables, above) and enforce_membership_insert
+-- (Helper functions, just above) actually exist. Don't move this next to
+-- the memberships table definition - the function it references isn't
+-- defined until later in the file, and it would fail exactly the way the
+-- language-sql functions failed before Core tables was moved ahead of
+-- Helper functions, see the note at the top of this file.
+create trigger memberships_enforce_insert
+  before insert on memberships
+  for each row execute function enforce_membership_insert();
+
 -- -----------------------------------------------------------------
 -- Indexes
 -- -----------------------------------------------------------------
@@ -588,13 +721,18 @@ alter table contacts enable row level security;
 alter table adjustments enable row level security;
 alter table platform_billing enable row level security;
 alter table public_leads enable row level security;
+alter table unmatched_login_attempts enable row level security;
 alter table audit_logs enable row level security;
 alter table impersonation_logs enable row level security;
 
--- societies: any member can read their own society's row (residents need
--- this for tenant_access, theme, etc); only society_admin or owner update it
+-- societies: fully public reads, deliberately. This was previously
+-- member-only, which quietly broke both /s/:slug (ShareLink.tsx, a
+-- visitor isn't a member yet) and /join (same problem) against real RLS -
+-- neither could even look up which society they meant. Nothing in this
+-- table is actually sensitive: name, address, theme, UPI id, are all
+-- already shown to any resident or public visitor through the app itself.
 create policy societies_select on societies for select
-  using (is_society_member(id) or has_role(id, array['owner']));
+  using (true);
 create policy societies_update on societies for update
   using (has_role(id, array['society_admin', 'owner']));
 
@@ -603,6 +741,21 @@ create policy societies_update on societies for update
 create policy memberships_select on memberships for select
   using (is_society_member(society_id) or has_role(society_id, array['owner']));
 create policy memberships_insert on memberships for insert
+  with check (
+    has_role(society_id, array['society_admin', 'owner'])
+    or (role in ('resident_owner', 'resident_tenant') and user_id is null)  -- self-enrollment via /join; enforce_membership_insert trigger decides the real status server-side
+  );
+-- Claiming your own pending invite on first real login (see
+-- claimMemberships in src/lib/auth.ts) - only the row's own email match,
+-- only while unclaimed, and only ever to your own auth uid, never someone else's.
+create policy memberships_claim on memberships for update
+  using (user_id is null and email = (select email from auth.users where id = auth.uid()))
+  with check (user_id = auth.uid());
+-- A committee member/admin/owner approving or otherwise managing
+-- memberships in their own society (approveMembership/rejectMembership
+-- in src/lib/store.tsx, or any other membership edit from the admin console).
+create policy memberships_manage on memberships for update
+  using (has_role(society_id, array['society_admin', 'owner']))
   with check (has_role(society_id, array['society_admin', 'owner']));
 create policy memberships_delete on memberships for delete
   using (has_role(society_id, array['society_admin', 'owner']));
@@ -808,6 +961,16 @@ create policy public_leads_insert on public_leads for insert
   with check (true);  -- anyone can submit the public lead form, logged-in or not
 create policy public_leads_update on public_leads for update
   using (exists (select 1 from memberships m where m.user_id = auth.uid() and m.role = 'owner'));
+
+-- Owner-only reads, same as public_leads. Insert is deliberately open to
+-- any authenticated user (AuthCallback.tsx logs one right after a real,
+-- verified login resolves to zero memberships) - there's nothing sensitive
+-- in the row beyond the email itself, and no update/delete policy at all,
+-- so once logged it's an immutable record for the owner to see.
+create policy unmatched_login_attempts_select on unmatched_login_attempts for select
+  using (exists (select 1 from memberships m where m.user_id = auth.uid() and m.role = 'owner'));
+create policy unmatched_login_attempts_insert on unmatched_login_attempts for insert
+  with check (auth.uid() is not null);
 
 create policy audit_logs_select on audit_logs for select
   using (has_role(society_id, array['owner']) or has_role(society_id, array['society_admin']));

@@ -14,6 +14,17 @@ export const roleLabel: Record<Role, string> = {
   viewer: 'વ્યૂઅર (માત્ર જોવા માટે)',
 }
 
+// Where a real, resolved login lands someone - see src/pages/AuthCallback.tsx.
+export const roleHomeRoute: Record<Role, string> = {
+  owner: '/owner',
+  society_admin: '/admin',
+  committee_member: '/admin',
+  accountant: '/accounts',
+  resident_owner: '/app',
+  resident_tenant: '/app',
+  viewer: '/admin',
+}
+
 export const isResident = (role: Role | null) => role === 'resident_owner' || role === 'resident_tenant'
 export const isCommitteeLevel = (role: Role | null) => role === 'society_admin' || role === 'committee_member'
 // society_admin always has full billing access. committee_member needs an

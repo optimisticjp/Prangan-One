@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, Link } from 'react-router-dom'
-import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight } from 'lucide-react'
+import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, ShieldAlert } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useData } from '../lib/store'
 import { roleLabel } from '../lib/permissions'
@@ -78,7 +78,7 @@ export interface NavItem { to: string; label: string; icon: LucideIcon; end?: bo
 
 export function Shell({ items, title }: { items: NavItem[]; title: string }) {
   useAppLang()
-  const { society, session, logout, moduleEnabled } = useData()
+  const { society, session, logout, moduleEnabled, exitImpersonation } = useData()
   const [open, setOpen] = useState(false)
   const visibleItems = items.filter(it => !it.module || moduleEnabled(it.module))
 
@@ -142,6 +142,12 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
       )}
 
       <div className="flex-1 min-w-0">
+        {session.actingAsOwner && (
+          <div className="bg-saffron-500 text-navy-900 px-4 py-2 flex items-center justify-between gap-3 text-[13.5px] font-semibold sticky top-0 z-40">
+            <span className="inline-flex items-center gap-1.5"><ShieldAlert size={16} /> તમે Prangan One સપોર્ટ તરીકે કામ કરી રહ્યા છો</span>
+            <button onClick={exitImpersonation} className="underline shrink-0">બહાર જાઓ</button>
+          </div>
+        )}
         <SubscriptionBanner audience="admin" />
         <header className="glass sticky top-0 z-40 px-4 py-3 flex items-center gap-3 md:hidden">
           <button onClick={() => setOpen(true)} aria-label="મેનુ" className="h-10 w-10 rounded-xl bg-navy-800 text-cream-50 flex items-center justify-center"><Menu size={19} /></button>

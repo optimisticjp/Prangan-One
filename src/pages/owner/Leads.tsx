@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Phone, Mail } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Phone, Mail, KeyRound } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { fmtDate } from '../../lib/format'
 import { Badge, Card, Field, Input, PageHeader, Select } from '../../components/ui'
@@ -14,9 +14,44 @@ export default function OwnerLeads() {
 
   const leads = [...rawDb.leads].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
+  // People who tried to log in with a real, verified email that matched
+  // no membership anywhere - see AuthCallback.tsx/NoAccess.tsx. Grouped by
+  // email with a count: someone trying more than once is a stronger
+  // signal than a single attempt. Deliberately just the email, kept
+  // separate from the lead inbox above - these people didn't agree to
+  // being contacted about anything, they just tried to log in.
+  const unmatchedByEmail = useMemo(() => {
+    const groups = new Map<string, { email: string; count: number; latest: string }>()
+    for (const a of rawDb.unmatchedLoginAttempts) {
+      const g = groups.get(a.email)
+      if (g) { g.count++; if (a.at > g.latest) g.latest = a.at }
+      else groups.set(a.email, { email: a.email, count: 1, latest: a.at })
+    }
+    return [...groups.values()].sort((a, b) => b.latest.localeCompare(a.latest))
+  }, [rawDb.unmatchedLoginAttempts])
+
   return (
     <div>
       <PageHeader title="લીડ ઈનબોક્સ" sub={`કુલ ${leads.length} લીડ, પબ્લિક વેબસાઈટના ફોર્મ પરથી`} />
+
+      {unmatchedByEmail.length > 0 && (
+        <Card className="mb-4">
+          <h2 className="font-bold text-navy-800 mb-1 inline-flex items-center gap-2"><KeyRound size={17} /> લોગિન પ્રયત્નો, કોઈ સોસાયટી મળી નહીં ({unmatchedByEmail.length})</h2>
+          <p className="text-[12.5px] text-navy-400 mb-3">આ લોકોએ સાચો ઈમેલ વેરિફાય કરીને લોગિનનો પ્રયત્ન કર્યો, પણ કોઈ સોસાયટી સાથે જોડાયેલા નથી. કંઈ પણ સંપર્ક વિનંતી નથી, ફક્ત રસનું સંકેત છે.</p>
+          <div className="space-y-1.5">
+            {unmatchedByEmail.map(g => (
+              <div key={g.email} className="flex items-center justify-between text-[13.5px] border-b border-cream-100 pb-1.5 last:border-0">
+                <a href={`mailto:${g.email}`} className="hover:text-saffron-600">{g.email}</a>
+                <div className="flex items-center gap-3 text-navy-400 text-[12.5px]">
+                  {g.count > 1 && <span className="font-semibold text-saffron-600">{g.count}x</span>}
+                  <span>{fmtDate(g.latest)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {leads.length === 0 && <Card><p className="text-navy-400">હજુ કોઈ લીડ નથી.</p></Card>}
       <div className="space-y-3">
         {leads.map(l => (

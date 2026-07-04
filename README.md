@@ -39,7 +39,7 @@ To build for production: `npm run build` (runs the TypeScript checker, then bund
 
 ## 4. Preview / demo walkthrough
 
-`/` is the public marketing homepage now. Login lives at `/login`: it leads with a real email input (it ends at an honest "login service is being configured" message for now, since there's no live backend to send from yet). Demo shortcuts only show in local dev, or in a deployment that explicitly sets `VITE_DEMO_MODE=true`, never on a real production login for a paying society:
+`/` is the public marketing homepage now. Login lives at `/login`, real email only, no demo shortcuts there at all. Demo shortcuts live on their own page, `/demo`, gated the same way (on by default in local dev, off in a real production build unless `VITE_DEMO_MODE=true` is set explicitly):
 
 - **હું રહેવાસી છું** (I'm a resident): pick a flat, see that flat's bill, complaints, and history.
 - **હું કમિટી મેમ્બર છું** (I'm a committee member): the full admin panel.
@@ -47,6 +47,8 @@ To build for production: `npm run build` (runs the TypeScript checker, then bund
 - **Prangan One ઓનર કન્સોલ**: the real owner console. Try **+ નવી સોસાયટી** to walk through creating a second society with its own theme and modules.
 
 Every society also has a shareable link, `pranganone.com/s/{slug}` (Rajhans Tower's is `/s/rajhans-tower`), that shows that society's own branding before handing off to login.
+
+Real login, once a Supabase project is connected (see supabase/README.md and CLAUDE_CODE_NEXT_STEPS.md for exactly what's done versus still needed): `/login` sends a real magic link, `/auth/callback` resolves who you are and lands you in the right dashboard, `/join` lets a resident self-enroll with their society's join code (shown in the owner console's society page) plus their flat number, and `/no-access` is what a verified-but-unmatched email sees instead of a dead end.
 
 See `QUICK_START.md` for a specific guided path through the app if you want a tour rather than clicking around.
 

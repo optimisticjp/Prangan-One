@@ -19,6 +19,9 @@ import { PageLoading } from './components/PageLoading'
 // what a first-time visitor actually needs immediately.
 import Login from './pages/Login'
 import Demo from './pages/Demo'
+import AuthCallback from './pages/AuthCallback'
+import NoAccess from './pages/NoAccess'
+import Join from './pages/Join'
 import Home from './pages/public/Home'
 import Features from './pages/public/Features'
 import Pricing from './pages/public/Pricing'
@@ -116,6 +119,9 @@ export default function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<Login />} />
         <Route path="/demo" element={<Demo />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/no-access" element={<NoAccess />} />
+        <Route path="/join" element={<Join />} />
 
         {/* Shareable, society-branded entry point: pranganone.com/s/rajhans-tower.
             Looks up the society by slug (public metadata only: name, logo,
