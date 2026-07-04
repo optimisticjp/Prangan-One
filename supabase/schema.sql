@@ -28,107 +28,18 @@
 --     can show/hide controls proactively, but the database is what
 --     actually stops a write from a paused society; a browser-side
 --     check can always be bypassed by someone editing their own client.
+--   - Section order matters and is not arbitrary: tables are created
+--     BEFORE the helper functions, even though the functions are
+--     conceptually "used by" the RLS policies that come later. Plain
+--     `language sql` functions (unlike plpgsql ones) are checked
+--     against the catalog at CREATE FUNCTION time, not just when
+--     called, so a function referencing a table that doesn't exist
+--     yet fails immediately with "relation ... does not exist," even
+--     though the table shows up further down the same file. Don't
+--     move the functions section back above the tables section.
 -- =================================================================
 
 create extension if not exists pgcrypto;
-
--- -----------------------------------------------------------------
--- Helper functions (used inside RLS policies below)
--- -----------------------------------------------------------------
-
--- Is the current auth user a member of this society, in any role?
-create or replace function is_society_member(target_society uuid)
-returns boolean
-language sql
-security definer
-stable
-as $$
-  select exists (
-    select 1 from memberships m
-    where m.society_id = target_society
-      and m.user_id = auth.uid()
-  );
-$$;
-
--- Does the current auth user hold one of the given roles in this society?
-create or replace function has_role(target_society uuid, roles text[])
-returns boolean
-language sql
-security definer
-stable
-as $$
-  select exists (
-    select 1 from memberships m
-    where m.society_id = target_society
-      and m.user_id = auth.uid()
-      and m.role = any(roles)
-  );
-$$;
-
--- Which flat_id does the current auth user belong to, in this society?
--- (residents only have one; committee/accountant roles return null)
-create or replace function my_flat_id(target_society uuid)
-returns uuid
-language sql
-security definer
-stable
-as $$
-  select m.flat_id from memberships m
-  where m.society_id = target_society
-    and m.user_id = auth.uid()
-  limit 1;
-$$;
-
--- Is the current user a tenant (resident_tenant role) for this society?
-create or replace function is_tenant(target_society uuid)
-returns boolean
-language sql
-security definer
-stable
-as $$
-  select exists (
-    select 1 from memberships m
-    where m.society_id = target_society
-      and m.user_id = auth.uid()
-      and m.role = 'resident_tenant'
-  );
-$$;
-
--- The write-guard rule (mirrors src/lib/subscription.ts::canWrite exactly):
--- trial, active, and grace allow writes; paused and archived don't. Grace
--- past 14 days from grace_started_at reads as paused, computed here the
--- same way the frontend computes it, no scheduled job needed. The owner
--- role is never blocked - owner writes always pass regardless of status.
-create or replace function can_write(target_society uuid)
-returns boolean
-language plpgsql
-security definer
-stable
-as $$
-declare
-  s record;
-begin
-  if has_role(target_society, array['owner']) then
-    return true;
-  end if;
-
-  select subscription_status, grace_started_at into s
-  from societies where id = target_society;
-
-  if s.subscription_status in ('trial', 'active') then
-    return true;
-  end if;
-
-  if s.subscription_status = 'grace' then
-    if s.grace_started_at is null then
-      return true;
-    end if;
-    return (now() - s.grace_started_at) <= interval '14 days';
-  end if;
-
-  return false; -- paused or archived
-end;
-$$;
 
 -- -----------------------------------------------------------------
 -- Core tables
@@ -504,6 +415,103 @@ create table impersonation_logs (
   exited_at   timestamptz
 );
 
+-- -----------------------------------------------------------------
+-- Helper functions (used inside RLS policies below)
+-- -----------------------------------------------------------------
+
+-- Is the current auth user a member of this society, in any role?
+create or replace function is_society_member(target_society uuid)
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (
+    select 1 from memberships m
+    where m.society_id = target_society
+      and m.user_id = auth.uid()
+  );
+$$;
+
+-- Does the current auth user hold one of the given roles in this society?
+create or replace function has_role(target_society uuid, roles text[])
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (
+    select 1 from memberships m
+    where m.society_id = target_society
+      and m.user_id = auth.uid()
+      and m.role = any(roles)
+  );
+$$;
+
+-- Which flat_id does the current auth user belong to, in this society?
+-- (residents only have one; committee/accountant roles return null)
+create or replace function my_flat_id(target_society uuid)
+returns uuid
+language sql
+security definer
+stable
+as $$
+  select m.flat_id from memberships m
+  where m.society_id = target_society
+    and m.user_id = auth.uid()
+  limit 1;
+$$;
+
+-- Is the current user a tenant (resident_tenant role) for this society?
+create or replace function is_tenant(target_society uuid)
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (
+    select 1 from memberships m
+    where m.society_id = target_society
+      and m.user_id = auth.uid()
+      and m.role = 'resident_tenant'
+  );
+$$;
+
+-- The write-guard rule (mirrors src/lib/subscription.ts::canWrite exactly):
+-- trial, active, and grace allow writes; paused and archived don't. Grace
+-- past 14 days from grace_started_at reads as paused, computed here the
+-- same way the frontend computes it, no scheduled job needed. The owner
+-- role is never blocked - owner writes always pass regardless of status.
+create or replace function can_write(target_society uuid)
+returns boolean
+language plpgsql
+security definer
+stable
+as $$
+declare
+  s record;
+begin
+  if has_role(target_society, array['owner']) then
+    return true;
+  end if;
+
+  select subscription_status, grace_started_at into s
+  from societies where id = target_society;
+
+  if s.subscription_status in ('trial', 'active') then
+    return true;
+  end if;
+
+  if s.subscription_status = 'grace' then
+    if s.grace_started_at is null then
+      return true;
+    end if;
+    return (now() - s.grace_started_at) <= interval '14 days';
+  end if;
+
+  return false; -- paused or archived
+end;
+$$;
 -- -----------------------------------------------------------------
 -- Indexes
 -- -----------------------------------------------------------------
