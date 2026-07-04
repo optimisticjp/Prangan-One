@@ -124,7 +124,14 @@ create table memberships (
   user_id        uuid references auth.users(id) on delete cascade,  -- null until claimed
   email          text not null,  -- set at invite time; matched against auth.users.email on claim
   name           text,  -- given at invite time or self-enrollment time, see /join
-  society_id     uuid not null references societies(id) on delete cascade,
+  -- Nullable ONLY for role = 'owner' (see the check constraint below) - a
+  -- platform owner isn't scoped to one society, unlike every other role.
+  -- Every has_role() check throughout this file special-cases this: an
+  -- owner row with society_id null matches has_role(any_society, [...,
+  -- 'owner']) regardless of which society is being asked about. Don't
+  -- relax this to "nullable for everyone" - every other role still needs
+  -- a real society_id, that's what scopes their access at all.
+  society_id     uuid references societies(id) on delete cascade,
   flat_id        uuid,  -- fk added after flats table exists, see below
   role           text not null check (role in (
                    'owner', 'society_admin', 'committee_member', 'accountant',
@@ -141,8 +148,15 @@ create table memberships (
   -- status = 'active' rows on purpose.
   status         text not null default 'active' check (status in ('active', 'pending')),
   created_at     timestamptz not null default now(),
+  check (society_id is not null or role = 'owner'),
   unique (society_id, email)
 );
+-- Postgres treats NULL as distinct from NULL for a plain unique
+-- constraint, so the (society_id, email) unique above does nothing to
+-- stop the same email getting two global-owner rows. This catches that
+-- specific case instead.
+create unique index memberships_owner_email_unique on memberships (email) where society_id is null;
+
 -- The trigger that enforces self-enrollment rules server-side attaches
 -- further down, right after enforce_membership_insert() is defined - it
 -- needs both this table AND that function to exist, and the function
@@ -480,9 +494,14 @@ stable
 as $$
   select exists (
     select 1 from memberships m
-    where m.society_id = target_society
-      and m.user_id = auth.uid()
+    where m.user_id = auth.uid()
       and m.role = any(roles)
+      -- a real per-society membership matching target_society, OR a
+      -- global owner row (society_id null) - only reachable if 'owner'
+      -- is actually in the roles array being asked about, since m.role =
+      -- any(roles) above already requires that; this never lets an owner
+      -- row satisfy a check for some other role like 'accountant'.
+      and (m.society_id = target_society or (m.role = 'owner' and m.society_id is null))
   );
 $$;
 
