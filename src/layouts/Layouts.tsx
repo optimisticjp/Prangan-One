@@ -5,6 +5,8 @@ import type { LucideIcon } from 'lucide-react'
 import { useData } from '../lib/store'
 import { roleLabel } from '../lib/permissions'
 import { SocietyLogo } from '../components/SocietyLogo'
+import { PoweredByPrangan } from '../components/PranganBrand'
+import { useAppLang } from '../lib/useAppLang'
 import { SubscriptionBanner } from '../components/SubscriptionBanner'
 import type { SocietyModules } from '../lib/types'
 
@@ -20,6 +22,7 @@ const residentTabs: { to: string; label: string; icon: LucideIcon; end?: boolean
 ]
 
 export function ResidentLayout() {
+  useAppLang()
   const { society, session, flatById, moduleEnabled } = useData()
   const flat = session.flatId ? flatById(session.flatId) : undefined
   const tabs = residentTabs.filter(t => !t.module || moduleEnabled(t.module))
@@ -66,6 +69,7 @@ export function ResidentLayout() {
 export interface NavItem { to: string; label: string; icon: LucideIcon; end?: boolean; module?: keyof SocietyModules }
 
 export function Shell({ items, title }: { items: NavItem[]; title: string }) {
+  useAppLang()
   const { society, session, logout, moduleEnabled } = useData()
   const [open, setOpen] = useState(false)
   const visibleItems = items.filter(it => !it.module || moduleEnabled(it.module))
@@ -96,12 +100,12 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
       </div>
       {nav}
       <div className="p-3 border-t border-navy-800">
-        <Link to="/" onClick={logout}
+        <Link to="/login" onClick={logout}
           className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
           <ArrowLeftRight size={17} /> રોલ બદલો
           <span className="ml-auto text-[11.5px] bg-navy-800 rounded-full px-2 py-0.5">{session.role ? roleLabel[session.role] : ''}</span>
         </Link>
-        <p className="text-center text-[10.5px] text-navy-500 mt-2">Powered by Prangan One</p>
+        <p className="text-center text-[10.5px] text-navy-500 mt-2 flex items-center justify-center"><PoweredByPrangan /></p>
       </div>
     </>
   )

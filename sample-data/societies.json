@@ -41,7 +41,8 @@
         "parking": true,
         "reports": true
       }
-    }
+    },
+    "slug": "rajhans-tower"
   },
   {
     "id": "soc_shreehari",
@@ -85,7 +86,8 @@
         "parking": true,
         "reports": true
       }
-    }
+    },
+    "slug": "shree-hari-residency"
   },
   {
     "id": "soc_greenvalley",
@@ -129,6 +131,7 @@
         "parking": true,
         "reports": true
       }
-    }
+    },
+    "slug": "green-valley-heights"
   }
 ]

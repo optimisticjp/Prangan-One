@@ -14,7 +14,7 @@ import type { Role } from '../lib/types'
  */
 export function RoleGate({ allow, children }: { allow: Role[]; children: ReactNode }) {
   const { session } = useData()
-  if (!session.role) return <Navigate to="/" replace />
+  if (!session.role) return <Navigate to="/login" replace />
   if (!allow.includes(session.role)) return <Navigate to="/403" replace />
   return <>{children}</>
 }

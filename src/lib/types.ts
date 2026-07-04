@@ -64,6 +64,10 @@ export const defaultModuleLayer: ModuleLayer = {
 export interface Society {
   id: string; name: string; nameEn: string; address: string
   city: string; area: string
+  // URL-safe, unique across the platform: pranganone.com/s/{slug}. Public
+  // by design, since a resident needs it to find their own society -
+  // never anything sensitive.
+  slug: string
   maintenanceAmount: number; dueDay: number; upiId: string
   plan: string; flatsLimit: number
   receiptPrefix: string; themeKey: string; logoDataUrl?: string

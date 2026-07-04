@@ -8,7 +8,8 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Building2, Wallet, Inbox, ScrollText, ArrowLeftRight, Menu, X } from 'lucide-react'
 import { useData } from '../../lib/store'
-import { PranganMark } from '../../components/PranganMark'
+import { PranganBrand } from '../../components/PranganBrand'
+import { useAppLang } from '../../lib/useAppLang'
 
 const nav = [
   { to: '/owner', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true },
@@ -19,6 +20,7 @@ const nav = [
 ]
 
 export default function OwnerLayout() {
+  useAppLang()
   const { logout } = useData()
   const nav_ = useNavigate()
   const [open, setOpen] = useState(false)
@@ -26,10 +28,9 @@ export default function OwnerLayout() {
   const sidebar = (
     <>
       <div className="flex items-center gap-3 px-5 py-5">
-        <PranganMark size={34} dark />
         <div className="flex-1">
-          <div className="font-bold text-cream-50 leading-tight">Prangan One</div>
-          <div className="text-[11.5px] text-saffron-400 font-semibold leading-tight">ઓનર કન્સોલ</div>
+          <PranganBrand variant="wordmark-white" height={24} />
+          <div className="text-[11.5px] text-saffron-400 font-semibold leading-tight mt-1.5">ઓનર કન્સોલ</div>
         </div>
         <button onClick={() => setOpen(false)} className="md:hidden text-cream-100/70" aria-label="બંધ કરો"><X size={20} /></button>
       </div>
@@ -43,7 +44,7 @@ export default function OwnerLayout() {
         ))}
       </nav>
       <div className="p-3 border-t border-navy-800">
-        <button onClick={() => { logout(); nav_('/') }}
+        <button onClick={() => { logout(); nav_('/login') }}
           className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
           <ArrowLeftRight size={17} /> રોલ બદલો
         </button>
@@ -54,19 +55,19 @@ export default function OwnerLayout() {
 
   return (
     <div className="min-h-screen bg-cream-100 flex">
-      <aside className="hidden md:flex md:w-64 md:flex-col bg-navy-950 shrink-0">{sidebar}</aside>
+      <aside className="hidden md:flex md:w-64 md:flex-col bg-brand-navy shrink-0">{sidebar}</aside>
 
       {open && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-navy-950 flex flex-col">{sidebar}</aside>
+          <aside className="absolute inset-y-0 left-0 w-72 bg-brand-navy flex flex-col">{sidebar}</aside>
         </div>
       )}
 
       <div className="flex-1 min-w-0">
-        <header className="md:hidden sticky top-0 z-30 bg-navy-950 text-cream-50 px-4 py-3 flex items-center gap-3">
+        <header className="md:hidden sticky top-0 z-30 bg-brand-navy text-cream-50 px-4 py-3 flex items-center gap-3">
           <button onClick={() => setOpen(true)} aria-label="મેનુ ખોલો"><Menu size={22} /></button>
-          <PranganMark size={26} dark />
+          <PranganBrand variant="symbol-white" height={24} />
           <span className="font-bold">Prangan One ઓનર કન્સોલ</span>
         </header>
         <main className="p-4 sm:p-6 max-w-6xl">

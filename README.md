@@ -39,12 +39,14 @@ To build for production: `npm run build` (runs the TypeScript checker, then bund
 
 ## 4. Preview / demo walkthrough
 
-The login screen leads with a real email input (it ends at a "check your email" state for now, since there's no live backend to send from yet). A clearly-labeled demo shortcut sits underneath, still no password:
+`/` is the public marketing homepage now. Login lives at `/login`: it leads with a real email input (it ends at an honest "login service is being configured" message for now, since there's no live backend to send from yet). Demo shortcuts only show in local dev, or in a deployment that explicitly sets `VITE_DEMO_MODE=true`, never on a real production login for a paying society:
 
 - **હું રહેવાસી છું** (I'm a resident): pick a flat, see that flat's bill, complaints, and history.
 - **હું કમિટી મેમ્બર છું** (I'm a committee member): the full admin panel.
 - **હું એકાઉન્ટન્ટ છું** (I'm an accountant): the accounts-focused panel.
 - **Prangan One ઓનર કન્સોલ**: the real owner console. Try **+ નવી સોસાયટી** to walk through creating a second society with its own theme and modules.
+
+Every society also has a shareable link, `pranganone.com/s/{slug}` (Rajhans Tower's is `/s/rajhans-tower`), that shows that society's own branding before handing off to login.
 
 See `QUICK_START.md` for a specific guided path through the app if you want a tour rather than clicking around.
 

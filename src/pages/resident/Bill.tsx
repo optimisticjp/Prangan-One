@@ -115,12 +115,12 @@ export default function Bill() {
         })}
       </div>
 
-      {/* payment options: gateway placeholder + real manual routes */}
+      {/* payment: fully manual, honestly labeled - no gateway promise, no timeline for one */}
       <Modal open={payOpen} onClose={() => setPayOpen(false)} title="મેન્ટેનન્સ કેવી રીતે ભરવું?">
         <div className="rounded-xl border border-dashed border-saffron-300 bg-saffron-50 px-4 py-3 flex gap-2.5">
           <Info size={18} className="text-saffron-600 shrink-0 mt-0.5" />
           <p className="text-[13.5px] text-navy-700">
-            <b>ઓનલાઈન પેમેન્ટ (Razorpay/UPI ગેટવે) જલ્દી આવે છે.</b> હમણાં નીચેની રીતે ચૂકવી શકાય. ચુકવણી પછી ખજાનચી રસીદ બનાવશે અને તમને અહીં દેખાશે.
+            નીચેની રીતે ચૂકવો. <b>ચુકવણી કમિટી પુષ્ટિ કરે પછી જ સત્તાવાર ગણાશે</b> અને રસીદ બનશે.
           </p>
         </div>
         <div className="space-y-2.5">

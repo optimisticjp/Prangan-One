@@ -16,6 +16,11 @@ export function usePublicLang(): [PublicLang, (l: PublicLang) => void] {
   })
   useEffect(() => {
     try { localStorage.setItem(KEY, lang) } catch { /* ignore */ }
+    document.documentElement.lang = lang
+    // Restore the app's own default (Gujarati) if this public page
+    // unmounts, so navigating from a public page into /app or /admin
+    // doesn't leave a stale lang="en" on the <html> tag.
+    return () => { document.documentElement.lang = 'gu' }
   }, [lang])
   return [lang, setLang]
 }

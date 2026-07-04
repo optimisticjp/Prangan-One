@@ -7,11 +7,11 @@ npm install
 npm run dev
 ```
 
-Open the URL it prints (usually `http://localhost:5173`). That's it, no environment variables, no database, no signup.
+Open the URL it prints (usually `http://localhost:5173`). That's it, no environment variables, no database, no signup. In local dev, demo shortcuts are on automatically (`import.meta.env.DEV`).
 
 ## Try it in a few minutes
 
-1. You'll land on a login screen with a real email input at the top, that part ends at a "check your email" demo screen since there's no live backend yet. Scroll to **ડેમો શોર્ટકટ**, pick **"હું રહેવાસી છું"** (I'm a resident), choose any flat, tap શરૂ કરો.
+1. You'll land on the public homepage at `/`. Click **Log in** (or go straight to `/login`). The email box there ends at an honest "login service is being configured" message for now, since there's no live backend yet. Scroll to **ડેમો શોર્ટકટ**, pick **"હું રહેવાસી છું"** (I'm a resident), choose any flat, tap શરૂ કરો.
 2. Look at the home screen, then tap **બિલ** to see a bill and try recording a payment.
 3. Go back (રોલ બદલો in the profile tab), and this time pick **"હું કમિટી મેમ્બર છું"** (committee member).
 4. In the admin sidebar, try **બિલિંગ અને બાકી**: generate this month's bills, or check the dues list.

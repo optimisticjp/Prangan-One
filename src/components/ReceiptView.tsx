@@ -8,6 +8,7 @@ import type { Flat, Payment, Society } from '../lib/types'
 import { fmtDate, fmtMonth, inr } from '../lib/format'
 import { payModeLabel } from '../lib/copy'
 import { waShare, waTemplates } from '../lib/whatsapp'
+import { PoweredByPrangan } from './PranganBrand'
 import { Button } from './ui'
 
 export function ReceiptView({ payment, flat, society, month }: {
@@ -73,7 +74,7 @@ export function ReceiptView({ payment, flat, society, month }: {
 
         <div className="bg-cream-100 border-t border-cream-200 px-5 py-2.5 text-center text-[11.5px] text-navy-400">
           આ કમ્પ્યુટર-જનરેટેડ રસીદ છે. કોઈ સહીની જરૂર નથી.
-          <div className="text-[10px] text-navy-300 mt-0.5">Powered by Prangan One</div>
+          <div className="text-[10px] text-navy-300 mt-0.5 flex items-center justify-center"><PoweredByPrangan /></div>
         </div>
       </div>
 

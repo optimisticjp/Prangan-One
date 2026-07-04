@@ -3,12 +3,13 @@
   "short_name": "Prangan One",
   "description": "ગુજરાતી-ફર્સ્ટ સોસાયટી મેનેજમેન્ટ: મેન્ટેનન્સ, રસીદ, હિસાબ, ફરિયાદ અને નોટિસ એક જ જગ્યાએ.",
   "lang": "gu",
-  "start_url": "/",
+  "start_url": "/login",
   "display": "standalone",
   "background_color": "#FAF6EF",
-  "theme_color": "#1B2740",
+  "theme_color": "#10223F",
   "icons": [
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

@@ -95,7 +95,7 @@ function buildSeed(): DB {
 // lands, a fresh project is naturally empty and this stops being relevant.
 function emptySeed(): DB {
   const placeholder: Society = {
-    id: 'soc_placeholder', name: 'તમારી સોસાયટી', nameEn: 'Your Society',
+    id: 'soc_placeholder', name: 'તમારી સોસાયટી', nameEn: 'Your Society', slug: 'your-society',
     address: '', city: '', area: '', maintenanceAmount: 1000, dueDay: 10, upiId: '',
     plan: 'trial', flatsLimit: 50, receiptPrefix: 'SOC',
     themeKey: defaultThemeKey, receiptSeq: 1, createdAt: todayISO(),
@@ -168,6 +168,15 @@ interface Store {
   logout: () => void
   enterSociety: (societyId: string, role: Role, mode?: 'readonly' | 'write') => void
   exitImpersonation: () => void
+  /** Public lookup by slug (pranganone.com/s/rajhans-tower) - only exposes
+   * non-sensitive metadata the caller already gets: name, logo, theme,
+   * area. Works with no session/role at all, since a visitor hasn't
+   * logged in yet. */
+  findSocietyBySlug: (slug: string) => Society | undefined
+  /** Sets which society's branding/theme shows on the login screen, without
+   * granting any role or access - the actual login step still happens
+   * separately. Used by the share-link handoff. */
+  setActiveSocietyContext: (societyId: string) => void
   /* derived helpers */
   flatById: (id: string) => Flat | undefined
   billStatus: (b: Bill) => 'paid' | 'pending' | 'overdue'
@@ -348,6 +357,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }))
         setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID })
       },
+      findSocietyBySlug: (slug) => db.societies.find(s => s.slug === slug),
+      setActiveSocietyContext: (societyId) =>
+        setSession(s => ({ ...s, societyId, role: null, flatId: null })),
 
       flatById, billStatus, flatPending, totalPending, monthIncome, monthExpense, moduleEnabled, adminCanToggle,
 
@@ -510,8 +522,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
 
       addSociety: (s) => {
+        const base = s.nameEn.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'society'
+        const taken = new Set(db.societies.map(x => x.slug))
+        let slug = base, n = 2
+        while (taken.has(slug)) { slug = `${base}-${n}`; n++ }
         const newSoc: Society = {
-          id: uid('soc'), upiId: '', plan: 'trial', flatsLimit: 60,
+          id: uid('soc'), upiId: '', plan: 'trial', flatsLimit: 60, slug,
           subscriptionStatus: 'trial', receiptSeq: 1, createdAt: todayISO(), ...s,
         }
         setDb(d => ({ ...d, societies: [...d.societies, newSoc] }))

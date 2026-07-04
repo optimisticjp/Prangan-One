@@ -23,6 +23,7 @@ import Features from './pages/public/Features'
 import Pricing from './pages/public/Pricing'
 import Faq from './pages/public/Faq'
 import Contact from './pages/public/Contact'
+import ShareLink from './pages/ShareLink'
 import NotFound from './pages/NotFound'
 import Forbidden from './pages/Forbidden'
 
@@ -100,16 +101,25 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Routes>
-        {/* public marketing site, English default with a Gujarati toggle,
+        {/* Public marketing site, English default with a Gujarati toggle,
             bilingual - see src/pages/public/. The app itself (below) stays
-            fully Gujarati, no toggle. */}
-        <Route path="/home" element={<Home />} />
+            fully Gujarati, no toggle. This matches the route structure
+            locked in docs/PRANGAN_ONE_ROADMAP.md section 10 (public site
+            at /, login at /login) - an earlier build had these swapped,
+            corrected here. /home redirects to / so no old link 404s. */}
+        <Route path="/" element={<Home />} />
+        <Route path="/home" element={<Navigate to="/" replace />} />
         <Route path="/features" element={<Features />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/faq" element={<Faq />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/login" element={<Login />} />
 
-        <Route path="/" element={<Login />} />
+        {/* Shareable, society-branded entry point: pranganone.com/s/rajhans-tower.
+            Looks up the society by slug (public metadata only: name, logo,
+            theme, area), shows their branding, then hands off to /login
+            with that society pre-selected as context. */}
+        <Route path="/s/:slug" element={<ShareLink />} />
 
         <Route path="/app" element={<RoleGate allow={['resident_owner', 'resident_tenant']}><ResidentLayout /></RoleGate>}>
           <Route index element={<Lazy><RDashboard /></Lazy>} />

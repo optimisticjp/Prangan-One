@@ -25,6 +25,7 @@ export function usePageMeta(title: string, description: string) {
     setMeta('og:title', fullTitle, true)
     setMeta('og:description', description, true)
     setMeta('og:type', 'website', true)
+    setMeta('og:site_name', 'Prangan One', true)
     // index.html defaults to noindex for the whole app (it sits behind
     // auth); public pages are the exception and should be crawlable.
     setMeta('robots', 'index, follow')

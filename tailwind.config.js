@@ -7,6 +7,14 @@ export default {
         // Fixed across every society theme on purpose: a neutral warm background,
         // and status colors that must always mean the same thing regardless of brand.
         cream: { 50: '#FDFBF7', 100: '#FAF6EF', 200: '#F2EBDE', 300: '#E7DECB' },
+        // The real Prangan One brand navy, from the official logo files
+        // (public/brand/). Fixed, never themed - use this for platform-owned
+        // surfaces (owner console, public site, 403/404). It is deliberately
+        // NOT the same token as the tenant-themeable `navy` scale below,
+        // which starts at a very similar but not identical shade by
+        // coincidence, and which a society can change via its theme preset.
+        // Do not use `brand-navy` for anything tenant-facing.
+        'brand-navy': '#10223F',
         paid: '#16A34A',
         pend: '#D97706',
         over: '#DC2626',

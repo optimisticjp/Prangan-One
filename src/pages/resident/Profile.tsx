@@ -47,7 +47,7 @@ export default function Profile() {
         <div className="text-[13.5px] text-navy-400 mt-1">{society.address} · મેન્ટેનન્સ દર મહિને ₹{society.maintenanceAmount}, તા. {society.dueDay} સુધીમાં</div>
       </Card>
 
-      <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav('/') }}>
+      <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav('/login') }}>
         <ArrowLeftRight size={17} /> રોલ બદલો / બહાર નીકળો
       </Button>
       <p className="text-center text-[12px] text-navy-300 mt-4">{society.name} · Prangan One દ્વારા સંચાલિત</p>
