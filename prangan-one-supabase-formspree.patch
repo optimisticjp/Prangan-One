@@ -1,0 +1,376 @@
+From f6b8450ad6c3413cd614e25c9c30cfe9242d38da Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 4 Jul 2026 18:08:15 +0000
+Subject: [PATCH] Wire real Supabase key naming and Formspree contact form
+ delivery
+
+- Fixed a real naming mismatch: the given values used Next.js's
+  NEXT_PUBLIC_ prefix, this app is Vite (VITE_ prefix). Would have
+  silently failed with no error if added to Cloudflare Pages as-is.
+- Confirmed via search that 'publishable key' is Supabase's current,
+  correct terminology (replacing the legacy 'anon key'). Updated
+  src/lib/supabase.ts, .env.example, and supabase/README.md to the
+  current naming, with the legacy name accepted as a fallback.
+- Contact form now actually delivers via Formspree
+  (https://formspree.io/f/mnjklkwp), with a real sending state and a
+  real error state, never a fake success if the network call fails.
+  addLead() still runs afterward so the owner console's leads inbox
+  keeps showing every submission too.
+- Corrected the 'Exact prompts for the next Claude Code session'
+  section: prompt 1 was stale (already done), prompt 2 undersold what
+  already exists in auth.ts, and added an explicit per-table isolation
+  checkpoint inside the read-swap prompt instead of only at the end.
+- New tests for the Formspree submission (mocked fetch, since this
+  environment has no network access to formspree.io or supabase.co to
+  test against directly).
+---
+ .env.example                        |  2 +-
+ CLAUDE_CODE_NEXT_STEPS.md           | 36 +++++++++++++++--------
+ src/lib/__tests__/formspree.test.ts | 44 +++++++++++++++++++++++++++++
+ src/lib/formspree.ts                | 33 ++++++++++++++++++++++
+ src/lib/supabase.ts                 | 22 +++++++++++----
+ src/pages/public/Contact.tsx        | 31 +++++++++++++++-----
+ supabase/README.md                  | 10 +++----
+ 7 files changed, 148 insertions(+), 30 deletions(-)
+ create mode 100644 src/lib/__tests__/formspree.test.ts
+ create mode 100644 src/lib/formspree.ts
+
+diff --git a/.env.example b/.env.example
+index 41aee48..821d47c 100644
+--- a/.env.example
++++ b/.env.example
+@@ -22,7 +22,7 @@
+ # Supabase (Phase: backend hookup - see supabase/README.md)
+ # Region should be Mumbai if you want to honestly claim "data in India."
+ # VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+-# VITE_SUPABASE_ANON_KEY=your-anon-key
++# VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+ 
+ # An online payment gateway and automated WhatsApp messaging are deferred,
+ # not part of the active build - see CLAUDE_CODE_NEXT_STEPS.md and
+diff --git a/CLAUDE_CODE_NEXT_STEPS.md b/CLAUDE_CODE_NEXT_STEPS.md
+index 9be5795..f9e52e4 100644
+--- a/CLAUDE_CODE_NEXT_STEPS.md
++++ b/CLAUDE_CODE_NEXT_STEPS.md
+@@ -18,7 +18,19 @@ This file exists so a future Claude Code session (or a human) can pick this proj
+ 
+ *(Note on reading the session log below: earlier sessions correctly used "Essancia" when describing who was operating the platform at the time that was written. That's accurate history, left as-is rather than sanitized, the standing description above is what's current now.)*
+ 
+-## Session 6 summary (this session): login architecture fix, demo/login split, mobile fixes, and the rest of the documentation cleanup
++## Session 7 summary (this session): real Supabase credentials arrived, contact form actually delivers now
++
++The person provided real values for the first time: a Supabase project URL and a publishable key, plus a Formspree endpoint (https://formspree.io/f/mnjklkwp) for the contact form. Important limitation to record here: this session's environment has no network access to supabase.co or formspree.io, so nothing below could be tested against the real services directly, only written carefully and verified everywhere it's possible to verify (compile, build, and mocked-fetch unit tests). The actual live connection needs to be confirmed by the person, or by a session that does have that network access (Claude Code, or just `npm run dev` locally with the real `.env` values).
++
++- **Caught a real naming mismatch before it caused a silent failure.** The values were given as `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, Next.js convention. This app is Vite, which only exposes env vars prefixed `VITE_`. Had these been added to Cloudflare Pages as-is, the app would have silently kept running on the local data layer with no error, since `supabaseConfigured` would just read as false forever.
++- **Also confirmed via a live search that "publishable key" is Supabase's current, correct terminology** (replacing the legacy "anon key," being phased out through 2026), not a mistake or a different product. Same purpose, safe to ship in client code, protected by RLS not secrecy. `src/lib/supabase.ts` now reads `VITE_SUPABASE_PUBLISHABLE_KEY` primarily, with `VITE_SUPABASE_ANON_KEY` accepted as a fallback for older references. Updated `.env.example` and `supabase/README.md` to match throughout.
++- **The "Exact prompts for the next Claude Code session" section was inaccurate and has been corrected.** Prompt 1 (Supabase client + magic link) was marked as still-to-do; it's actually done, real code, since session 4/5. Prompt 2 (membership claim) was described as if nothing existed; `claimMemberships` in `src/lib/auth.ts` already exists, what's actually missing is narrower: nothing calls it yet after a successful login. Rewrote both to reflect reality, and added an explicit "stop and verify isolation with a second real society" instruction inside the per-table read-swap prompt (step 3), not just at the very end, so a future session can't accidentally swap several tables before the first real isolation check.
++- **The contact form now actually delivers, not just avoids a fake success.** `src/lib/formspree.ts` posts to the real Formspree endpoint; `Contact.tsx` shows a real sending state and a real error state (never a fake "thanks" if the network call fails), and still calls `addLead()` afterward so the owner console's leads inbox keeps showing every submission too, Formspree is the delivery, `addLead` is a local mirror, not a replacement. Added a correction note on the session 5 log entry that had overstated this as already solved, it wasn't, `addLead` alone never reached anyone.
++- **WhatsApp stays deferred**, on explicit confirmation, no change needed there.
++
++**What's next, and it's the real remaining task**: apply `supabase/schema.sql` in the Supabase SQL editor (step 0 in the prompts section below), confirm RLS shows enabled on every table, then work through the membership-claim step and the table-by-table read/write swap, verifying isolation with a second real society after the very first table, not at the end.
++
++## Session 6 summary: login architecture fix, demo/login split, mobile fixes, and the rest of the documentation cleanup
+ 
+ Another external review (this time checking the actual live site plus real device screenshots, not just the code) caught two genuinely important things the previous sessions missed, both confirmed by reading the real code before touching anything, not just trusted on faith.
+ 
+@@ -66,7 +78,7 @@ This is the session that stopped scoping down to "step 1 only" and implemented a
+ - **Route-based code splitting, measured, not just claimed.** Every page in `App.tsx` is `React.lazy`. Main bundle dropped from 482KB to 320KB in the actual build output; residents no longer download admin/accountant/owner code.
+ - **Error boundary, 404, 403.** `src/components/ErrorBoundary.tsx` catches render errors with a real recovery action instead of a blank screen. `RoleGate` now distinguishes "not logged in" (goes to login) from "logged in with the wrong role" (goes to a real `/403` page) instead of bouncing both to the same place.
+ - **Accessibility on the shared Modal.** Real focus trap (Tab cycles inside the dialog), Escape closes it, focus moves in on open and restores to the trigger element on close, proper `role="dialog"`/`aria-labelledby`. This is the one shared component every form in the app uses, so it was worth doing properly rather than per-page.
+-- **The public marketing site exists**, bilingual (English default, Gujarati toggle, backed by `localStorage` so the choice persists across pages), at `/`, `/features`, `/pricing`, `/faq`, `/contact`. The contact page's lead form is wired to a real `addLead` action, not a fake form. FAQ and homepage both carry real JSON-LD structured data (FAQPage, SoftwareApplication). `robots.txt` plus a default `noindex` meta tag (overridden only by the public pages) keeps the actual app out of search results.
++- **The public marketing site exists**, bilingual (English default, Gujarati toggle, backed by `localStorage` so the choice persists across pages), at `/`, `/features`, `/pricing`, `/faq`, `/contact`. The contact page's lead form is wired to a real `addLead` action, not a fake form. *(Correction added in session 6: `addLead` alone only ever wrote to the local browser store, nobody actually received a submission until Formspree was wired in, see session 6's summary.)* FAQ and homepage both carry real JSON-LD structured data (FAQPage, SoftwareApplication). `robots.txt` plus a default `noindex` meta tag (overridden only by the public pages) keeps the actual app out of search results.
+ - **`supabase/schema.sql` rewritten comprehensively**: the full 7-role constraint, the `can_write()` function used inside every write policy, tenant-access-aware SELECT policies (a `limited`-mode tenant can't read documents, vehicles, or restricted events), and four new tables (`platform_billing`, `public_leads`, `audit_logs`, `impersonation_logs`) with their own policies. This is 816 lines of genuinely careful SQL. It is also, honestly, completely unverified against a real Postgres instance, because none exists yet in this environment. Structurally sound by static inspection (balanced parens, matched quotes, no obvious typos), but "written carefully" and "tested" are different claims, and only the second one is really true once a live project exists and the roadmap's own hard checkpoint (create a second test society, try to break isolation) actually gets run.
+ - **Essancia references removed from user-facing docs and copy** where they described this as an Essancia-branded thing rather than genuine authorship attribution (which stayed, since removing "built by X" from your own project documentation isn't what "remove ownership branding" was asking for).
+ 
+@@ -155,27 +167,29 @@ Test each table's swap against `docs/TESTING_PLAN.md`'s four critical flows befo
+ 
+ ## Exact prompts for the next Claude Code session
+ 
+-Paste these directly, in order. Each assumes the ones before it are done. Prerequisite before prompt 1: a free Supabase project needs to exist and its URL + anon key need to be in `.env` (see supabase/README.md §1-3), since this can't be created from inside a coding session.
++Prerequisite before any of these: a Supabase project needs to exist and its URL + publishable key need to be in `.env` (see supabase/README.md §1-3), since this can't be created from inside a coding session. As of this writing, both exist, `schema.sql` has not yet been applied to the live project (that's step 0 below, do it manually in the Supabase SQL editor, it's not something a coding session can do either).
++
++**0. Apply the schema (manual, in the Supabase dashboard, not a coding prompt):**
++Open the Supabase project's SQL Editor, paste the entire contents of `supabase/schema.sql`, run it once. Confirm no errors, then confirm RLS is actually enabled on every table (Supabase's table editor shows a lock icon per table when it is).
+ 
+-**1. Supabase client + email magic link auth:**
+-> Add @supabase/supabase-js to this project. Create a Supabase client in src/lib/supabase.ts using VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY from .env. In src/pages/Login.tsx, replace the "check your email" demo state with a real supabase.auth.signInWithOtp({ email }) call, and add a callback/redirect handling step for when the user clicks the emailed link. Keep the existing demo role-picker section working exactly as it is, don't remove it yet.
++~~**1. Supabase client + email magic link auth:**~~ **Done.** `src/lib/supabase.ts` and `src/lib/auth.ts` already have the real client and the real `signInWithOtp` call. `Login.tsx` already calls it when Supabase is configured. Nothing left to build here.
+ 
+-**2. The membership-claim step:**
+-> Apply the supabase/schema.sql schema to the connected project if not already applied. Write a Supabase Edge Function (or a client-side claim step right after first successful login, your call on which fits better) that matches a newly authenticated auth.users.email against a pending memberships row for that email and attaches the real user_id, so the person's role and society are resolved on login. Update src/lib/store.tsx's session loading to read the resolved society_id/role/flat_id from that membership instead of localStorage.
++**2. The membership-claim step, still needed:**
++> `claimMemberships` already exists in src/lib/auth.ts and matches a newly authenticated email against pending memberships. What's NOT done yet: nothing calls it. Add an auth state change listener (supabase.auth.onAuthStateChange) that fires after a successful magic-link login, calls claimMemberships with the resolved user, and updates src/lib/store.tsx's session so role/societyId/flatId come from the claimed membership instead of the local demo session. If claimMemberships returns more than one membership (same email, multiple societies), show a society picker before continuing; if it returns none, show a clear "no membership found, contact your committee" message instead of a blank or broken state.
+ 
+ **3. Swap read path, one table group at a time:**
+-> In src/lib/store.tsx, replace the localStorage-backed `flats` slice with a Supabase query scoped by RLS to the active society. Keep the returned shape matching the Flat type in src/lib/types.ts exactly, including the new email/tenantEmail fields. Don't touch any other table yet.
++> In src/lib/store.tsx, replace the localStorage-backed `flats` slice with a Supabase query scoped by RLS to the active society. Keep the returned shape matching the Flat type in src/lib/types.ts exactly, including the new email/tenantEmail fields. Don't touch any other table yet. After this one table, STOP and manually verify: log in as two different real memberships (create a second test society first) and confirm neither can see the other's flats. Only continue to the next table once that's confirmed.
+ 
+-*(repeat, swapping `flats` for each table, in the order listed above)*
++*(repeat step 3, swapping one table for the next, in the order listed in schema.sql, verifying isolation after each one, not just at the end)*
+ 
+-**4. Swap the write actions, including the SaaS-owner ones:**
++**4. Swap the write actions, including the owner-console ones:**
+ > In src/lib/store.tsx, replace the body of every write action (recordPayment through updateSocietyById, including addSociety) with Supabase insert/update calls against supabase/schema.sql. Keep every function's signature identical to the current Store interface. For vote(), rely on the UNIQUE(poll_id, flat_id) constraint on poll_votes and catch the conflict error rather than pre-checking in JS. For recordPayment's receipt numbering, do the receipt_seq increment atomically in the same transaction as the payment insert.
+ 
+ **5. Logo upload to real storage:**
+ > Wire real file upload to Supabase Storage for the logo step in src/pages/owner/Onboarding.tsx and src/pages/owner/SocietyDetail.tsx, replacing the current FileReader-to-data-URL logic. Store the resulting public or signed URL in societies.logo_url.
+ 
+ **6. Deploy to Cloudflare Pages:**
+-> Set up a Cloudflare Pages project connected to this repo's git remote, build command `npm run build`, output directory `dist`. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as Cloudflare Pages environment variables (not committed to the repo). Confirm the deployed build boots correctly against the live Supabase project.
++> Set up a Cloudflare Pages project connected to this repo's git remote, build command `npm run build`, output directory `dist`. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY as Cloudflare Pages environment variables (not committed to the repo, and note the VITE_ prefix specifically, a Next.js-style NEXT_PUBLIC_ prefix will not work here). Confirm the deployed build boots correctly against the live Supabase project.
+ 
+ **7. Payments (Razorpay), once there's real usage to justify it:**
+ > Add Razorpay UPI-first checkout to src/pages/resident/Bill.tsx, as an additional option alongside the existing manual UPI/bank instructions and "I have paid" pending-confirmation flow, not a replacement for it, some societies may prefer to keep paying manually. Payment verification should happen server-side via a webhook (a Supabase Edge Function) that calls the same recordPayment logic after verifying Razorpay's signature. Never trust a client-side "payment succeeded" callback alone.
+diff --git a/src/lib/__tests__/formspree.test.ts b/src/lib/__tests__/formspree.test.ts
+new file mode 100644
+index 0000000..1a04b5d
+--- /dev/null
++++ b/src/lib/__tests__/formspree.test.ts
+@@ -0,0 +1,44 @@
++import { afterEach, describe, expect, it, vi } from 'vitest'
++import { submitLeadToFormspree } from '../formspree'
++
++afterEach(() => {
++  vi.unstubAllGlobals()
++})
++
++const samplePayload = {
++  name: 'Kiran Patel', phone: '90000 00000', email: 'kiran@example.com',
++  societyName: 'Swastik Apartment', city: 'Surat', flatCount: 32,
++  role: 'Chairman', mainNeed: 'Billing', message: 'We need billing and complaints.',
++}
++
++describe('submitLeadToFormspree', () => {
++  it('posts JSON to the real Formspree endpoint with the expected fields', async () => {
++    const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 })
++    vi.stubGlobal('fetch', mockFetch)
++
++    await submitLeadToFormspree(samplePayload)
++
++    expect(mockFetch).toHaveBeenCalledTimes(1)
++    const [url, options] = mockFetch.mock.calls[0]
++    expect(url).toBe('https://formspree.io/f/mnjklkwp')
++    expect(options.method).toBe('POST')
++    expect(options.headers['Content-Type']).toBe('application/json')
++    expect(options.headers.Accept).toBe('application/json')
++
++    const body = JSON.parse(options.body)
++    expect(body.name).toBe('Kiran Patel')
++    expect(body.society_name).toBe('Swastik Apartment') // snake_case for Formspree's own field naming
++    expect(body.flat_count).toBe(32)
++    expect(body._subject).toContain('Swastik Apartment')
++  })
++
++  it('throws when Formspree responds with a non-ok status, so the caller can show a real error instead of a fake success', async () => {
++    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 422 }))
++    await expect(submitLeadToFormspree(samplePayload)).rejects.toThrow()
++  })
++
++  it('propagates a network failure (e.g. offline) as a rejected promise', async () => {
++    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')))
++    await expect(submitLeadToFormspree(samplePayload)).rejects.toThrow('network error')
++  })
++})
+diff --git a/src/lib/formspree.ts b/src/lib/formspree.ts
+new file mode 100644
+index 0000000..56c2cd5
+--- /dev/null
++++ b/src/lib/formspree.ts
+@@ -0,0 +1,33 @@
++/**
++ * Sends the contact form to Formspree (https://formspree.io/f/mnjklkwp),
++ * which forwards it to a real inbox. This exists because the previous
++ * version of the contact form only called addLead() in the local data
++ * store, meaning a real prospect could submit it, see a success message,
++ * and nobody would ever actually receive it, that's fixed now.
++ *
++ * Formspree's own endpoint is the delivery mechanism; addLead() (called
++ * separately, in Contact.tsx) is additional, not a replacement, so the
++ * owner console's leads inbox still shows every submission too.
++ */
++const FORMSPREE_ENDPOINT = 'https://formspree.io/f/mnjklkwp'
++
++export interface LeadFormPayload {
++  name: string; phone: string; email: string; societyName: string
++  city: string; flatCount: number; role: string; mainNeed: string; message?: string
++}
++
++export async function submitLeadToFormspree(payload: LeadFormPayload): Promise<void> {
++  const res = await fetch(FORMSPREE_ENDPOINT, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
++    body: JSON.stringify({
++      name: payload.name, phone: payload.phone, email: payload.email,
++      society_name: payload.societyName, city: payload.city, flat_count: payload.flatCount,
++      role: payload.role, main_need: payload.mainNeed, message: payload.message ?? '',
++      _subject: `Prangan One: new society enquiry from ${payload.name} (${payload.societyName})`,
++    }),
++  })
++  if (!res.ok) {
++    throw new Error(`Formspree responded with ${res.status}`)
++  }
++}
+diff --git a/src/lib/supabase.ts b/src/lib/supabase.ts
+index a0d77b4..050b492 100644
+--- a/src/lib/supabase.ts
++++ b/src/lib/supabase.ts
+@@ -1,7 +1,17 @@
+ /**
+  * Real Supabase client. Exported as `supabase`, which is `null` until
+- * VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are both set in .env - see
+- * supabase/README.md for how to get those values from a real project.
++ * VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are both set in
++ * .env - see supabase/README.md for how to get those values from a real
++ * project.
++ *
++ * "Publishable key" is Supabase's current name for what used to be
++ * called the "anon key" (legacy anon/service_role keys are being phased
++ * out through 2026, see supabase.com/docs/guides/getting-started/api-keys).
++ * Same purpose either way: safe to ship in client code, protected by Row
++ * Level Security rather than secrecy. VITE_SUPABASE_ANON_KEY is accepted
++ * too, as a fallback, in case a project or a doc reference still uses the
++ * older name. Never put a "secret" or "service_role" key here, those are
++ * a different, backend-only credential and must not ship to the browser.
+  *
+  * This null-until-configured pattern is deliberate, not a demo shortcut:
+  * it lets every other piece of this codebase (auth.ts, the data adapters
+@@ -16,15 +26,15 @@ import { createClient } from '@supabase/supabase-js'
+ import type { SupabaseClient } from '@supabase/supabase-js'
+ 
+ const url = import.meta.env.VITE_SUPABASE_URL
+-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
++const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY
+ 
+-export const supabaseConfigured = !!url && !!anonKey
++export const supabaseConfigured = !!url && !!publishableKey
+ 
+ export const supabase: SupabaseClient | null = supabaseConfigured
+-  ? createClient(url, anonKey)
++  ? createClient(url, publishableKey)
+   : null
+ 
+ if (!supabaseConfigured && import.meta.env.DEV) {
+   // eslint-disable-next-line no-console
+-  console.info('[Prangan One] Supabase not configured (VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY unset). Running on the local data layer. See supabase/README.md.')
++  console.info('[Prangan One] Supabase not configured (VITE_SUPABASE_URL/VITE_SUPABASE_PUBLISHABLE_KEY unset). Running on the local data layer. See supabase/README.md.')
+ }
+diff --git a/src/pages/public/Contact.tsx b/src/pages/public/Contact.tsx
+index 4ec9e70..6409943 100644
+--- a/src/pages/public/Contact.tsx
++++ b/src/pages/public/Contact.tsx
+@@ -1,9 +1,10 @@
+ import { useState } from 'react'
+-import { CheckCircle2, Mail, Facebook, Instagram, Youtube } from 'lucide-react'
++import { CheckCircle2, Mail, Facebook, Instagram, Youtube, AlertCircle } from 'lucide-react'
+ import { PublicLayout } from './PublicLayout'
+ import { usePublicLang } from './usePublicLang'
+ import { usePageMeta } from './usePageMeta'
+ import { useData } from '../../lib/store'
++import { submitLeadToFormspree } from '../../lib/formspree'
+ 
+ const socialLinks = [
+   { href: 'https://www.facebook.com/pranganone/', icon: Facebook, label: 'Prangan One on Facebook' },
+@@ -22,6 +23,8 @@ const copy = {
+     submit: 'Send request', thanks: 'Thanks, we\u2019ve got your request. We\u2019ll reach out shortly.',
+     orEmail: 'Prefer email?',
+     follow: 'Follow Prangan One',
++    sending: 'Sending...',
++    error: 'Couldn\u2019t send that, please try again, or email us directly at care@pranganone.com.',
+   },
+   gu: {
+     title: 'સંપર્ક', desc: 'સોસાયટી સેટઅપની વિનંતી કરો, અથવા સવાલ પૂછો. અમે સીધા જવાબ આપીએ છીએ.',
+@@ -33,6 +36,8 @@ const copy = {
+     submit: 'વિનંતી મોકલો', thanks: 'આભાર, તમારી વિનંતી મળી ગઈ. અમે ટૂંક સમયમાં સંપર્ક કરીશું.',
+     orEmail: 'ઈમેલ પસંદ કરો છો?',
+     follow: 'Prangan One ને ફોલો કરો',
++    sending: 'મોકલાય છે...',
++    error: 'મોકલવામાં ભૂલ થઈ, ફરી પ્રયત્ન કરો, અથવા સીધા care@pranganone.com પર ઈમેલ કરો.',
+   },
+ }
+ 
+@@ -47,15 +52,26 @@ export default function Contact() {
+     flatCount: '', role: t.roleOptions[0], mainNeed: t.needOptions[0], message: '',
+   })
+   const [sent, setSent] = useState(false)
++  const [sending, setSending] = useState(false)
++  const [error, setError] = useState(false)
+ 
+-  const submit = () => {
++  const submit = async () => {
+     if (!form.name.trim() || !form.phone.trim() || !form.email.trim() || !form.societyName.trim()) return
+-    addLead({
++    setSending(true); setError(false)
++    const payload = {
+       name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(),
+       societyName: form.societyName.trim(), city: form.city.trim(), flatCount: Number(form.flatCount) || 0,
+       role: form.role, mainNeed: form.mainNeed, message: form.message.trim() || undefined,
+-    })
+-    setSent(true)
++    }
++    try {
++      await submitLeadToFormspree(payload)
++      addLead(payload) // also kept locally so the owner console's leads inbox shows it
++      setSent(true)
++    } catch {
++      setError(true)
++    } finally {
++      setSending(false)
++    }
+   }
+ 
+   const inputClass = "w-full rounded-xl border border-cream-300 bg-white px-3.5 min-h-[46px] text-[14.5px] focus:outline-none focus:ring-2 focus:ring-saffron-400/50 focus:border-saffron-400"
+@@ -92,9 +108,10 @@ export default function Contact() {
+               </select>
+             </div>
+             <textarea className={inputClass + ' min-h-[80px] py-2.5'} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder={t.message} />
+-            <button onClick={submit} disabled={!form.name.trim() || !form.phone.trim() || !form.email.trim() || !form.societyName.trim()}
++            {error && <p className="text-[13px] text-over flex items-start gap-1.5"><AlertCircle size={15} className="shrink-0 mt-0.5" /> {t.error}</p>}
++            <button onClick={submit} disabled={!form.name.trim() || !form.phone.trim() || !form.email.trim() || !form.societyName.trim() || sending}
+               className="w-full rounded-xl bg-navy-900 text-cream-50 py-3.5 text-[15px] font-bold hover:bg-navy-800 disabled:opacity-40">
+-              {t.submit}
++              {sending ? t.sending : t.submit}
+             </button>
+           </div>
+         )}
+diff --git a/supabase/README.md b/supabase/README.md
+index 7ec6de9..39f561b 100644
+--- a/supabase/README.md
++++ b/supabase/README.md
+@@ -35,10 +35,10 @@ cp .env.example .env
+ 
+ ```
+ VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+-VITE_SUPABASE_ANON_KEY=your-anon-key
++VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+ ```
+ 
+-The `VITE_` prefix matters. Vite only exposes env vars to client code if they're prefixed that way. Never put the `service_role` key in a `VITE_`-prefixed variable; that key bypasses RLS entirely and must only ever be used server-side.
++The `VITE_` prefix matters. Vite only exposes env vars to client code if they're prefixed that way, `NEXT_PUBLIC_...` (a different framework's convention) won't work here. "Publishable key" is Supabase's current name for the client-safe key (it replaces the older "anon key" name, same purpose, safe to ship in the browser, protected by RLS not secrecy). Never put a `secret` or `service_role` key in a `VITE_`-prefixed variable, that key bypasses RLS entirely and must only ever be used server-side.
+ 
+ ## 4. Keep the free project from pausing itself
+ 
+@@ -56,10 +56,10 @@ Pick one, both take a few minutes and both are free:
+     ping:
+       runs-on: ubuntu-latest
+       steps:
+-        - run: curl -s "$SUPABASE_URL/rest/v1/" -H "apikey: $SUPABASE_ANON_KEY"
++        - run: curl -s "$SUPABASE_URL/rest/v1/" -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
+           env:
+             SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+-            SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
++            SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+   ```
+ - **UptimeRobot** (uptimerobot.com, free tier): add an HTTP monitor pointed at the deployed app's URL, checking every few hours. Doubles as basic uptime monitoring for free.
+ 
+@@ -99,7 +99,7 @@ Worth being specific about this: Vercel's free Hobby plan is restricted by its o
+ 1. Push this repo to a Git provider (GitHub, GitLab) if it isn't already.
+ 2. In the Cloudflare dashboard, go to **Workers & Pages → Create → Pages → Connect to Git**, pick the repo.
+ 3. Build settings: framework preset **Vite**, build command `npm run build`, output directory `dist`.
+-4. Under **Settings → Environment variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the same values from your `.env`, entered directly in the Cloudflare dashboard, not committed to the repo).
++4. Under **Settings → Environment variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the same values from your `.env`, entered directly in the Cloudflare dashboard, not committed to the repo).
+ 5. Deploy. Cloudflare gives a `*.pages.dev` URL immediately; a custom domain can be attached afterward under **Custom domains**.
+ 
+ ## 8. What changes in the code
+-- 
+2.43.0
+
