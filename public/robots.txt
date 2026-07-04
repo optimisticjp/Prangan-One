@@ -1,10 +1,11 @@
 User-agent: *
 Allow: /$
-Allow: /home
 Allow: /features
 Allow: /pricing
 Allow: /faq
 Allow: /contact
+Disallow: /home
+Disallow: /demo
 Disallow: /app
 Disallow: /admin
 Disallow: /accounts

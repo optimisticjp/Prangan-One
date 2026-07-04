@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, MessageCircle, Mail, Facebook, Instagram, Youtube } from 'lucide-react'
+import { CheckCircle2, Mail, Facebook, Instagram, Youtube } from 'lucide-react'
 import { PublicLayout } from './PublicLayout'
 import { usePublicLang } from './usePublicLang'
 import { usePageMeta } from './usePageMeta'
@@ -14,24 +14,24 @@ const socialLinks = [
 const copy = {
   en: {
     title: 'Contact', desc: 'Request a society setup, or ask a question. We respond directly, no ticket queue.',
-    h1: 'Request Society Setup', sub: 'Tell us about your society, we\u2019ll reach out directly. WhatsApp works too, if that\u2019s easier.',
+    h1: 'Request Society Setup', sub: 'Tell us about your society, we\u2019ll reach out directly.',
     name: 'Your name', phone: 'Phone number', email: 'Email', societyName: 'Society name',
     city: 'City / locality', flatCount: 'Number of flats', role: 'Your role', mainNeed: 'Main need', message: 'Message (optional)',
     roleOptions: ['Chairman', 'Secretary', 'Treasurer', 'Resident', 'Other'],
     needOptions: ['Billing', 'Complaints', 'Notices', 'Full app'],
     submit: 'Send request', thanks: 'Thanks, we\u2019ve got your request. We\u2019ll reach out shortly.',
-    orWhatsapp: 'Prefer WhatsApp or a call?',
+    orEmail: 'Prefer email?',
     follow: 'Follow Prangan One',
   },
   gu: {
     title: 'સંપર્ક', desc: 'સોસાયટી સેટઅપની વિનંતી કરો, અથવા સવાલ પૂછો. અમે સીધા જવાબ આપીએ છીએ.',
-    h1: 'સોસાયટી સેટઅપની વિનંતી કરો', sub: 'તમારી સોસાયટી વિશે જણાવો, અમે સીધો સંપર્ક કરીશું. WhatsApp પણ ચાલશે.',
+    h1: 'સોસાયટી સેટઅપની વિનંતી કરો', sub: 'તમારી સોસાયટી વિશે જણાવો, અમે સીધો સંપર્ક કરીશું.',
     name: 'તમારું નામ', phone: 'ફોન નંબર', email: 'ઈમેલ', societyName: 'સોસાયટીનું નામ',
     city: 'શહેર / વિસ્તાર', flatCount: 'ફ્લેટની સંખ્યા', role: 'તમારો રોલ', mainNeed: 'મુખ્ય જરૂરિયાત', message: 'સંદેશ (વૈકલ્પિક)',
     roleOptions: ['ચેરમેન', 'સેક્રેટરી', 'ટ્રેઝરર', 'રહેવાસી', 'અન્ય'],
     needOptions: ['બિલિંગ', 'ફરિયાદ', 'નોટિસ', 'આખી એપ'],
     submit: 'વિનંતી મોકલો', thanks: 'આભાર, તમારી વિનંતી મળી ગઈ. અમે ટૂંક સમયમાં સંપર્ક કરીશું.',
-    orWhatsapp: 'WhatsApp કે કૉલ પસંદ કરો છો?',
+    orEmail: 'ઈમેલ પસંદ કરો છો?',
     follow: 'Prangan One ને ફોલો કરો',
   },
 }
@@ -99,12 +99,12 @@ export default function Contact() {
           </div>
         )}
 
+        {/* WhatsApp button intentionally removed until a real number exists -
+            a wa.me link with no number goes nowhere. Add it back here once
+            there's a number to link: href={`https://wa.me/91XXXXXXXXXX`}. */}
         <div className="mt-8 pt-6 border-t border-cream-200 text-center">
-          <p className="text-[13px] text-navy-400 mb-3">{t.orWhatsapp}</p>
+          <p className="text-[13px] text-navy-400 mb-3">{t.orEmail}</p>
           <div className="flex justify-center gap-3">
-            <a href="https://wa.me/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl bg-green-50 border border-green-200 text-paid px-4 py-2.5 text-[13.5px] font-semibold hover:bg-green-100">
-              <MessageCircle size={16} /> WhatsApp
-            </a>
             <a href="mailto:care@pranganone.com" className="inline-flex items-center gap-1.5 rounded-xl bg-navy-50 border border-navy-100 text-navy-700 px-4 py-2.5 text-[13.5px] font-semibold hover:bg-navy-100">
               <Mail size={16} /> care@pranganone.com
             </a>

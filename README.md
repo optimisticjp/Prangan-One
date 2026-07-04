@@ -20,7 +20,7 @@ Right now this is a working demo: every screen is real and functional, including
 
 **Accountant**: a narrower lens on the same data: income/expense dashboard, audit-ready CSV exports, and manual adjustments (round-offs, corrections).
 
-**Prangan One owner console** (Essancia's own tool, not committee-facing): create a new society through a 5-step onboarding wizard, edit any society's branding/setup/modules afterward, log in as any society's committee for support, and a live case study built from Rajhans Tower's actual demo numbers.
+**Prangan One owner console** (the platform owner's own tool, not committee-facing): create a new society through a 5-step onboarding wizard, edit any society's branding/setup/modules afterward, log in as any society's committee for support, and a live case study built from Rajhans Tower's actual demo numbers.
 
 **Per-society configuration**: 6 curated color themes (not a raw color picker, each one pre-checked for contrast), optional logo upload with a generated-initials fallback, and 9 toggleable feature areas (billing, complaints, notices, documents, vendors, polls, events, parking, reports), enforced at the router level so a disabled module redirects away even on direct URL access, not just hidden from the menu.
 
@@ -73,18 +73,20 @@ Nothing here is connected yet. This is the "here's exactly how to do it next" do
 
 Worth knowing before showing this to anyone as more than a prototype:
 
-- **No real login yet.** The email step ends at a "check your email" screen; nothing is actually sent. The demo role/flat picker underneath has no password and no verification, anyone with the URL can open the admin panel.
+- **No real login yet.** The email step ends at an honest "login service is being configured" message; nothing is actually sent. A separate `/demo` page has the role/flat shortcuts with no password, gated behind `VITE_DEMO_MODE` (on by default in local dev, off in a real production build unless explicitly enabled), so a real deployment for a paying society never exposes it.
 - **No real access control.** `src/lib/permissions.ts` and `ModuleGate` shape what the UI shows and which routes render, but nothing stops a browser console from reading data outside that scope. Real enforcement needs the Supabase RLS policies in `supabase/schema.sql`, not yet connected.
 - **File uploads are metadata-only**, and logos are a data-URL living in localStorage, not a real file. Adding a document or a complaint photo saves the filename and size, not the actual file, and an uploaded logo won't survive the eventual move to a real backend as-is.
-- **WhatsApp buttons open a share picker**, they don't send automatically. That needs the WhatsApp Cloud API.
-- **The payment button on the resident bill screen is a placeholder.** No real transaction happens; recording a payment is something the committee/accountant does manually today.
+- **WhatsApp buttons open a share picker**, they don't send automatically. That needs the WhatsApp Cloud API, deferred, see below.
+- **Resident payment is fully manual, by design, not a placeholder waiting to be finished.** A resident sees UPI/bank instructions, can mark "I have paid" (which creates a pending record, not an official payment), and the committee verifies and records it before a receipt is generated. That's the real, intended flow for this build, not a stand-in for something automated.
 - **All data is invented.** Names, phone numbers (using the clearly-fake `90000 000XX` pattern), and amounts in `sample-data/` are for demonstration only.
 
 Full detail on all of this, the free-tool cost research behind the hosting and auth choices, plus a DPDP-context privacy checklist for when real resident data does get involved: `docs/SECURITY_PRIVACY.md`.
 
 ## 8. Next steps
 
-Roughly in order: connect Supabase for real (auth, database, RLS, the membership-claim flow), deploy to Cloudflare Pages, wire the email magic-link login for real, migrate uploaded logos to Supabase Storage, then Razorpay for actual UPI payment collection and the WhatsApp Cloud API once there's real usage to justify them, neither is a launch blocker since manual payment recording and WhatsApp share links already work today.
+**Active, in order:** connect a real Supabase project (Mumbai region), apply `supabase/schema.sql`, wire the email magic-link login for real, build the membership-claim flow, turn on RLS, then run the hard checkpoint, create a second real society and try to break isolation, before trusting any of it. After that: deploy to Cloudflare Pages with the real environment variables, migrate uploaded logos to Supabase Storage.
+
+**Deferred, not part of the active build:** an online payment gateway (Razorpay or similar) and the WhatsApp Cloud API for automated messages. Neither is a launch blocker, manual payment recording and `wa.me` share links already cover the real workflow today. Native app and AI features are deferred too, further out.
 
 The detailed plan, including the reasoning behind decisions already made and exact prompts for continuing this in Claude Code, lives in `CLAUDE_CODE_NEXT_STEPS.md`. The testing plan for the flows that matter most (payments, complaints, voting, exports) is in `docs/TESTING_PLAN.md`.
 
@@ -97,14 +99,12 @@ src/lib/          data layer, formatting, copy, permissions, WhatsApp templates
 src/lib/theme/     per-society color theme presets + runtime CSS-variable application
 src/components/   shared UI kit, ModuleGate, SocietyLogo (branding/logo display)
 src/layouts/      resident bottom-nav shell, admin/accountant sidebar shell
-src/pages/        resident/, admin/, accountant/, saas/ (preview, onboarding wizard, society detail), plus Login.tsx
+src/pages/        resident/, admin/, accountant/, owner/ (dashboard, onboarding wizard, society detail, billing, leads, activity), public/ (marketing site), plus Login.tsx and Demo.tsx
 sample-data/      the demo data, JSON, editable directly
 supabase/         target schema + setup guide, including the Cloudflare Pages deploy steps
 docs/             security/privacy notes, testing plan, design system reference
 scripts/          the script that generated sample-data/ (deterministic, re-runnable)
 ```
-
-Built by Essancia (Infinite Weblinks) for Rajhans Tower, Surat.
 
 ## Official links
 

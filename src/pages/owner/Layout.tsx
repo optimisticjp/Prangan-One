@@ -2,7 +2,8 @@
  * Owner console shell. Deliberately separate from the tenant-facing Shell
  * in src/layouts/Layouts.tsx: this one's branding is fixed to Prangan One
  * itself, not whichever society happens to be active in session, since
- * this is Essancia's own tool, not a committee-facing surface.
+ * this is the Prangan One platform owner's own console, not a
+ * committee-facing surface.
  */
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'

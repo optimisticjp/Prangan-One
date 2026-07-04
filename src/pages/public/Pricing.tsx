@@ -9,17 +9,21 @@ const copy = {
     title: 'Pricing', desc: 'Flat ₹10 per flat per month. No online payment gateway needed, no hidden setup fee.',
     h1: 'Simple pricing', sub: 'Less than one chai per flat, per month.',
     perFlat: 'per flat / month',
-    features: ['Every module included', 'Unlimited residents and committee members', 'Billing, receipts, and WhatsApp reminders', 'Complaints, notices, polls, and events', 'Export your data anytime, no lock-in', 'Setup handled personally, no self-serve signup form'],
+    features: ['Every module included', 'Unlimited residents and committee members', 'Billing, receipts, and one-tap WhatsApp reminder sharing', 'Complaints, notices, polls, and events', 'Export your data anytime, no lock-in', 'Setup handled personally, no self-serve signup form'],
     note: 'Setup is manual and personal: we onboard your society directly, no online payment gateway required to get started.',
     cta: 'Request Society Setup',
+    examplesTitle: 'What that actually costs',
+    examples: [['24-flat society', '\u20b9240 / month'], ['100-flat society', '\u20b91,000 / month']],
   },
   gu: {
     title: 'કિંમત', desc: 'ફ્લેટ દીઠ મહિને ₹10, સાદી કિંમત. કોઈ ઓનલાઈન પેમેન્ટ ગેટવે જરૂરી નથી, કોઈ છુપો સેટઅપ ચાર્જ નથી.',
     h1: 'સાદી કિંમત', sub: 'એક ચા કરતાં ઓછું, ફ્લેટ દીઠ, મહિને.',
     perFlat: 'ફ્લેટ દીઠ / મહિનો',
-    features: ['દરેક સુવિધા સામેલ', 'રહેવાસી અને કમિટી સભ્યની કોઈ લિમિટ નહીં', 'બિલિંગ, રસીદ, WhatsApp રિમાઇન્ડર', 'ફરિયાદ, નોટિસ, મતદાન, ઇવેન્ટ', 'ગમે ત્યારે તમારો ડેટા એક્સપોર્ટ કરો', 'સેટઅપ સીધું અમે કરીએ, કોઈ સેલ્ફ-સર્વ ફોર્મ નહીં'],
+    features: ['દરેક સુવિધા સામેલ', 'રહેવાસી અને કમિટી સભ્યની કોઈ લિમિટ નહીં', 'બિલિંગ, રસીદ, અને એક-ટેપ WhatsApp રિમાઇન્ડર શેર', 'ફરિયાદ, નોટિસ, મતદાન, ઇવેન્ટ', 'ગમે ત્યારે તમારો ડેટા એક્સપોર્ટ કરો', 'સેટઅપ સીધું અમે કરીએ, કોઈ સેલ્ફ-સર્વ ફોર્મ નહીં'],
     note: 'સેટઅપ મેન્યુઅલી અને સીધું થાય છે: અમે તમારી સોસાયટીને સીધા ઓનબોર્ડ કરીએ છીએ, શરૂ કરવા માટે ઓનલાઈન પેમેન્ટ ગેટવેની જરૂર નથી.',
     cta: 'સોસાયટી સેટઅપની વિનંતી કરો',
+    examplesTitle: 'ખરેખર કેટલો ખર્ચ થાય',
+    examples: [['24 ફ્લેટની સોસાયટી', '₹240 / મહિનો'], ['100 ફ્લેટની સોસાયટી', '₹1,000 / મહિનો']],
   },
 }
 
@@ -51,6 +55,18 @@ export default function Pricing() {
           </Link>
         </div>
         <p className="max-w-md mx-auto text-[13px] text-navy-400 mt-6">{t.note}</p>
+
+        <div className="max-w-sm mx-auto mt-8">
+          <div className="text-[12.5px] font-bold tracking-wide text-navy-400 uppercase mb-3">{t.examplesTitle}</div>
+          <div className="grid grid-cols-2 gap-3">
+            {t.examples.map(([label, price]) => (
+              <div key={label} className="rounded-xl border border-cream-200 bg-white px-4 py-3.5 text-left">
+                <div className="text-[12.5px] text-navy-400">{label}</div>
+                <div className="text-[17px] font-bold text-navy-900 mt-0.5">{price}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
     </PublicLayout>
   )

@@ -138,7 +138,7 @@ function loadSession(): Session {
       if (parsed && parsed.societyId) return parsed
     }
   } catch { /* ignore */ }
-  return { role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID }
+  return { role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false }
 }
 
 /* ------------------------------------------------------------------ */
@@ -340,26 +340,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (flatId) {
           const flat = db.flats.find(f => f.id === flatId)
           const derivedRole: Role = flat?.occupancy === 'tenant' ? 'resident_tenant' : 'resident_owner'
-          setSession({ role: role === 'resident_owner' || role === 'resident_tenant' ? derivedRole : role, flatId, societyId: flat?.societyId ?? DEFAULT_SOCIETY_ID })
+          setSession({ role: role === 'resident_owner' || role === 'resident_tenant' ? derivedRole : role, flatId, societyId: flat?.societyId ?? DEFAULT_SOCIETY_ID, explicitSociety: true })
         } else {
-          setSession({ role, flatId: null, societyId: DEFAULT_SOCIETY_ID })
+          setSession({ role, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false })
         }
       },
-      logout: () => setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID }),
+      logout: () => setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false }),
       enterSociety: (societyId, role, mode = 'readonly') => {
         setDb(d => ({ ...d, impersonationLogs: [{ id: uid('imp'), societyId, enteredAt: new Date().toISOString(), mode }, ...d.impersonationLogs] }))
-        setSession({ role, flatId: null, societyId })
+        setSession({ role, flatId: null, societyId, explicitSociety: true })
       },
       exitImpersonation: () => {
         setDb(d => ({
           ...d,
           impersonationLogs: d.impersonationLogs.map((l, i) => i === 0 && l.societyId === session.societyId && !l.exitedAt ? { ...l, exitedAt: new Date().toISOString() } : l),
         }))
-        setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID })
+        setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false })
       },
       findSocietyBySlug: (slug) => db.societies.find(s => s.slug === slug),
       setActiveSocietyContext: (societyId) =>
-        setSession(s => ({ ...s, societyId, role: null, flatId: null })),
+        setSession(s => ({ ...s, societyId, role: null, flatId: null, explicitSociety: true })),
 
       flatById, billStatus, flatPending, totalPending, monthIncome, monthExpense, moduleEnabled, adminCanToggle,
 

@@ -12,8 +12,8 @@
  *   - symbol-navy: mobile public header, 404/403/error screens, compact light surfaces
  *   - symbol-white: compact dark navigation, dark owner-console mobile header
  * For "Powered by Prangan One" contexts (receipts, admin footer), use
- * PoweredByPrangan below instead of this component directly, it is sized
- * and worded for that specific, small, secondary placement.
+ * PoweredByPrangan below instead of this component directly - it takes
+ * its own `dark` prop so it stays legible on both light and dark surfaces.
  */
 type Variant = 'wordmark-navy' | 'wordmark-white' | 'symbol-navy' | 'symbol-white'
 
@@ -55,12 +55,17 @@ export function PranganBrand({ variant, height = 28, decorative = false, classNa
   )
 }
 
-/** The small "Powered by Prangan One" mark for receipts and admin/accountant footers. Always the navy symbol, since it sits on light surfaces in both places. */
-export function PoweredByPrangan({ className = '' }: { className?: string }) {
+/** The small "Powered by Prangan One" lockup for receipts and the admin/
+ * accountant sidebar footer. Shows the real wordmark image (not just the
+ * symbol plus separate text) so the name stays visible even at this small,
+ * secondary size. Pass dark=true on a dark surface (the admin/accountant
+ * sidebar) - a previous version hardcoded the navy variant everywhere,
+ * which made it nearly invisible on dark backgrounds. */
+export function PoweredByPrangan({ dark = false, className = '' }: { dark?: boolean; className?: string }) {
   return (
     <span className={`inline-flex items-center gap-1.5 ${className}`}>
-      <PranganBrand variant="symbol-navy" height={14} decorative />
-      <span>Powered by Prangan One</span>
+      <span className={dark ? 'text-cream-100/60' : 'text-navy-400'}>Powered by</span>
+      <PranganBrand variant={dark ? 'wordmark-white' : 'wordmark-navy'} height={13} decorative />
     </span>
   )
 }

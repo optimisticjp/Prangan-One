@@ -208,4 +208,11 @@ export interface DB {
 // from their flat; for society_admin/committee_member/accountant, the
 // society they logged into or were switched into via the owner console's
 // "enter society" action.
-export interface Session { role: Role | null; flatId: string | null; societyId: string }
+// explicitSociety is false for a brand-new session that hasn't chosen a
+// society on purpose yet - the default societyId below always resolves to
+// SOMETHING so pages that need an active society never break, but /login
+// checks this flag to know whether it's safe to show that society's own
+// branding, or whether this is just a generic visitor who hasn't told the
+// app which society they belong to. Set true by /s/:slug, a resolved
+// membership, or picking a flat in the demo. See src/pages/Login.tsx.
+export interface Session { role: Role | null; flatId: string | null; societyId: string; explicitSociety: boolean }

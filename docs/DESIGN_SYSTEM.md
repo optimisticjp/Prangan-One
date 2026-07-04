@@ -22,7 +22,7 @@ Every society can turn off any of 9 feature areas (billing, complaints, notices,
 
 These are two different audiences and the UI treats them differently on purpose. The committee-facing app (resident bottom nav, admin/accountant sidebar) is designed for someone who has likely never used a SaaS admin panel: a treasurer or secretary comfortable with WhatsApp and a UPI app, not with software jargon. Concretely, that means: internal vocabulary like "module," "tenant," or "theme key" never appears in any committee-facing copy, only in code comments and the docs; the onboarding wizard defaults everything to a sensible value rather than starting from a blank slate; branding is tap-to-choose preset cards, never a raw color input; every module toggle carries a one-line plain-language reason, not just a technical name.
 
-The SaaS owner console (`/saas/*`) is the deliberate exception. It's Essancia's own operating tool, not something a committee member ever sees, so it can stay more information-dense and closer to a typical admin panel: a real data table, inline edit forms, status badges using their English names. Don't backport the owner console's density into committee-facing pages, and don't over-simplify the owner console at the cost of Essancia's own efficiency using it daily.
+The owner console (`/owner/*`) is the deliberate exception. It's the platform owner's own operating tool, not something a committee member ever sees, so it can stay more information-dense and closer to a typical admin panel: a real data table, inline edit forms, status badges using their English names. Don't backport the owner console's density into committee-facing pages, and don't over-simplify the owner console at the cost of the owner's own efficiency using it daily.
 
 ## Color: 60/30/10
 
@@ -35,7 +35,7 @@ Semantic colors are separate from the palette and never reused for anything else
 - `pend` `#D97706` (amber): pending, in progress
 - `over` `#DC2626` (red): overdue, urgent, failed
 
-The SaaS preview page (`src/pages/saas/Preview.tsx`) is the one deliberate exception: full `navy-950` dark background with saffron accents, because it's simulating a different, more "product marketing" surface, not the day-to-day resident/admin tool.
+The owner console (`src/pages/owner/Layout.tsx` and `src/pages/owner/Dashboard.tsx`) is the one deliberate exception: full `navy-950`/`brand-navy` dark background with saffron accents, because it's simulating a different, more "product marketing" surface, not the day-to-day resident/admin tool.
 
 ## Typography
 

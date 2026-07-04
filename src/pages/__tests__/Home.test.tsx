@@ -17,8 +17,9 @@ describe('public homepage', () => {
       </MemoryRouter>,
     )
     expect(screen.getAllByText(/Prangan One/i).length).toBeGreaterThan(0)
-    // English default hero line (see src/pages/public/Home.tsx copy.en.h1b)
-    expect(screen.getByText(/society workflow/i)).toBeInTheDocument()
+    // Gujarati is the default now (see src/pages/public/Home.tsx copy.gu.h1b),
+    // English is the toggle-in option, not the default.
+    expect(screen.getByText(/સોસાયટીના દરેક કામ/)).toBeInTheDocument()
   })
 })
 

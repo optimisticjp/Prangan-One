@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Menu, X, Facebook, Instagram, Youtube } from 'lucide-react'
+import { Menu, X, Facebook, Instagram, Youtube, LogIn } from 'lucide-react'
 import { useState } from 'react'
 import { PranganBrand } from '../../components/PranganBrand'
 import type { PublicLang } from './usePublicLang'
@@ -33,11 +33,13 @@ export function PublicLayout({ lang, setLang, children }: {
 
   return (
     <div className="min-h-screen bg-cream-50 text-navy-900">
-      <header className="sticky top-0 z-40 bg-cream-50/90 backdrop-blur border-b border-cream-200 px-5 py-3.5">
-        <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <Link to="/" className="flex items-center shrink-0">
-            <PranganBrand variant="wordmark-navy" height={26} className="hidden sm:block" />
-            <PranganBrand variant="symbol-navy" height={30} className="sm:hidden" />
+      <header className="sticky top-0 z-40 bg-cream-50/90 backdrop-blur border-b border-cream-200 px-4 sm:px-5 py-3">
+        <div className="max-w-5xl mx-auto flex items-center gap-3 sm:gap-4">
+          {/* Full wordmark at every size, mobile included - the whole point of
+              the brand is name recognition, a mark with no name defeats that
+              on the exact surface (mobile) most people will meet it on first. */}
+          <Link to="/" className="flex items-center shrink-0 min-w-0">
+            <PranganBrand variant="wordmark-navy" height={24} className="max-w-[150px] sm:max-w-none" />
           </Link>
           <nav className="hidden md:flex items-center gap-6 flex-1">
             {nav.map(n => <Link key={n.to} to={n.to} className="text-[14.5px] font-medium text-navy-600 hover:text-saffron-600">{n.label}</Link>)}
@@ -50,17 +52,25 @@ export function PublicLayout({ lang, setLang, children }: {
             <Link to="/login" className="hidden sm:inline-flex rounded-xl bg-saffron-500 text-navy-900 px-3.5 py-2 text-[13.5px] font-bold hover:bg-saffron-400">
               {lang === 'en' ? 'Log in' : 'લોગિન'}
             </Link>
-            <button onClick={() => setOpen(!open)} className="md:hidden h-9 w-9 flex items-center justify-center rounded-lg bg-cream-200" aria-label="Menu">
+            <button onClick={() => setOpen(!open)} className="sm:hidden h-9 w-9 shrink-0 flex items-center justify-center rounded-lg bg-cream-200" aria-label="Menu">
               {open ? <X size={18} /> : <Menu size={18} />}
             </button>
           </div>
         </div>
         {open && (
-          <div className="md:hidden max-w-5xl mx-auto mt-3 pb-2 flex flex-col gap-2">
-            {nav.map(n => <Link key={n.to} to={n.to} onClick={() => setOpen(false)} className="text-[14.5px] font-medium text-navy-600 py-1.5">{n.label}</Link>)}
-            <div className="flex gap-2 mt-1">
-              <button onClick={() => setLang('en')} className={`px-2.5 py-1 rounded-full text-[12.5px] font-semibold ${lang === 'en' ? 'bg-navy-900 text-cream-50' : 'bg-cream-200 text-navy-500'}`}>EN</button>
-              <button onClick={() => setLang('gu')} className={`px-2.5 py-1 rounded-full text-[12.5px] font-semibold ${lang === 'gu' ? 'bg-navy-900 text-cream-50' : 'bg-cream-200 text-navy-500'}`}>ગુ</button>
+          <div className="sm:hidden max-w-5xl mx-auto mt-3 pb-2 flex flex-col gap-1">
+            {/* Login is the very first thing in the mobile menu, not an
+                afterthought - on a phone, this menu is the ONLY way in,
+                there is no separate always-visible login button at this
+                width. */}
+            <Link to="/login" onClick={() => setOpen(false)}
+              className="flex items-center justify-center gap-2 rounded-xl bg-saffron-500 text-navy-900 px-4 py-3 text-[15px] font-bold mb-2">
+              <LogIn size={17} /> {lang === 'en' ? 'Log in' : 'લોગિન'}
+            </Link>
+            {nav.map(n => <Link key={n.to} to={n.to} onClick={() => setOpen(false)} className="text-[15px] font-medium text-navy-600 py-2">{n.label}</Link>)}
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => setLang('en')} className={`px-3 py-1.5 rounded-full text-[13px] font-semibold ${lang === 'en' ? 'bg-navy-900 text-cream-50' : 'bg-cream-200 text-navy-500'}`}>EN</button>
+              <button onClick={() => setLang('gu')} className={`px-3 py-1.5 rounded-full text-[13px] font-semibold ${lang === 'gu' ? 'bg-navy-900 text-cream-50' : 'bg-cream-200 text-navy-500'}`}>ગુ</button>
             </div>
           </div>
         )}

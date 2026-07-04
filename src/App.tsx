@@ -18,6 +18,7 @@ import { PageLoading } from './components/PageLoading'
 // marketing pages are the only things in the main bundle, since they're
 // what a first-time visitor actually needs immediately.
 import Login from './pages/Login'
+import Demo from './pages/Demo'
 import Home from './pages/public/Home'
 import Features from './pages/public/Features'
 import Pricing from './pages/public/Pricing'
@@ -72,20 +73,20 @@ const OActivity = lazy(() => import('./pages/owner/Activity'))
 const OwnerLegacyRedirect = lazy(() => import('./pages/owner/LegacyRedirect'))
 
 const adminNav: NavItem[] = [
-  { to: '/admin', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true },
-  { to: '/admin/members', label: 'સભ્યો / ફ્લેટ', icon: Users },
-  { to: '/admin/billing', label: 'બિલિંગ અને બાકી', icon: ReceiptText, module: 'billing' },
-  { to: '/admin/payments', label: 'ચુકવણી અને રસીદ', icon: IndianRupee, module: 'billing' },
-  { to: '/admin/expenses', label: 'ખર્ચ', icon: Wallet },
-  { to: '/admin/vendors', label: 'વેન્ડર / AMC', icon: StoreIcon, module: 'vendors' },
-  { to: '/admin/complaints', label: 'ફરિયાદ', icon: Wrench, module: 'complaints' },
-  { to: '/admin/notices', label: 'નોટિસ', icon: Bell, module: 'notices' },
-  { to: '/admin/documents', label: 'દસ્તાવેજો', icon: FolderOpen, module: 'documents' },
-  { to: '/admin/polls', label: 'મતદાન', icon: Vote, module: 'polls' },
-  { to: '/admin/events', label: 'ઇવેન્ટ / ફાળો', icon: PartyPopper, module: 'events' },
-  { to: '/admin/parking', label: 'પાર્કિંગ / વાહન', icon: Car, module: 'parking' },
-  { to: '/admin/reports', label: 'રિપોર્ટ', icon: BarChart3, module: 'reports' },
-  { to: '/admin/settings', label: 'સેટિંગ્સ', icon: SettingsIcon },
+  { to: '/admin', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true, group: 'ઓવરવ્યૂ' },
+  { to: '/admin/billing', label: 'બિલિંગ અને બાકી', icon: ReceiptText, module: 'billing', group: 'હિસાબ' },
+  { to: '/admin/payments', label: 'ચુકવણી અને રસીદ', icon: IndianRupee, module: 'billing', group: 'હિસાબ' },
+  { to: '/admin/expenses', label: 'ખર્ચ', icon: Wallet, group: 'હિસાબ' },
+  { to: '/admin/reports', label: 'રિપોર્ટ', icon: BarChart3, module: 'reports', group: 'હિસાબ' },
+  { to: '/admin/members', label: 'સભ્યો / ફ્લેટ', icon: Users, group: 'કામકાજ' },
+  { to: '/admin/vendors', label: 'વેન્ડર / AMC', icon: StoreIcon, module: 'vendors', group: 'કામકાજ' },
+  { to: '/admin/complaints', label: 'ફરિયાદ', icon: Wrench, module: 'complaints', group: 'કામકાજ' },
+  { to: '/admin/parking', label: 'પાર્કિંગ / વાહન', icon: Car, module: 'parking', group: 'કામકાજ' },
+  { to: '/admin/notices', label: 'નોટિસ', icon: Bell, module: 'notices', group: 'સંવાદ' },
+  { to: '/admin/documents', label: 'દસ્તાવેજો', icon: FolderOpen, module: 'documents', group: 'સંવાદ' },
+  { to: '/admin/polls', label: 'મતદાન', icon: Vote, module: 'polls', group: 'સંવાદ' },
+  { to: '/admin/events', label: 'ઇવેન્ટ / ફાળો', icon: PartyPopper, module: 'events', group: 'સંવાદ' },
+  { to: '/admin/settings', label: 'સેટિંગ્સ', icon: SettingsIcon, group: 'સેટિંગ્સ' },
 ]
 const acctNav: NavItem[] = [
   { to: '/accounts', label: 'હિસાબ ડેશબોર્ડ', icon: LayoutDashboard, end: true },
@@ -114,6 +115,7 @@ export default function App() {
         <Route path="/faq" element={<Faq />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/demo" element={<Demo />} />
 
         {/* Shareable, society-branded entry point: pranganone.com/s/rajhans-tower.
             Looks up the society by slug (public metadata only: name, logo,
