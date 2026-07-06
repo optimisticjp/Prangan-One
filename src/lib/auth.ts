@@ -75,12 +75,18 @@ export interface ClaimedMembership {
 export async function claimMemberships(userId: string, email: string): Promise<ClaimedMembership[]> {
   if (!supabase) throw new Error('Supabase not configured')
 
-  await supabase
+  const { error: claimError } = await supabase
     .from('memberships')
     .update({ user_id: userId })
     .is('user_id', null)
     .eq('email', email.toLowerCase())
     .eq('status', 'active') // a pending self-enrollment isn't claimable until a committee member approves it
+
+  // Not checking this before was a real bug: a genuine failure here (as
+  // opposed to a legitimate "nothing to claim") silently fell through to
+  // the exact same "no membership found" result below, with no way to
+  // tell the two apart from the outside.
+  if (claimError) throw claimError
 
   const { data, error } = await supabase
     .from('memberships')

@@ -865,9 +865,27 @@ create policy societies_update on societies for update
   using (has_role(id, array['society_admin', 'owner']));
 
 -- memberships: members can see who else is in their society (for the
--- complaint-assignment dropdown, etc); only society_admin/owner manage membership
+-- complaint-assignment dropdown, etc); only society_admin/owner manage membership.
+-- Every clause here earns its place from something that actually broke:
+--   - user_id = auth.uid(): PostgreSQL checks SELECT visibility on BOTH
+--     the old and the new row during an UPDATE, not just the UPDATE
+--     policy's own USING/CHECK. The subquery-based checks below
+--     (is_society_member, has_role) don't reliably see this exact row's
+--     own brand-new state within the same statement a claim just wrote
+--     it in - a direct column comparison has no such self-reference
+--     timing problem, so the claim step (memberships_claim, below)
+--     actually completes instead of failing right after doing the
+--     update it was supposed to do.
+--   - the unclaimed-invite clause: needed for the SAME reason, but for
+--     the OLD row state, before anything is claimed - without it, the
+--     claim UPDATE can never even find its own target row to begin with.
 create policy memberships_select on memberships for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (
+    user_id = auth.uid()
+    or is_society_member(society_id)
+    or has_role(society_id, array['owner'])
+    or (user_id is null and lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')))
+  );
 create policy memberships_insert on memberships for insert
   with check (
     has_role(society_id, array['society_admin', 'owner'])
@@ -876,8 +894,20 @@ create policy memberships_insert on memberships for insert
 -- Claiming your own pending invite on first real login (see
 -- claimMemberships in src/lib/auth.ts) - only the row's own email match,
 -- only while unclaimed, and only ever to your own auth uid, never someone else's.
+-- Claiming your own pending invite on first real login (see
+-- claimMemberships in src/lib/auth.ts) - only the row's own email match,
+-- only while unclaimed, and only ever to your own auth uid, never someone
+-- else's. Uses auth.jwt() rather than querying auth.users directly - the
+-- authenticated role has no SELECT grant on that table on a real
+-- Supabase project, so a policy that tries to read it fails with a
+-- permission error for every real user, not just a silent zero-rows
+-- mismatch. auth.jwt() reads the current session's own token claims
+-- instead, no table access needed. lower() on both sides since a plain
+-- equality here would still silently match zero rows the moment there's
+-- any case difference between what's stored in this table and the
+-- token's email claim.
 create policy memberships_claim on memberships for update
-  using (user_id is null and email = (select email from auth.users where id = auth.uid()))
+  using (user_id is null and lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')))
   with check (user_id = auth.uid());
 -- A committee member/admin/owner approving or otherwise managing
 -- memberships in their own society (approveMembership/rejectMembership
