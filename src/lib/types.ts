@@ -289,4 +289,13 @@ export interface DB {
 // support-mode banner and is logged alongside the reason they gave, kept
 // separate from explicitSociety since an owner acting as admin still has
 // an explicit society, just also needs the extra visibility/accountability.
-export interface Session { role: Role | null; flatId: string | null; societyId: string; explicitSociety: boolean; actingAsOwner: boolean }
+// isRealSession is deliberately separate from explicitSociety - both the
+// demo's login() (picking a flat) and a real resolved login set
+// explicitSociety true, so it can't be trusted to mean "this is genuinely
+// Supabase-backed data, fetch real records." Only resolveRealSession (the
+// one path AuthCallback.tsx calls after a real magic-link resolves) sets
+// isRealSession true; every other session-setting function sets it false.
+// See fetchSocietyFinancials in store.tsx, gated on exactly this flag -
+// getting this gate wrong would mean demo and production data mixing,
+// which the product's own hard separation requirement rules out entirely.
+export interface Session { role: Role | null; flatId: string | null; societyId: string; explicitSociety: boolean; actingAsOwner: boolean; isRealSession: boolean }

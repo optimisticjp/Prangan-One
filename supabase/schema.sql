@@ -950,16 +950,33 @@ create policy memberships_delete on memberships for delete
   using (has_role(society_id, array['society_admin', 'owner']));
 
 -- flats: any member reads all flats in their society; only society_admin writes
+-- flats: management roles see every flat in their society (needed for
+-- billing, complaints, member management). A regular resident only sees
+-- their OWN flat's row - this table has other people's names, phone
+-- numbers, and emails in it, and a resident has no legitimate reason to
+-- see a neighbor's contact details just by being in the same society.
+-- Previously this used is_society_member alone, which let any resident
+-- read every flat's owner_name/phone/email/tenant info society-wide -
+-- exactly the leak the product's own privacy requirements call out.
 create policy flats_select on flats for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (
+    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'treasurer', 'accountant'])
+    or id = my_flat_id(society_id)
+  );
 create policy flats_insert on flats for insert
   with check (has_role(society_id, array['society_admin']) and can_write(society_id));
 create policy flats_update on flats for update
   using (has_role(society_id, array['society_admin']) and can_write(society_id));
 
 -- bills: members read their society's bills; only society_admin generates them
+-- bills: management roles see every bill in their society; a resident
+-- only sees their own flat's bills, never another flat's amount owed -
+-- same reasoning as flats_select above.
 create policy bills_select on bills for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (
+    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'treasurer', 'accountant'])
+    or flat_id = my_flat_id(society_id)
+  );
 create policy bills_insert on bills for insert
   with check (has_role(society_id, array['society_admin', 'treasurer']) and can_write(society_id));
 create policy bills_update on bills for update
@@ -968,8 +985,13 @@ create policy bills_update on bills for update
 -- payments: members read their society's payments; accountant+society_admin
 -- record them; residents can insert their OWN pending_confirmation "I have
 -- paid" rows for their own flat, nothing else
+-- payments: same principle as bills_select - management sees everything,
+-- a resident only sees their own flat's payment history.
 create policy payments_select on payments for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (
+    has_role(society_id, array['owner', 'society_admin', 'treasurer', 'committee_member', 'accountant'])
+    or flat_id = my_flat_id(society_id)
+  );
 create policy payments_insert on payments for insert
   with check (
     can_write(society_id)
@@ -1145,8 +1167,14 @@ create policy contacts_insert on contacts for insert
   with check (has_role(society_id, array['society_admin']) and can_write(society_id));
 
 -- adjustments: members read; accountant+society_admin write
+-- adjustments: management sees everything in their society (including
+-- society-wide corrections with no flat_id); a resident only sees
+-- adjustments tied to their own flat, same principle as bills/payments.
 create policy adjustments_select on adjustments for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (
+    has_role(society_id, array['owner', 'society_admin', 'treasurer', 'accountant'])
+    or flat_id = my_flat_id(society_id)
+  );
 create policy adjustments_insert on adjustments for insert
   with check (has_role(society_id, array['society_admin', 'treasurer', 'accountant']) and can_write(society_id));
 

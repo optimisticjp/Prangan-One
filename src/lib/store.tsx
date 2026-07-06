@@ -33,7 +33,9 @@ import type {
   Flat, ImpersonationLog, Membership, ModuleLayer, Notice, PayMode, Payment, Poll, PublicLead,
   Role, Session, Society, SocietyEvent, SocietyModules, SubscriptionStatus, TenantAccessMode, Vehicle,
 } from './types'
-import { uid } from './id'
+import { uid, realUid } from './id'
+import { supabaseConfigured } from './supabase'
+import { fetchSocietyFinancials, insertFlatReal, updateFlatReal, insertBillsReal, recordPaymentReal, updateBillPaidAmountReal, updatePaymentReal, insertAdjustmentReal } from './realData'
 
 // A short, human-typeable code a resident enters at /join to find their
 // society - like a Google Classroom class code. Derived from the
@@ -152,7 +154,7 @@ function loadSession(): Session {
       if (parsed && parsed.societyId) return parsed
     }
   } catch { /* ignore */ }
-  return { role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false }
+  return { role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false }
 }
 
 /* ------------------------------------------------------------------ */
@@ -173,6 +175,13 @@ interface Store {
   rawDb: DB
   session: Session
   society: Society
+  /** True while flats/bills/payments/adjustments are being fetched from
+   * the real database for a real (Supabase-backed) session - false for
+   * the local demo layer, which never needs it since everything's
+   * already in memory. Pages showing money should check this before
+   * rendering "nothing owed"/"no bills yet" so a real fetch in progress
+   * doesn't briefly look like an empty, all-paid-up account. */
+  financialsLoading: boolean
   /* subscription / write guard */
   canWriteNow: boolean
   subscriptionBannerFor: (audience: 'admin' | 'resident') => string | null
@@ -285,6 +294,7 @@ const Ctx = createContext<Store | null>(null)
 export function DataProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>(loadDB)
   const [session, setSession] = useState<Session>(loadSession)
+  const [financialsLoading, setFinancialsLoading] = useState(false)
 
   useEffect(() => {
     try { localStorage.setItem(DB_KEY, JSON.stringify(db)) } catch { /* storage full */ }
@@ -298,6 +308,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [db.societies, session.societyId],
   )
   const activeSocietyId = activeSociety?.id ?? DEFAULT_SOCIETY_ID
+
+  // The first slice of the real (Supabase-backed) data layer: flats,
+  // bills, payments, adjustments - the core financial loop. Everything
+  // else (complaints, notices, documents, polls, events, vendors,
+  // parking, contacts) still runs on the local layer only, that's real
+  // future work, not done here. Strictly gated on isRealSession, not
+  // explicitSociety - see the comment on Session in types.ts for why that
+  // distinction matters: getting this gate wrong would mean demo and
+  // production data mixing, which the product's own hard separation
+  // requirement rules out entirely.
+  useEffect(() => {
+    if (!supabaseConfigured || !session.isRealSession) return
+    let cancelled = false
+    setFinancialsLoading(true)
+    fetchSocietyFinancials(activeSocietyId)
+      .then(({ flats, bills, payments, adjustments }) => {
+        if (cancelled) return
+        setDb(d => ({
+          ...d,
+          flats: [...d.flats.filter(f => f.societyId !== activeSocietyId), ...flats],
+          bills: [...d.bills.filter(b => b.societyId !== activeSocietyId), ...bills],
+          payments: [...d.payments.filter(p => p.societyId !== activeSocietyId), ...payments],
+          adjustments: [...d.adjustments.filter(a => a.societyId !== activeSocietyId), ...adjustments],
+        }))
+      })
+      .catch(() => { /* the person still sees whatever was already loaded; a real error-surface for this is worth adding later */ })
+      .finally(() => { if (!cancelled) setFinancialsLoading(false) })
+    return () => { cancelled = true }
+  }, [activeSocietyId, session.isRealSession])
 
   useEffect(() => {
     applyTheme(activeSociety?.themeKey ?? defaultThemeKey)
@@ -383,7 +422,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const adminCanToggle = (key: keyof SocietyModules) => society?.modules?.ownerEnabled?.[key] !== false
 
     return {
-      db: scopedDb, rawDb: db, session, society, canWriteNow,
+      db: scopedDb, rawDb: db, session, society, financialsLoading, canWriteNow,
       subscriptionBannerFor: (audience) => statusBanner(society, audience),
 
       setSubscriptionStatus: (societyId, status) => {
@@ -400,26 +439,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (flatId) {
           const flat = db.flats.find(f => f.id === flatId)
           const derivedRole: Role = flat?.occupancy === 'tenant' ? 'resident_tenant' : 'resident_owner'
-          setSession({ role: role === 'resident_owner' || role === 'resident_tenant' ? derivedRole : role, flatId, societyId: flat?.societyId ?? DEFAULT_SOCIETY_ID, explicitSociety: true, actingAsOwner: false })
+          setSession({ role: role === 'resident_owner' || role === 'resident_tenant' ? derivedRole : role, flatId, societyId: flat?.societyId ?? DEFAULT_SOCIETY_ID, explicitSociety: true, actingAsOwner: false, isRealSession: false })
         } else {
-          setSession({ role, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false })
+          setSession({ role, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false })
         }
       },
-      logout: () => setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false }),
+      logout: () => setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false }),
       enterSociety: (societyId, role, mode = 'readonly', reason) => {
         setDb(d => ({ ...d, impersonationLogs: [{ id: uid('imp'), societyId, enteredAt: new Date().toISOString(), mode, reason }, ...d.impersonationLogs] }))
-        setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true })
+        setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true, isRealSession: false })
       },
       exitImpersonation: () => {
         setDb(d => ({
           ...d,
           impersonationLogs: d.impersonationLogs.map((l, i) => i === 0 && l.societyId === session.societyId && !l.exitedAt ? { ...l, exitedAt: new Date().toISOString() } : l),
         }))
-        setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false })
+        setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false })
       },
       findSocietyBySlug: (slug) => db.societies.find(s => s.slug === slug),
       setActiveSocietyContext: (societyId) =>
-        setSession(s => ({ ...s, societyId, role: null, flatId: null, explicitSociety: true, actingAsOwner: false })),
+        setSession(s => ({ ...s, societyId, role: null, flatId: null, explicitSociety: true, actingAsOwner: false, isRealSession: false })),
 
       findSocietyByJoinCode: (code) =>
         db.societies.find(s => s.joinCode.toLowerCase() === code.trim().toLowerCase()),
@@ -470,7 +509,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setDb(d => ({ ...d, unmatchedLoginAttempts: [{ id: uid('ula'), email: email.trim().toLowerCase(), at: new Date().toISOString() }, ...d.unmatchedLoginAttempts] })),
 
       resolveRealSession: (membership) =>
-        setSession({ role: membership.role, flatId: membership.flatId, societyId: membership.societyId, explicitSociety: true, actingAsOwner: false }),
+        setSession({ role: membership.role, flatId: membership.flatId, societyId: membership.societyId, explicitSociety: true, actingAsOwner: false, isRealSession: true }),
 
       flatById, billStatus, flatPending, totalPending, monthIncome, monthExpense, moduleEnabled, adminCanToggle,
 
@@ -499,11 +538,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const fresh: Bill[] = scopedDb.flats
           .filter(f => !existing.has(f.id))
           .map(f => ({
-            id: uid('bill'), societyId: activeSocietyId, flatId: f.id,
+            id: session.isRealSession ? realUid() : uid('bill'), societyId: activeSocietyId, flatId: f.id,
             month, amount: f.maintenanceOverride ?? society.maintenanceAmount, paidAmount: 0,
             dueDate: `${month}-${String(society.dueDay).padStart(2, '0')}`,
           }))
-        if (fresh.length) guardedSetDb(d => ({ ...d, bills: [...d.bills, ...fresh] }))
+        if (fresh.length) {
+          guardedSetDb(d => ({ ...d, bills: [...d.bills, ...fresh] }))
+          if (session.isRealSession) {
+            insertBillsReal(fresh).catch(() => { /* local state already reflects it; a real error-surface for this is worth adding later */ })
+          }
+        }
         return fresh.length
       },
 
@@ -512,9 +556,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const status: Payment['status'] = failed ? 'failed' : pending ? 'pending_confirmation' : 'success'
         const receiptNo = status === 'success' ? `${society.receiptPrefix}-${year}-${String(society.receiptSeq).padStart(4, '0')}` : undefined
         const pay: Payment = {
-          id: uid('pay'), societyId: activeSocietyId, flatId, billId,
+          id: session.isRealSession ? realUid() : uid('pay'), societyId: activeSocietyId, flatId, billId,
           date: date ?? todayISO(), amount, mode, refNo, status, receiptNo, note,
         }
+        const targetBill = billId ? scopedDb.bills.find(b => b.id === billId) : undefined
         const ok = guardedSetDb(d => {
           const bills = status === 'success' && billId
             ? d.bills.map(b => b.id === billId ? { ...b, paidAmount: Math.min(b.amount, b.paidAmount + amount) } : b)
@@ -522,14 +567,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
           const societies = status === 'success' ? d.societies.map(s => s.id === activeSocietyId ? { ...s, receiptSeq: s.receiptSeq + 1 } : s) : d.societies
           return { ...d, bills, societies, payments: [pay, ...d.payments] }
         })
+        if (ok && session.isRealSession) {
+          recordPaymentReal(pay, targetBill?.paidAmount ?? 0, targetBill?.amount ?? amount)
+            .catch(() => { /* local state already reflects it; a real error-surface for this is worth adding later */ })
+        }
         return ok ? pay : null
       },
       confirmPendingPayment: (paymentId) => {
+        const p = scopedDb.payments.find(x => x.id === paymentId)
+        if (!p || p.status !== 'pending_confirmation') return
+        const year = p.date.slice(0, 4)
+        const receiptNo = `${society.receiptPrefix}-${year}-${String(society.receiptSeq).padStart(4, '0')}`
+        const targetBill = p.billId ? scopedDb.bills.find(b => b.id === p.billId) : undefined
         guardedSetDb(d => {
-          const p = d.payments.find(x => x.id === paymentId)
-          if (!p || p.status !== 'pending_confirmation') return d
-          const year = p.date.slice(0, 4)
-          const receiptNo = `${society.receiptPrefix}-${year}-${String(society.receiptSeq).padStart(4, '0')}`
           const bills = p.billId ? d.bills.map(b => b.id === p.billId ? { ...b, paidAmount: Math.min(b.amount, b.paidAmount + p.amount) } : b) : d.bills
           return {
             ...d, bills,
@@ -537,11 +587,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
             societies: d.societies.map(s => s.id === activeSocietyId ? { ...s, receiptSeq: s.receiptSeq + 1 } : s),
           }
         })
+        if (session.isRealSession) {
+          updatePaymentReal(paymentId, { status: 'success', receiptNo }).catch(() => { /* local state already reflects it */ })
+          if (p.billId && targetBill) {
+            updateBillPaidAmountReal(p.billId, Math.min(targetBill.amount, targetBill.paidAmount + p.amount)).catch(() => { /* same */ })
+          }
+        }
       },
       cancelReceipt: (paymentId, reason) => {
+        const p = scopedDb.payments.find(x => x.id === paymentId)
+        if (!p) return
+        const targetBill = p.billId ? scopedDb.bills.find(b => b.id === p.billId) : undefined
         guardedSetDb(d => {
-          const p = d.payments.find(x => x.id === paymentId)
-          if (!p) return d
           // Reverse the bill credit so dues stay correct, but never delete
           // the payment row - it stays visible, marked cancelled, with the
           // reason, so there is always an audit trail for money.
@@ -552,6 +609,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
             auditLogs: [{ id: uid('aud'), societyId: activeSocietyId, at: new Date().toISOString(), actor: society.name, action: 'receipt_cancelled', detail: `રસીદ ${p.receiptNo ?? p.id} રદ: ${reason}` }, ...d.auditLogs],
           }
         })
+        if (session.isRealSession) {
+          updatePaymentReal(paymentId, { cancelled: true, cancelReason: reason }).catch(() => { /* local state already reflects it */ })
+          if (p.billId && targetBill) {
+            updateBillPaidAmountReal(p.billId, Math.max(0, targetBill.paidAmount - p.amount)).catch(() => { /* same */ })
+          }
+        }
       },
 
       addComplaint: ({ flatId, category, title, detail, priority, photoName, visibility }) => {
@@ -623,10 +686,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       addVehicle: (v) =>
         guardedSetDb(d => ({ ...d, vehicles: [...d.vehicles, { id: uid('veh'), societyId: activeSocietyId, ...v }] })),
-      addFlat: (f) =>
-        guardedSetDb(d => ({ ...d, flats: [...d.flats, { id: uid('flat'), societyId: activeSocietyId, memberSince: new Date().getFullYear(), ...f }] })),
-      updateFlat: (flatId, patch) =>
-        guardedSetDb(d => ({ ...d, flats: d.flats.map(f => f.id === flatId ? { ...f, ...patch } : f) })),
+      addFlat: (f) => {
+        const newFlat: Flat = { id: session.isRealSession ? realUid() : uid('flat'), societyId: activeSocietyId, memberSince: new Date().getFullYear(), ...f }
+        const ok = guardedSetDb(d => ({ ...d, flats: [...d.flats, newFlat] }))
+        if (ok && session.isRealSession) {
+          insertFlatReal(newFlat.id, activeSocietyId, newFlat).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      updateFlat: (flatId, patch) => {
+        const ok = guardedSetDb(d => ({ ...d, flats: d.flats.map(f => f.id === flatId ? { ...f, ...patch } : f) }))
+        if (ok && session.isRealSession) {
+          updateFlatReal(flatId, patch).catch(() => { /* local state already reflects it */ })
+        }
+      },
       addFlatsBulk: (rows) => {
         const existingNumbers = new Set(scopedDb.flats.map(f => f.number))
         const skippedDuplicates: string[] = []
@@ -634,13 +706,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
         for (const r of rows) {
           if (existingNumbers.has(r.number)) { skippedDuplicates.push(r.number); continue }
           existingNumbers.add(r.number)
-          fresh.push({ id: uid('flat'), societyId: activeSocietyId, memberSince: new Date().getFullYear(), ...r })
+          fresh.push({ id: session.isRealSession ? realUid() : uid('flat'), societyId: activeSocietyId, memberSince: new Date().getFullYear(), ...r })
         }
         guardedSetDb(d => ({ ...d, flats: [...d.flats, ...fresh] }))
+        if (session.isRealSession) {
+          for (const f of fresh) insertFlatReal(f.id, activeSocietyId, f).catch(() => { /* local state already reflects it */ })
+        }
         return { added: fresh.length, skippedDuplicates }
       },
-      addAdjustment: (a) =>
-        guardedSetDb(d => ({ ...d, adjustments: [{ id: uid('adj'), societyId: activeSocietyId, ...a }, ...d.adjustments] })),
+      addAdjustment: (a) => {
+        const adj: Adjustment = { id: session.isRealSession ? realUid() : uid('adj'), societyId: activeSocietyId, ...a }
+        const ok = guardedSetDb(d => ({ ...d, adjustments: [adj, ...d.adjustments] }))
+        if (ok && session.isRealSession) {
+          insertAdjustmentReal(adj).catch(() => { /* local state already reflects it */ })
+        }
+      },
       updateSociety: (patch) =>
         guardedSetDb(d => ({ ...d, societies: d.societies.map(s => s.id === activeSocietyId ? { ...s, ...patch } : s) })),
 
@@ -684,7 +764,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setDb(DEMO_SEED_ENABLED ? buildSeed() : emptySeed())
       },
     }
-  }, [db, session, activeSociety, activeSocietyId])
+  }, [db, session, activeSociety, activeSocietyId, financialsLoading])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

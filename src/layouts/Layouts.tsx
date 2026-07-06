@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, Link } from 'react-router-dom'
-import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, ShieldAlert } from 'lucide-react'
+import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, ShieldAlert, Loader2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useData } from '../lib/store'
 import { roleLabel } from '../lib/permissions'
@@ -23,7 +23,7 @@ const residentTabs: { to: string; label: string; icon: LucideIcon; end?: boolean
 
 export function ResidentLayout() {
   useAppLang()
-  const { society, session, flatById, moduleEnabled } = useData()
+  const { society, session, flatById, moduleEnabled, financialsLoading } = useData()
   const flat = session.flatId ? flatById(session.flatId) : undefined
   const tabs = residentTabs.filter(t => !t.module || moduleEnabled(t.module))
 
@@ -52,7 +52,12 @@ export function ResidentLayout() {
       </header>
 
       <main className="flex-1 px-4 py-4 pb-28">
-        <Outlet />
+        {financialsLoading ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-16 text-navy-400">
+            <Loader2 size={26} className="animate-spin" />
+            <span className="text-[13px]">તમારી માહિતી લોડ થાય છે...</span>
+          </div>
+        ) : <Outlet />}
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 z-40 max-w-2xl mx-auto glass border-t border-cream-200 px-1 pb-[env(safe-area-inset-bottom)]">
@@ -78,7 +83,7 @@ export interface NavItem { to: string; label: string; icon: LucideIcon; end?: bo
 
 export function Shell({ items, title }: { items: NavItem[]; title: string }) {
   useAppLang()
-  const { society, session, logout, moduleEnabled, exitImpersonation } = useData()
+  const { society, session, logout, moduleEnabled, exitImpersonation, financialsLoading } = useData()
   const [open, setOpen] = useState(false)
   const visibleItems = items.filter(it => !it.module || moduleEnabled(it.module))
 
@@ -155,7 +160,12 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
           <PranganBrand variant="wordmark-navy" height={16} className="opacity-70" />
         </header>
         <main className="p-4 sm:p-6 max-w-6xl">
-          <Outlet />
+          {financialsLoading ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-16 text-navy-400">
+              <Loader2 size={26} className="animate-spin" />
+              <span className="text-[13px]">માહિતી લોડ થાય છે...</span>
+            </div>
+          ) : <Outlet />}
         </main>
       </div>
     </div>

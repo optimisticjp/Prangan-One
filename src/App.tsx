@@ -27,6 +27,8 @@ import Features from './pages/public/Features'
 import Pricing from './pages/public/Pricing'
 import Faq from './pages/public/Faq'
 import Contact from './pages/public/Contact'
+import Privacy from './pages/public/Privacy'
+import Terms from './pages/public/Terms'
 import ShareLink from './pages/ShareLink'
 import NotFound from './pages/NotFound'
 import Forbidden from './pages/Forbidden'
@@ -117,6 +119,8 @@ export default function App() {
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/faq" element={<Faq />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="/login" element={<Login />} />
         <Route path="/demo" element={<Demo />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
