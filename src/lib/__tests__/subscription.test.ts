@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canWrite, effectiveStatus, graceDaysRemaining, isGraceExpired, statusBanner } from '../subscription'
+import { canWrite, effectiveStatus, graceDaysRemaining, isGraceExpired, isTrialExpired, statusBanner, trialDaysRemaining } from '../subscription'
 
 const base = { subscriptionStatus: 'active' as const, graceStartedAt: undefined as string | undefined }
 
@@ -78,5 +78,71 @@ describe('statusBanner', () => {
   it('shows nothing during active or trial', () => {
     expect(statusBanner({ subscriptionStatus: 'active', graceStartedAt: undefined }, 'admin')).toBeNull()
     expect(statusBanner({ subscriptionStatus: 'trial', graceStartedAt: undefined }, 'resident')).toBeNull()
+  })
+})
+
+describe('isTrialExpired', () => {
+  it('is false right when the trial starts', () => {
+    expect(isTrialExpired(new Date().toISOString())).toBe(false)
+  })
+  it('is false at 89 days', () => {
+    const eightyNineDaysAgo = new Date(Date.now() - 89 * 24 * 60 * 60 * 1000).toISOString()
+    expect(isTrialExpired(eightyNineDaysAgo)).toBe(false)
+  })
+  it('is true at 91 days', () => {
+    const ninetyOneDaysAgo = new Date(Date.now() - 91 * 24 * 60 * 60 * 1000).toISOString()
+    expect(isTrialExpired(ninetyOneDaysAgo)).toBe(true)
+  })
+})
+
+describe('trialDaysRemaining', () => {
+  it('shows the full 90 days right at activation', () => {
+    expect(trialDaysRemaining({ subscriptionStatus: 'trial', trialStartedAt: new Date().toISOString(), graceStartedAt: undefined })).toBe(90)
+  })
+  it('counts down correctly partway through', () => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    expect(trialDaysRemaining({ subscriptionStatus: 'trial', trialStartedAt: thirtyDaysAgo, graceStartedAt: undefined })).toBe(60)
+  })
+  it('is 0 once expired, never negative', () => {
+    const hundredDaysAgo = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString()
+    expect(trialDaysRemaining({ subscriptionStatus: 'trial', trialStartedAt: hundredDaysAgo, graceStartedAt: undefined })).toBe(0)
+  })
+  it('is 0 for a society that is not on trial at all', () => {
+    expect(trialDaysRemaining({ subscriptionStatus: 'active', trialStartedAt: undefined, graceStartedAt: undefined })).toBe(0)
+  })
+})
+
+describe('effectiveStatus for a lapsed trial', () => {
+  it('stays trial while within the 90 days', () => {
+    const soc = { subscriptionStatus: 'trial' as const, trialStartedAt: new Date().toISOString(), graceStartedAt: undefined }
+    expect(effectiveStatus(soc)).toBe('trial')
+  })
+  it('reads as grace right after the 90 days run out, a lapsed trial gets the same soft landing as a lapsed paid subscription', () => {
+    const ninetyOneDaysAgo = new Date(Date.now() - 91 * 24 * 60 * 60 * 1000).toISOString()
+    const soc = { subscriptionStatus: 'trial' as const, trialStartedAt: ninetyOneDaysAgo, graceStartedAt: undefined }
+    expect(effectiveStatus(soc)).toBe('grace')
+  })
+  it('reads as paused once even the post-trial grace window (90 + 14 days) has also run out', () => {
+    const hundredAndSixDaysAgo = new Date(Date.now() - 106 * 24 * 60 * 60 * 1000).toISOString()
+    const soc = { subscriptionStatus: 'trial' as const, trialStartedAt: hundredAndSixDaysAgo, graceStartedAt: undefined }
+    expect(effectiveStatus(soc)).toBe('paused')
+  })
+  it('still allows writes during the post-trial grace window, blocks once that also expires', () => {
+    const ninetyTwoDaysAgo = new Date(Date.now() - 92 * 24 * 60 * 60 * 1000).toISOString()
+    const stillInGrace = { subscriptionStatus: 'trial' as const, trialStartedAt: ninetyTwoDaysAgo, graceStartedAt: undefined }
+    expect(canWrite(stillInGrace)).toBe(true)
+
+    const hundredAndTenDaysAgo = new Date(Date.now() - 110 * 24 * 60 * 60 * 1000).toISOString()
+    const fullyLapsed = { subscriptionStatus: 'trial' as const, trialStartedAt: hundredAndTenDaysAgo, graceStartedAt: undefined }
+    expect(canWrite(fullyLapsed)).toBe(false)
+  })
+  it('warns the admin once the trial is within 10 days of ending, says nothing before that', () => {
+    const eightyOneDaysAgo = new Date(Date.now() - 81 * 24 * 60 * 60 * 1000).toISOString() // 9 days left
+    const soc = { subscriptionStatus: 'trial' as const, trialStartedAt: eightyOneDaysAgo, graceStartedAt: undefined }
+    expect(statusBanner(soc, 'admin')).toContain('care@pranganone.com')
+
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() // 80 days left, well outside the warning window
+    const freshTrial = { subscriptionStatus: 'trial' as const, trialStartedAt: tenDaysAgo, graceStartedAt: undefined }
+    expect(statusBanner(freshTrial, 'admin')).toBeNull()
   })
 })

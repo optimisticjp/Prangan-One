@@ -146,7 +146,7 @@ export default function App() {
           <Route path="more" element={<Lazy><RMore /></Lazy>} />
         </Route>
 
-        <Route path="/admin" element={<RoleGate allow={['society_admin', 'committee_member', 'viewer']}><Shell items={adminNav} title="કમિટી પેનલ" /></RoleGate>}>
+        <Route path="/admin" element={<RoleGate allow={['society_admin', 'committee_member', 'auditor']}><Shell items={adminNav} title="કમિટી પેનલ" /></RoleGate>}>
           <Route index element={<Lazy><ADashboard /></Lazy>} />
           <Route path="members" element={<Lazy><AMembers /></Lazy>} />
           <Route path="billing" element={<ModuleGate module="billing" fallback="/admin"><Lazy><ABilling /></Lazy></ModuleGate>} />
@@ -163,7 +163,7 @@ export default function App() {
           <Route path="settings" element={<Lazy><ASettings /></Lazy>} />
         </Route>
 
-        <Route path="/accounts" element={<RoleGate allow={['accountant', 'society_admin', 'owner']}><Shell items={acctNav} title="એકાઉન્ટન્ટ પેનલ" /></RoleGate>}>
+        <Route path="/accounts" element={<RoleGate allow={['accountant', 'treasurer', 'society_admin', 'owner']}><Shell items={acctNav} title="એકાઉન્ટન્ટ પેનલ" /></RoleGate>}>
           <Route index element={<Lazy><CDashboard /></Lazy>} />
           <Route path="reports" element={<Lazy><CReports /></Lazy>} />
           <Route path="adjustments" element={<Lazy><CAdjustments /></Lazy>} />

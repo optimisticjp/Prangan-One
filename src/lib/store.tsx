@@ -229,6 +229,8 @@ interface Store {
   moduleEnabled: (key: keyof SocietyModules) => boolean
   adminCanToggle: (key: keyof SocietyModules) => boolean
   /* billing + payments */
+  /** What generateBills(month) would actually do, without doing it - lets the admin see the total and any per-flat overrides before confirming. */
+  previewBillGeneration: (month: string) => { flatId: string; flatNumber: string; amount: number; alreadyExists: boolean }[]
   generateBills: (month: string) => number
   recordPayment: (p: {
     flatId: string; billId?: string; amount: number; mode: PayMode
@@ -238,7 +240,7 @@ interface Store {
   confirmPendingPayment: (paymentId: string) => void
   cancelReceipt: (paymentId: string, reason: string) => void
   /* complaints */
-  addComplaint: (c: { flatId: string; category: string; title: string; detail: string; priority: 'normal' | 'urgent'; photoName?: string }) => Complaint | null
+  addComplaint: (c: { flatId: string; category: string; title: string; detail: string; priority: 'normal' | 'urgent'; photoName?: string; visibility?: 'personal' | 'community' }) => Complaint | null
   advanceComplaint: (id: string, status: ComplaintStatus, note: string, by: string, assignedTo?: string) => void
   addInternalNote: (id: string, note: string) => void
   addFeedback: (id: string, rating: number, comment: string) => void
@@ -261,6 +263,8 @@ interface Store {
   /* misc */
   addVehicle: (v: { flatId: string; kind: '2W' | '4W'; number: string; slot: string; ownerType: string }) => void
   addFlat: (f: { number: string; floor: number; ownerName: string; phone: string; email?: string; occupancy: 'owner' | 'tenant'; tenantName?: string; tenantEmail?: string; sqft: number }) => void
+  /** Currently used for setting/clearing a flat's maintenanceOverride - kept generic (any Flat field) since a fuller edit form is real future work, not built yet. */
+  updateFlat: (flatId: string, patch: Partial<Flat>) => void
   addFlatsBulk: (rows: { number: string; floor: number; ownerName: string; phone: string; email?: string; occupancy: 'owner' | 'tenant'; tenantName?: string; tenantEmail?: string; sqft: number }[]) => { added: number; skippedDuplicates: string[] }
   addAdjustment: (a: { date: string; flatId?: string; amount: number; type: 'credit' | 'debit'; reason: string }) => void
   updateSociety: (patch: Partial<Society>) => void
@@ -349,10 +353,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (b.paidAmount >= b.amount) return 'paid'
       return b.dueDate < todayISO() ? 'overdue' : 'pending'
     }
+    // A debit adjustment (a one-time charge, a correction that increases
+    // what's owed) adds to pending. A credit adjustment (a discount, a
+    // refund, an advance payment credited forward) reduces it, and can
+    // take a flat's pending balance negative - that's a real credit
+    // balance, not a bug, see billStatus() in Bill.tsx for how the
+    // resident-facing UI shows that distinctly rather than as "₹-500 due".
+    // Only adjustments tied to a specific flat count here; a society-wide
+    // adjustment (flatId undefined) doesn't belong to any one flat's
+    // balance and only shows up in totalPending.
+    const flatAdjustmentNet = (flatId: string) =>
+      scopedDb.adjustments.filter(a => a.flatId === flatId).reduce((s, a) => s + (a.type === 'debit' ? a.amount : -a.amount), 0)
+    const allAdjustmentNet = () =>
+      scopedDb.adjustments.reduce((s, a) => s + (a.type === 'debit' ? a.amount : -a.amount), 0)
     const flatPending = (flatId: string) =>
-      scopedDb.bills.filter(b => b.flatId === flatId).reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0)
+      scopedDb.bills.filter(b => b.flatId === flatId).reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0) + flatAdjustmentNet(flatId)
     const totalPending = () =>
-      scopedDb.bills.reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0)
+      scopedDb.bills.reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0) + allAdjustmentNet()
     const monthIncome = (month: string) =>
       scopedDb.payments.filter(p => p.status === 'success' && p.date.startsWith(month)).reduce((s, p) => s + p.amount, 0)
     const monthExpense = (month: string) =>
@@ -457,21 +474,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       flatById, billStatus, flatPending, totalPending, monthIncome, monthExpense, moduleEnabled, adminCanToggle,
 
+      previewBillGeneration: (month) => {
+        const existing = new Set(scopedDb.bills.filter(b => b.month === month).map(b => b.flatId))
+        return scopedDb.flats.map(f => ({
+          flatId: f.id, flatNumber: f.number,
+          amount: f.maintenanceOverride ?? society.maintenanceAmount,
+          alreadyExists: existing.has(f.id),
+        }))
+      },
+
       generateBills: (month) => {
-        let created = 0
-        guardedSetDb(d => {
-          const existing = new Set(d.bills.filter(b => b.societyId === activeSocietyId && b.month === month).map(b => b.flatId))
-          const fresh: Bill[] = d.flats
-            .filter(f => f.societyId === activeSocietyId && !existing.has(f.id))
-            .map(f => ({
-              id: uid('bill'), societyId: activeSocietyId, flatId: f.id,
-              month, amount: society.maintenanceAmount, paidAmount: 0,
-              dueDate: `${month}-${String(society.dueDay).padStart(2, '0')}`,
-            }))
-          created = fresh.length
-          return fresh.length ? { ...d, bills: [...d.bills, ...fresh] } : d
-        })
-        return created
+        // Computed from the current snapshot BEFORE calling guardedSetDb,
+        // not as a side-effect variable set inside the updater callback.
+        // React can invoke a setState updater function more than once
+        // (StrictMode does this deliberately, to catch exactly this kind
+        // of impurity - see main.tsx, StrictMode is really on) - a
+        // mutable outer variable reassigned inside the callback isn't
+        // safe against that, and returned an incorrect count in testing
+        // before this fix, even though the actual bills were created
+        // correctly either way. Precomputing the list here means the
+        // updater itself just applies a fixed, already-known list, so it
+        // produces the same result no matter how many times it's invoked.
+        const existing = new Set(scopedDb.bills.filter(b => b.month === month).map(b => b.flatId))
+        const fresh: Bill[] = scopedDb.flats
+          .filter(f => !existing.has(f.id))
+          .map(f => ({
+            id: uid('bill'), societyId: activeSocietyId, flatId: f.id,
+            month, amount: f.maintenanceOverride ?? society.maintenanceAmount, paidAmount: 0,
+            dueDate: `${month}-${String(society.dueDay).padStart(2, '0')}`,
+          }))
+        if (fresh.length) guardedSetDb(d => ({ ...d, bills: [...d.bills, ...fresh] }))
+        return fresh.length
       },
 
       recordPayment: ({ flatId, billId, amount, mode, refNo, note, failed, date, pending }) => {
@@ -521,12 +554,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         })
       },
 
-      addComplaint: ({ flatId, category, title, detail, priority, photoName }) => {
+      addComplaint: ({ flatId, category, title, detail, priority, photoName, visibility }) => {
         const flat = flatById(flatId)
         const c: Complaint = {
           id: uid('cmp'), societyId: activeSocietyId, flatId, category, title, detail, priority,
           status: 'new', createdAt: todayISO(), internalNotes: [],
-          hasPhoto: !!photoName, photoName,
+          hasPhoto: !!photoName, photoName, visibility: visibility ?? 'personal',
           timeline: [{ date: todayISO(), status: 'new', by: flat?.ownerName ?? 'સભ્ય' }],
         }
         const ok = guardedSetDb(d => ({ ...d, complaints: [c, ...d.complaints] }))
@@ -592,6 +625,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         guardedSetDb(d => ({ ...d, vehicles: [...d.vehicles, { id: uid('veh'), societyId: activeSocietyId, ...v }] })),
       addFlat: (f) =>
         guardedSetDb(d => ({ ...d, flats: [...d.flats, { id: uid('flat'), societyId: activeSocietyId, memberSince: new Date().getFullYear(), ...f }] })),
+      updateFlat: (flatId, patch) =>
+        guardedSetDb(d => ({ ...d, flats: d.flats.map(f => f.id === flatId ? { ...f, ...patch } : f) })),
       addFlatsBulk: (rows) => {
         const existingNumbers = new Set(scopedDb.flats.map(f => f.number))
         const skippedDuplicates: string[] = []
@@ -625,7 +660,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         while (takenCodes.has(joinCode)) joinCode = generateJoinCode(s.nameEn)
         const newSoc: Society = {
           id: uid('soc'), upiId: '', plan: 'trial', flatsLimit: 60, slug, joinCode,
-          subscriptionStatus: 'trial', receiptSeq: 1, createdAt: todayISO(), ...s,
+          subscriptionStatus: 'trial', receiptSeq: 1, createdAt: todayISO(),
+          trialStartedAt: new Date().toISOString(), ...s,
         }
         setDb(d => ({ ...d, societies: [...d.societies, newSoc] }))
         return newSoc

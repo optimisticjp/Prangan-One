@@ -6,24 +6,26 @@ import { usePageMeta } from './usePageMeta'
 
 const copy = {
   en: {
-    title: 'Pricing', desc: 'Flat ₹10 per flat per month. No online payment gateway needed, no hidden setup fee.',
-    h1: 'Simple pricing', sub: 'Less than one chai per flat, per month.',
-    perFlat: 'per flat / month',
+    title: 'Pricing', desc: '90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed, no hidden setup fee.',
+    h1: 'Simple pricing', sub: '90 days free. No card required to start.',
+    perFlat: 'per flat / month, after your free trial',
+    minimumNote: '₹499 minimum per society, per month, whichever is higher.',
     features: ['Every module included', 'Unlimited residents and committee members', 'Billing, receipts, and one-tap WhatsApp reminder sharing', 'Complaints, notices, polls, and events', 'Export your data anytime, no lock-in', 'Setup handled personally, no self-serve signup form'],
-    note: 'Setup is manual and personal: we onboard your society directly, no online payment gateway required to get started.',
+    note: 'Setup is manual and personal: we onboard your society directly, no card and no online payment gateway required to get started. Your 90-day trial begins once your society is actually set up and ready to use, not the day you fill out this form.',
     cta: 'Request Society Setup',
-    examplesTitle: 'What that actually costs',
-    examples: [['24-flat society', '\u20b9240 / month'], ['100-flat society', '\u20b91,000 / month']],
+    examplesTitle: 'What that actually costs, after the trial',
+    examples: [['30-flat society', '\u20b9499 / month (minimum applies)'], ['100-flat society', '\u20b91,000 / month']],
   },
   gu: {
-    title: 'કિંમત', desc: 'ફ્લેટ દીઠ મહિને ₹10, સાદી કિંમત. કોઈ ઓનલાઈન પેમેન્ટ ગેટવે જરૂરી નથી, કોઈ છુપો સેટઅપ ચાર્જ નથી.',
-    h1: 'સાદી કિંમત', sub: 'એક ચા કરતાં ઓછું, ફ્લેટ દીઠ, મહિને.',
-    perFlat: 'ફ્લેટ દીઠ / મહિનો',
+    title: 'કિંમત', desc: '90 દિવસ મફત, કોઈ કાર્ડની જરૂર નથી. પછી, ફ્લેટ દીઠ મહિને ₹10, સોસાયટી દીઠ ઓછામાં ઓછું ₹499. કોઈ ઓનલાઈન પેમેન્ટ ગેટવે જરૂરી નથી, કોઈ છુપો સેટઅપ ચાર્જ નથી.',
+    h1: 'સાદી કિંમત', sub: '90 દિવસ મફત. શરૂ કરવા કાર્ડની જરૂર નથી.',
+    perFlat: 'ફ્લેટ દીઠ / મહિનો, ટ્રાયલ પછી',
+    minimumNote: 'સોસાયટી દીઠ ઓછામાં ઓછું ₹499 મહિને, બેમાંથી જે વધારે હોય તે.',
     features: ['દરેક સુવિધા સામેલ', 'રહેવાસી અને કમિટી સભ્યની કોઈ લિમિટ નહીં', 'બિલિંગ, રસીદ, અને એક-ટેપ WhatsApp રિમાઇન્ડર શેર', 'ફરિયાદ, નોટિસ, મતદાન, ઇવેન્ટ', 'ગમે ત્યારે તમારો ડેટા એક્સપોર્ટ કરો', 'સેટઅપ સીધું અમે કરીએ, કોઈ સેલ્ફ-સર્વ ફોર્મ નહીં'],
-    note: 'સેટઅપ મેન્યુઅલી અને સીધું થાય છે: અમે તમારી સોસાયટીને સીધા ઓનબોર્ડ કરીએ છીએ, શરૂ કરવા માટે ઓનલાઈન પેમેન્ટ ગેટવેની જરૂર નથી.',
+    note: 'સેટઅપ મેન્યુઅલી અને સીધું થાય છે: અમે તમારી સોસાયટીને સીધા ઓનબોર્ડ કરીએ છીએ, શરૂ કરવા માટે કાર્ડ કે ઓનલાઈન પેમેન્ટ ગેટવેની જરૂર નથી. તમારો 90-દિવસનો ટ્રાયલ ત્યારે શરૂ થાય છે જ્યારે તમારી સોસાયટી ખરેખર સેટ થઈને વાપરવા તૈયાર થાય, આ ફોર્મ ભરો એ દિવસે નહીં.',
     cta: 'સોસાયટી સેટઅપની વિનંતી કરો',
-    examplesTitle: 'ખરેખર કેટલો ખર્ચ થાય',
-    examples: [['24 ફ્લેટની સોસાયટી', '₹240 / મહિનો'], ['100 ફ્લેટની સોસાયટી', '₹1,000 / મહિનો']],
+    examplesTitle: 'ટ્રાયલ પછી ખરેખર કેટલો ખર્ચ થાય',
+    examples: [['30 ફ્લેટની સોસાયટી', '₹499 / મહિનો (મિનિમમ લાગુ)'], ['100 ફ્લેટની સોસાયટી', '₹1,000 / મહિનો']],
   },
 }
 
@@ -40,11 +42,15 @@ export default function Pricing() {
 
         <div className="max-w-sm mx-auto mt-8 rounded-3xl border-2 border-saffron-300 bg-white p-7 relative overflow-hidden">
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-saffron-500/10" aria-hidden />
-          <div className="flex items-end justify-center gap-1 relative">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-paid/10 text-paid text-[12.5px] font-bold px-3 py-1 relative">
+            {lang === 'en' ? '90 days free, no card needed' : '90 દિવસ મફત, કાર્ડની જરૂર નથી'}
+          </div>
+          <div className="flex items-end justify-center gap-1 relative mt-4">
             <IndianRupee size={26} className="mb-2" />
             <span className="text-[54px] font-bold leading-none">10</span>
           </div>
           <div className="text-[13.5px] text-navy-400 relative">{t.perFlat}</div>
+          <div className="text-[12px] text-navy-400 relative mt-1">{t.minimumNote}</div>
           <ul className="mt-5 space-y-2.5 text-left text-[14px] relative">
             {t.features.map(f => (
               <li key={f} className="flex items-start gap-2"><Check size={16} className="text-paid shrink-0 mt-0.5" /> {f}</li>
@@ -62,7 +68,7 @@ export default function Pricing() {
             {t.examples.map(([label, price]) => (
               <div key={label} className="rounded-xl border border-cream-200 bg-white px-4 py-3.5 text-left">
                 <div className="text-[12.5px] text-navy-400">{label}</div>
-                <div className="text-[17px] font-bold text-navy-900 mt-0.5">{price}</div>
+                <div className="text-[15px] font-bold text-navy-900 mt-0.5">{price}</div>
               </div>
             ))}
           </div>

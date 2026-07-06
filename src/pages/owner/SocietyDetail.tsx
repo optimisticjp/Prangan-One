@@ -34,7 +34,7 @@ const statusOptions: { value: SubscriptionStatus; label: string }[] = [
   { value: 'trial', label: 'ટ્રાયલ' }, { value: 'active', label: 'એક્ટિવ' }, { value: 'grace', label: 'ગ્રેસ' },
   { value: 'paused', label: 'થોભાવેલ' }, { value: 'archived', label: 'આર્કાઇવ' },
 ]
-const memberRoles: Role[] = ['society_admin', 'committee_member', 'accountant', 'viewer']
+const memberRoles: Role[] = ['society_admin', 'treasurer', 'committee_member', 'accountant', 'auditor']
 
 export default function SocietyDetail() {
   const { id } = useParams()

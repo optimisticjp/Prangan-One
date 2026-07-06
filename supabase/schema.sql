@@ -88,6 +88,12 @@ create table societies (
   tenant_access    text not null default 'full' check (tenant_access in ('disabled', 'limited', 'full')),
   subscription_status text not null default 'trial' check (subscription_status in ('trial', 'active', 'grace', 'paused', 'archived')),
   grace_started_at timestamptz,
+  -- Set once, when the society is actually activated and ready to use -
+  -- never at lead submission, never at the moment an empty society record
+  -- is created. See can_write() above and src/lib/subscription.ts, which
+  -- computes trial expiry from this the same way grace expiry is
+  -- computed from grace_started_at, no scheduled job needed.
+  trial_started_at timestamptz,
   receipt_seq      int not null default 1,
   created_at       timestamptz not null default now()
 );
@@ -134,8 +140,8 @@ create table memberships (
   society_id     uuid references societies(id) on delete cascade,
   flat_id        uuid,  -- fk added after flats table exists, see below
   role           text not null check (role in (
-                   'owner', 'society_admin', 'committee_member', 'accountant',
-                   'resident_owner', 'resident_tenant', 'viewer'
+                   'owner', 'society_admin', 'treasurer', 'committee_member', 'accountant',
+                   'resident_owner', 'resident_tenant', 'auditor'
                  )),
   phone          text,
   whatsapp       text,
@@ -177,6 +183,9 @@ create table flats (
   tenant_email  text,
   sqft          int not null default 0,
   member_since  int not null default extract(year from now()),
+  -- Overrides the society's default maintenance_amount for this one flat
+  -- when generating bills. Null means "use the society default", not zero.
+  maintenance_override numeric,
   created_at    timestamptz not null default now(),
   unique (society_id, number)
 );
@@ -260,6 +269,11 @@ create table complaints (
   photo_path      text,  -- storage path once Supabase Storage is wired up
   internal_notes  jsonb not null default '[]'::jsonb,
   feedback        jsonb,  -- { rating: number, comment: string }
+  -- 'personal': only the filer's own flat and complaint managers see it.
+  -- 'community': every authenticated society member sees it - a broken
+  -- lift, a common-area leak, anything more than one flat cares about.
+  -- Enforced below in complaints_select, not just filtered in the UI.
+  visibility      text not null default 'personal' check (visibility in ('personal', 'community')),
   created_at      timestamptz not null default now()
 );
 
@@ -534,11 +548,15 @@ as $$
   );
 $$;
 
--- The write-guard rule (mirrors src/lib/subscription.ts::canWrite exactly):
--- trial, active, and grace allow writes; paused and archived don't. Grace
--- past 14 days from grace_started_at reads as paused, computed here the
--- same way the frontend computes it, no scheduled job needed. The owner
--- role is never blocked - owner writes always pass regardless of status.
+-- The write-guard rule (mirrors src/lib/subscription.ts::canWrite and
+-- ::effectiveStatus exactly): trial, active, and grace allow writes;
+-- paused and archived don't. Grace past 14 days from grace_started_at
+-- reads as paused. A trial past 90 days from trial_started_at reads as
+-- grace (getting the same 14-day soft landing a lapsed paid subscription
+-- gets), or paused if even that window has also elapsed. All computed
+-- here the same way the frontend computes it, no scheduled job needed.
+-- The owner role is never blocked - owner writes always pass regardless
+-- of status.
 create or replace function can_write(target_society uuid)
 returns boolean
 language plpgsql
@@ -552,11 +570,24 @@ begin
     return true;
   end if;
 
-  select subscription_status, grace_started_at into s
+  select subscription_status, grace_started_at, trial_started_at into s
   from societies where id = target_society;
 
-  if s.subscription_status in ('trial', 'active') then
+  if s.subscription_status = 'active' then
     return true;
+  end if;
+
+  if s.subscription_status = 'trial' then
+    if s.trial_started_at is null then
+      return true;
+    end if;
+    if (now() - s.trial_started_at) <= interval '90 days' then
+      return true;
+    end if;
+    -- trial has ended: the same 14-day grace window a lapsed paid
+    -- subscription gets, anchored to when the trial ended instead of an
+    -- explicit grace_started_at write
+    return (now() - s.trial_started_at) <= interval '104 days'; -- 90 + 14
   end if;
 
   if s.subscription_status = 'grace' then
@@ -930,9 +961,9 @@ create policy flats_update on flats for update
 create policy bills_select on bills for select
   using (is_society_member(society_id) or has_role(society_id, array['owner']));
 create policy bills_insert on bills for insert
-  with check (has_role(society_id, array['society_admin']) and can_write(society_id));
+  with check (has_role(society_id, array['society_admin', 'treasurer']) and can_write(society_id));
 create policy bills_update on bills for update
-  using (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));  -- paid_amount updates on payment
+  using (has_role(society_id, array['society_admin', 'treasurer', 'accountant']) and can_write(society_id));  -- paid_amount updates on payment
 
 -- payments: members read their society's payments; accountant+society_admin
 -- record them; residents can insert their OWN pending_confirmation "I have
@@ -943,18 +974,18 @@ create policy payments_insert on payments for insert
   with check (
     can_write(society_id)
     and (
-      has_role(society_id, array['society_admin', 'accountant'])
+      has_role(society_id, array['society_admin', 'treasurer', 'accountant'])
       or (flat_id = my_flat_id(society_id) and status = 'pending_confirmation')
     )
   );
 create policy payments_update on payments for update
-  using (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));
+  using (has_role(society_id, array['society_admin', 'treasurer', 'accountant']) and can_write(society_id));
 
--- expenses: members read; accountant+society_admin write
+-- expenses: members read; accountant+treasurer+society_admin write
 create policy expenses_select on expenses for select
   using (is_society_member(society_id) or has_role(society_id, array['owner']));
 create policy expenses_insert on expenses for insert
-  with check (has_role(society_id, array['society_admin', 'accountant', 'committee_member']) and can_write(society_id));
+  with check (has_role(society_id, array['society_admin', 'treasurer', 'accountant', 'committee_member']) and can_write(society_id));
 
 -- vendors: members read; society_admin and committee_member write
 create policy vendors_select on vendors for select
@@ -968,8 +999,17 @@ create policy vendors_update on vendors for update
 -- only file a complaint against their OWN flat_id (tenants only if
 -- tenant_access is not 'disabled'); society_admin/committee_member update
 -- (advance status, assign)
+-- complaints: complaint managers see everything in their society; a
+-- resident sees their own flat's complaints (any visibility) plus every
+-- community-visibility complaint society-wide, but never another flat's
+-- personal complaint. This is the real enforcement the roadmap asks for -
+-- residents must not receive every row and rely on frontend filtering.
 create policy complaints_select on complaints for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (
+    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'treasurer', 'accountant'])
+    or flat_id = my_flat_id(society_id)
+    or (visibility = 'community' and is_society_member(society_id))
+  );
 create policy complaints_insert on complaints for insert
   with check (
     can_write(society_id)
@@ -987,7 +1027,12 @@ create policy complaints_update on complaints for update
 create policy complaint_timeline_select on complaint_timeline for select
   using (exists (
     select 1 from complaints c
-    where c.id = complaint_timeline.complaint_id and (is_society_member(c.society_id) or has_role(c.society_id, array['owner']))
+    where c.id = complaint_timeline.complaint_id
+      and (
+        has_role(c.society_id, array['owner', 'society_admin', 'committee_member', 'treasurer', 'accountant'])
+        or c.flat_id = my_flat_id(c.society_id)
+        or (c.visibility = 'community' and is_society_member(c.society_id))
+      )
   ));
 create policy complaint_timeline_insert on complaint_timeline for insert
   with check (exists (
@@ -1103,7 +1148,7 @@ create policy contacts_insert on contacts for insert
 create policy adjustments_select on adjustments for select
   using (is_society_member(society_id) or has_role(society_id, array['owner']));
 create policy adjustments_insert on adjustments for insert
-  with check (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));
+  with check (has_role(society_id, array['society_admin', 'treasurer', 'accountant']) and can_write(society_id));
 
 -- platform_billing, public_leads, audit_logs, impersonation_logs: owner-only,
 -- always, in every direction. These are the platform's own operational

@@ -7,38 +7,48 @@ import type { DocPermission, Role, TenantAccessMode } from './types'
 export const roleLabel: Record<Role, string> = {
   owner: 'Prangan One ઓનર',
   society_admin: 'સોસાયટી એડમિન',
+  treasurer: 'ટ્રેઝરર',
   committee_member: 'કમિટી સભ્ય',
   accountant: 'એકાઉન્ટન્ટ',
   resident_owner: 'રહેવાસી (માલિક)',
   resident_tenant: 'રહેવાસી (ભાડૂત)',
-  viewer: 'વ્યૂઅર (માત્ર જોવા માટે)',
+  auditor: 'ઓડિટર (માત્ર જોવા માટે)',
 }
 
 // Where a real, resolved login lands someone - see src/pages/AuthCallback.tsx.
 export const roleHomeRoute: Record<Role, string> = {
   owner: '/owner',
   society_admin: '/admin',
+  treasurer: '/accounts',
   committee_member: '/admin',
   accountant: '/accounts',
   resident_owner: '/app',
   resident_tenant: '/app',
-  viewer: '/admin',
+  auditor: '/admin',
 }
 
 export const isResident = (role: Role | null) => role === 'resident_owner' || role === 'resident_tenant'
 export const isCommitteeLevel = (role: Role | null) => role === 'society_admin' || role === 'committee_member'
-// society_admin always has full billing access. committee_member needs an
-// explicit per-membership override (Membership.canManageBilling) once real
-// memberships exist; in the demo (no persisted per-user membership store
+// society_admin and treasurer always have full billing access. committee_member
+// needs an explicit per-membership override (Membership.canManageBilling) once
+// real memberships exist; in the demo (no persisted per-user membership store
 // yet) committee_member is treated as billing-restricted by default, which
 // is the safer default per the roadmap ("not billing unless allowed").
 export const canManageBilling = (role: Role | null, membershipOverride?: boolean) =>
-  role === 'society_admin' || role === 'owner' || (role === 'committee_member' && !!membershipOverride)
+  role === 'society_admin' || role === 'owner' || role === 'treasurer' || (role === 'committee_member' && !!membershipOverride)
+
+// Treasurer-only within the finance area (accountant cannot): matches the
+// roadmap's explicit split - accountant records and confirms payments and
+// expenses, but doesn't configure billing or cancel receipts. Both of
+// those still need a real page to reach in the UI, this only governs
+// whether the action itself should be allowed once that page exists (see
+// the Role comment block in types.ts for why the pages aren't split yet).
+export const canCancelReceipt = (role: Role | null) => role === 'society_admin' || role === 'owner' || role === 'treasurer'
 
 const AREA_ACCESS: Record<string, Role[]> = {
   residentApp: ['resident_owner', 'resident_tenant'],
-  adminPanel: ['society_admin', 'committee_member', 'viewer'],
-  accountsPanel: ['accountant', 'society_admin', 'owner'],
+  adminPanel: ['society_admin', 'committee_member', 'auditor'],
+  accountsPanel: ['accountant', 'treasurer', 'society_admin', 'owner'],
   ownerConsole: ['owner'],
 }
 export const canAccessArea = (role: Role | null, area: keyof typeof AREA_ACCESS) =>
@@ -48,7 +58,7 @@ export const canSeeDoc = (role: Role | null, perm: DocPermission) => {
   if (!role) return false
   if (perm === 'public') return true
   if (perm === 'committee') return isCommitteeLevel(role) || role === 'owner'
-  if (perm === 'accountant') return role === 'accountant' || isCommitteeLevel(role) || role === 'owner'
+  if (perm === 'accountant') return role === 'accountant' || role === 'treasurer' || isCommitteeLevel(role) || role === 'owner'
   return role === 'society_admin' || role === 'owner'
 }
 

@@ -5,6 +5,7 @@ import { usePublicLang } from './usePublicLang'
 import { usePageMeta } from './usePageMeta'
 import { useData } from '../../lib/store'
 import { submitLeadToFormspree } from '../../lib/formspree'
+import { submitPublicLeadToSupabase } from '../../lib/leads'
 
 const socialLinks = [
   { href: 'https://www.facebook.com/pranganone/', icon: Facebook, label: 'Prangan One on Facebook' },
@@ -65,7 +66,16 @@ export default function Contact() {
     }
     try {
       await submitLeadToFormspree(payload)
-      addLead(payload) // also kept locally so the owner console's leads inbox shows it
+      addLead(payload) // kept locally too, so the demo/local owner console still shows it
+      try {
+        await submitPublicLeadToSupabase(payload) // the real, shared record - what the owner console reads when configured, see Leads.tsx
+      } catch {
+        // Formspree already delivered the email successfully at this point,
+        // the actual inquiry reached us either way - don't tell someone
+        // their message failed just because this second, additional write
+        // didn't land. Nothing else useful to do with this failure from
+        // here, there's no in-app error reporting wired up yet.
+      }
       setSent(true)
     } catch {
       setError(true)

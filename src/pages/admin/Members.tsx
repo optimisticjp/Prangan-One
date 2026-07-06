@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Download, Plus, Search, Upload, AlertTriangle, CheckCircle2, UserPlus, X, Clock3 } from 'lucide-react'
+import { Download, Plus, Search, Upload, AlertTriangle, CheckCircle2, UserPlus, X, Clock3, Pencil } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { inr } from '../../lib/format'
 import { exportCsv, parseCsv, validateFlatImport } from '../../lib/csv'
@@ -7,7 +7,9 @@ import type { FlatImportResult } from '../../lib/csv'
 import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, TableWrap, td, th } from '../../components/ui'
 
 export default function Members() {
-  const { db, flatPending, addFlat, addFlatsBulk, approveMembership, rejectMembership } = useData()
+  const { db, society, flatPending, addFlat, addFlatsBulk, approveMembership, rejectMembership, updateFlat } = useData()
+  const [overrideTarget, setOverrideTarget] = useState<string | null>(null)
+  const [overrideValue, setOverrideValue] = useState('')
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ number: '', floor: 1, ownerName: '', phone: '', email: '', occupancy: 'owner' as 'owner' | 'tenant', tenantName: '', tenantEmail: '', sqft: 980 })
@@ -100,7 +102,7 @@ export default function Members() {
       <TableWrap>
         <thead><tr>
           <th className={th}>ફ્લેટ</th><th className={th}>નામ</th><th className={th}>ફોન</th>
-          <th className={th}>પ્રકાર</th><th className={th}>સાઈઝ</th><th className={th}>બાકી</th>
+          <th className={th}>પ્રકાર</th><th className={th}>સાઈઝ</th><th className={th}>બિલિંગ</th><th className={th}>બાકી</th>
         </tr></thead>
         <tbody>
           {list.map(f => {
@@ -115,12 +117,34 @@ export default function Members() {
                 <td className={`${td} num`}>{f.phone}</td>
                 <td className={td}><Badge tone={f.occupancy === 'tenant' ? 'blue' : 'green'}>{f.occupancy === 'tenant' ? 'ભાડૂત' : 'માલિક'}</Badge></td>
                 <td className={`${td} num`}>{f.sqft}</td>
-                <td className={`${td} num font-bold ${pending > 0 ? 'text-over' : 'text-paid'}`}>{pending > 0 ? inr(pending) : '✓'}</td>
+                <td className={td}>
+                  <button onClick={() => { setOverrideTarget(f.id); setOverrideValue(f.maintenanceOverride?.toString() ?? '') }}
+                    className="inline-flex items-center gap-1 text-[13px] hover:text-saffron-600">
+                    <span className="num">{inr(f.maintenanceOverride ?? society.maintenanceAmount)}</span>
+                    {f.maintenanceOverride !== undefined && <span className="text-[10.5px] text-saffron-600 font-semibold">અલગ</span>}
+                    <Pencil size={12} className="text-navy-300" />
+                  </button>
+                </td>
+                <td className={`${td} num font-bold ${pending > 0 ? 'text-over' : pending < 0 ? 'text-paid' : 'text-navy-400'}`}>
+                  {pending > 0 ? inr(pending) : pending < 0 ? `+${inr(Math.abs(pending))}` : '✓'}
+                </td>
               </tr>
             )
           })}
         </tbody>
       </TableWrap>
+
+      <Modal open={overrideTarget !== null} onClose={() => setOverrideTarget(null)} title="આ ફ્લેટ માટે અલગ બિલિંગ રકમ">
+        <p className="text-[13px] text-navy-500 mb-3">ખાલી છોડો તો સોસાયટીની સામાન્ય રકમ (₹{society.maintenanceAmount}) લાગુ થશે.</p>
+        <Input type="number" value={overrideValue} onChange={e => setOverrideValue(e.target.value)} placeholder={`₹${society.maintenanceAmount} (સામાન્ય)`} className="mb-3" />
+        <div className="flex gap-2">
+          <Button variant="soft" full onClick={() => { if (overrideTarget) updateFlat(overrideTarget, { maintenanceOverride: undefined }); setOverrideTarget(null) }}>સામાન્ય રકમ પર પાછા જાઓ</Button>
+          <Button variant="accent" full onClick={() => {
+            if (overrideTarget) updateFlat(overrideTarget, { maintenanceOverride: overrideValue.trim() ? Number(overrideValue) : undefined })
+            setOverrideTarget(null)
+          }}>સાચવો</Button>
+        </div>
+      </Modal>
 
       <Modal open={open} onClose={() => setOpen(false)} title="નવો ફ્લેટ ઉમેરો">
         <div className="grid grid-cols-2 gap-3">

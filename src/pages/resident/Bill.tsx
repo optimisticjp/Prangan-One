@@ -74,6 +74,15 @@ export default function Bill() {
           </div>
         </Card>
       )}
+      {pending < 0 && (
+        <Card className="mt-3 animate-fadeUp border-green-200 bg-green-50/50">
+          <div className="flex items-center justify-between">
+            <span className="text-navy-600 font-medium">તમારી ક્રેડિટ</span>
+            <span className="num text-[20px] font-bold text-paid">{inr(Math.abs(pending))}</span>
+          </div>
+          <p className="text-[12.5px] text-navy-400 mt-1">આ રકમ તમારા આગલા બિલમાં એડજસ્ટ થશે.</p>
+        </Card>
+      )}
 
       {justMarked && (
         <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2.5 text-[13.5px] text-navy-700 animate-fadeUp">

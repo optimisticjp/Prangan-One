@@ -4,16 +4,17 @@ import { useData } from '../../lib/store'
 import { fmtMonth, inr, lastMonths, monthAdd, thisMonth } from '../../lib/format'
 import { exportCsv } from '../../lib/csv'
 import { waShare, waTemplates } from '../../lib/whatsapp'
-import { Badge, Button, Card, PageHeader, Progress, SectionTitle, Select, TableWrap, td, th } from '../../components/ui'
+import { Badge, Button, Card, Modal, PageHeader, Progress, SectionTitle, Select, TableWrap, td, th } from '../../components/ui'
 import type { Tone } from '../../components/ui'
 
 const tone: Record<'paid' | 'pending' | 'overdue', Tone> = { paid: 'green', pending: 'amber', overdue: 'red' }
 const label = { paid: 'ચૂકવેલ', pending: 'બાકી', overdue: 'મુદત વીતી' }
 
 export default function Billing() {
-  const { db, society, flatById, billStatus, generateBills, flatPending } = useData()
+  const { db, society, flatById, billStatus, previewBillGeneration, generateBills, flatPending } = useData()
   const [month, setMonth] = useState(thisMonth())
   const [msg, setMsg] = useState('')
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   const monthOptions = Array.from(new Set([...lastMonths(4), monthAdd(thisMonth(), 1)]))
   const bills = db.bills.filter(b => b.month === month).sort((a, b) => (flatById(a.flatId)?.number ?? '').localeCompare(flatById(b.flatId)?.number ?? ''))
@@ -31,9 +32,14 @@ export default function Billing() {
     .filter(x => x.pending > 0)
     .sort((a, b) => b.pending - a.pending)
 
-  const gen = () => {
+  const preview = previewBillGeneration(month)
+  const newBills = preview.filter(p => !p.alreadyExists)
+  const newTotal = newBills.reduce((s, p) => s + p.amount, 0)
+
+  const confirmGenerate = () => {
     const n = generateBills(month)
     setMsg(n > 0 ? `${fmtMonth(month)} માટે ${n} નવા બિલ બની ગયા ✓` : `${fmtMonth(month)} ના બિલ પહેલેથી બનેલા છે`)
+    setPreviewOpen(false)
   }
 
   const csvBills = () => exportCsv(`bills-${month}.csv`,
@@ -59,11 +65,41 @@ export default function Billing() {
               {monthOptions.map(m => <option key={m} value={m}>{fmtMonth(m)}</option>)}
             </Select>
           </div>
-          <Button variant="accent" onClick={gen}><Sparkles size={16} /> આ મહિનાના બિલ બનાવો</Button>
+          <Button variant="accent" onClick={() => setPreviewOpen(true)}><Sparkles size={16} /> આ મહિનાના બિલ બનાવો</Button>
           {msg && <div className="text-[13.5px] font-semibold text-paid">{msg}</div>}
         </div>
-        <p className="text-[12.5px] text-navy-400 mt-2">દરેક ફ્લેટ માટે ₹{society.maintenanceAmount} નું બિલ બનશે. જે ફ્લેટનું બિલ પહેલેથી છે તે બેવડાશે નહીં.</p>
+        <p className="text-[12.5px] text-navy-400 mt-2">દરેક ફ્લેટ માટે ₹{society.maintenanceAmount} નું બિલ બનશે (કોઈ ફ્લેટને અલગ રકમ સેટ કરેલી હોય તો એ પ્રમાણે). જે ફ્લેટનું બિલ પહેલેથી છે તે બેવડાશે નહીં.</p>
       </Card>
+
+      <Modal open={previewOpen} onClose={() => setPreviewOpen(false)} title={`${fmtMonth(month)} ના બિલ`} wide>
+        {newBills.length === 0 ? (
+          <p className="text-[13.5px] text-navy-500">{fmtMonth(month)} ના બિલ પહેલેથી બધા ફ્લેટ માટે બની ગયેલા છે. કંઈ નવું બનશે નહીં.</p>
+        ) : (
+          <>
+            <p className="text-[13.5px] text-navy-600 mb-3">{newBills.length} નવા બિલ બનશે, કુલ <span className="font-bold num">{inr(newTotal)}</span>. {preview.length - newBills.length > 0 && `(${preview.length - newBills.length} ફ્લેટના બિલ પહેલેથી બનેલા છે, એ છોડી દેવાશે.)`}</p>
+            <div className="max-h-64 overflow-y-auto border border-cream-200 rounded-xl">
+              <TableWrap>
+                <thead><tr><th className={th}>ફ્લેટ</th><th className={th}>રકમ</th></tr></thead>
+                <tbody>
+                  {newBills.map(p => (
+                    <tr key={p.flatId}>
+                      <td className={td}>{p.flatNumber}</td>
+                      <td className={td}>
+                        {inr(p.amount)}
+                        {p.amount !== society.maintenanceAmount && <span className="ml-1.5 text-[11px] text-saffron-600 font-semibold">અલગ રકમ</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </TableWrap>
+            </div>
+          </>
+        )}
+        <div className="flex gap-2 mt-4">
+          <Button variant="soft" full onClick={() => setPreviewOpen(false)}>રદ કરો</Button>
+          {newBills.length > 0 && <Button variant="accent" full onClick={confirmGenerate}>પુષ્ટિ કરો, બિલ બનાવો</Button>}
+        </div>
+      </Modal>
 
       {bills.length > 0 && (
         <Card className="mt-3">

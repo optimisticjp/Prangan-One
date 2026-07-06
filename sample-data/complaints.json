@@ -32,7 +32,8 @@
         "note": "ટેક્નિશિયન આવીને ચેક કરી ગયા, પાર્ટ મંગાવ્યો છે",
         "by": "કમિટી"
       }
-    ]
+    ],
+    "visibility": "community"
   },
   {
     "id": "cmp_02",
@@ -58,7 +59,8 @@
         "note": "પ્લમ્બરને બતાવવાનું નક્કી",
         "by": "કમિટી"
       }
-    ]
+    ],
+    "visibility": "personal"
   },
   {
     "id": "cmp_03",
@@ -89,7 +91,8 @@
         "note": "સફાઈ થઈ ગઈ, હવે રોજ સાંજે થશે",
         "by": "કમિટી"
       }
-    ]
+    ],
+    "visibility": "community"
   },
   {
     "id": "cmp_04",
@@ -108,7 +111,8 @@
         "status": "new",
         "by": "હિતેશભાઈ સુતરિયા"
       }
-    ]
+    ],
+    "visibility": "community"
   },
   {
     "id": "cmp_05",
@@ -148,7 +152,8 @@
         "status": "closed",
         "by": "કમિટી"
       }
-    ]
+    ],
+    "visibility": "community"
   },
   {
     "id": "cmp_06",
@@ -167,7 +172,8 @@
         "status": "new",
         "by": "ચેતનભાઈ દેસાઈ"
       }
-    ]
+    ],
+    "visibility": "personal"
   },
   {
     "id": "cmp_07",
@@ -200,6 +206,7 @@
         "note": "તાળું લગાવી દીધું, ચાવી વોચમેન પાસે",
         "by": "કમિટી"
       }
-    ]
+    ],
+    "visibility": "community"
   }
 ]

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, MessageCircle, Star } from 'lucide-react'
+import { ChevronDown, MessageCircle, Star, Users, Lock } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { fmtDate } from '../../lib/format'
 import { complaintStatusLabel, complaintStatusTone } from '../../lib/copy'
@@ -64,6 +64,9 @@ export default function Complaints() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge tone={complaintStatusTone[c.status]}>{complaintStatusLabel[c.status]}</Badge>
                     {c.priority === 'urgent' && <Badge tone="red">તાત્કાલિક</Badge>}
+                    {c.visibility === 'community'
+                      ? <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-navy-400"><Users size={11} /> સોસાયટી</span>
+                      : <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-navy-300"><Lock size={11} /> ખાનગી</span>}
                     <span className="text-[12.5px] text-navy-400">{c.category}</span>
                   </div>
                   <div className="font-semibold text-navy-800 mt-1 leading-snug">{c.title}</div>

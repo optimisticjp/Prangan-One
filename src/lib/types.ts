@@ -1,22 +1,35 @@
 // Central domain types. Every record carries societyId (SaaS foundation).
 //
 // Role model (session-level; matches Prangan One roadmap doc section 4):
-// - owner: platform-wide, every society, every action.
+// - owner: platform-wide, every society, every action. Kept as a
+//   deliberate, standing decision (not the tighter "no automatic tenant
+//   content access, controlled support sessions only" model a later
+//   roadmap revision proposed) - revisit this later, not now.
 // - society_admin: full control of their own society only.
+// - treasurer: billing configuration, bill generation, payment
+//   confirmation/rejection, expenses, adjustments, receipt cancellation
+//   (with a mandatory reason) - the financial powers accountant doesn't
+//   have. Shares accountant's existing pages for now (see App.tsx's
+//   acctNav); its own dedicated pages are part of the billing engine
+//   work, not built yet.
 // - committee_member: manages enabled modules within their society, but
 //   NOT billing/payments/settings unless that's explicitly true for them.
 //   In the current localStorage demo this is enforced at the route level
 //   (see permissions.ts); a real per-membership override flag is real
 //   future work once Supabase memberships exist, not built here.
-// - accountant: finance and reports only, unchanged from before.
+// - accountant: records and confirms payments and expenses, adjustments,
+//   reports and export. Cannot configure billing, cancel receipts, or
+//   manage society settings/roles - that's what separates it from treasurer.
 // - resident_owner / resident_tenant: split out of the old single
 //   'resident' role, because tenant access is governed by its own
 //   per-society setting (see TenantAccessMode) and needs to be a real
 //   permission distinction, not just a display label on the flat.
-// - viewer: read-only, optional. Sees admin-level data, changes nothing.
+// - auditor: read-only, optional. Sees permitted admin-level data
+//   (financial reports, audit history), changes nothing. Renamed from the
+//   old generic 'viewer' to match what it actually is.
 export type Role =
-  | 'owner' | 'society_admin' | 'committee_member' | 'accountant'
-  | 'resident_owner' | 'resident_tenant' | 'viewer'
+  | 'owner' | 'society_admin' | 'treasurer' | 'committee_member' | 'accountant'
+  | 'resident_owner' | 'resident_tenant' | 'auditor'
 
 export type PayMode = 'cash' | 'upi' | 'cheque' | 'bank'
 export type ComplaintStatus = 'new' | 'assigned' | 'inprogress' | 'done' | 'closed'
@@ -83,6 +96,11 @@ export interface Society {
   tenantAccess: TenantAccessMode
   subscriptionStatus: SubscriptionStatus
   graceStartedAt?: string  // set when entering grace; grace auto-reads as expired after 14 days, see subscription.ts
+  // Set once, when the society is actually activated and ready to use -
+  // never at lead submission, never at the moment an empty society record
+  // is created (see the onboarding wizard's activation step). A trial
+  // auto-reads as expired 90 days after this, see subscription.ts.
+  trialStartedAt?: string
 }
 
 // Platform-owner-side manual billing record, one per society per period.
@@ -156,6 +174,11 @@ export interface Flat {
   id: string; societyId: string; number: string; floor: number
   ownerName: string; phone: string; email?: string; occupancy: 'owner' | 'tenant'
   tenantName?: string; tenantEmail?: string; sqft: number; memberSince: number
+  // Overrides the society's default maintenanceAmount for this one flat
+  // when generating bills - a common real need (bigger flats, ground-floor
+  // vs top-floor, whatever the society's own rule is). Undefined means
+  // "use the society default", not "zero".
+  maintenanceOverride?: number
 }
 export interface Bill {
   id: string; societyId: string; flatId: string; month: string
@@ -183,6 +206,16 @@ export interface Complaint {
   timeline: TimelineEntry[]; internalNotes: string[]
   feedback?: { rating: number; comment: string }
   hasPhoto?: boolean; photoName?: string; hasVoice?: boolean
+  // 'personal': only the resident who filed it, plus committee/accountant/
+  // treasurer/owner (whoever can already manage complaints), ever see it -
+  // a leaking tap in one specific bathroom, say. 'community': visible to
+  // every authenticated member of the society, not just complaint
+  // managers - a broken lift, a common-area leak, anything that affects
+  // more than one flat and residents would reasonably want to see the
+  // status of without having to ask the committee directly. Defaults to
+  // 'personal' on anything filed before this existed - the safer default,
+  // never widen an existing complaint's audience by assumption.
+  visibility: 'personal' | 'community'
 }
 export interface Notice {
   id: string; societyId: string; title: string; body: string

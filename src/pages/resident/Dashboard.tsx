@@ -33,15 +33,15 @@ export default function Dashboard() {
 
       {/* pending amount: the one number that matters */}
       <Link to="/app/bill" className="block animate-fadeUp">
-        <div className={`rounded-2xl p-5 shadow-soft border ${pending > 0 ? 'bg-navy-800 border-navy-700' : 'bg-white border-cream-200'}`}>
+        <div className={`rounded-2xl p-5 shadow-soft border ${pending > 0 ? 'bg-navy-800 border-navy-700' : pending < 0 ? 'bg-green-50 border-green-200' : 'bg-white border-cream-200'}`}>
           <div className="flex items-center justify-between">
             <div>
-              <div className={`text-[13px] font-medium ${pending > 0 ? 'text-cream-200/85' : 'text-navy-400'}`}>બાકી રકમ</div>
-              <div className={`num text-[34px] font-bold leading-tight ${pending > 0 ? 'text-saffron-400' : 'text-paid'}`}>{inr(pending)}</div>
-              <div className={`text-[13px] mt-1 ${pending > 0 ? 'text-cream-200/75' : 'text-navy-400'}`}>
+              <div className={`text-[13px] font-medium ${pending > 0 ? 'text-cream-200/85' : pending < 0 ? 'text-paid' : 'text-navy-400'}`}>{pending < 0 ? 'તમારી ક્રેડિટ' : 'બાકી રકમ'}</div>
+              <div className={`num text-[34px] font-bold leading-tight ${pending > 0 ? 'text-saffron-400' : 'text-paid'}`}>{inr(Math.abs(pending))}</div>
+              <div className={`text-[13px] mt-1 ${pending > 0 ? 'text-cream-200/75' : pending < 0 ? 'text-paid' : 'text-navy-400'}`}>
                 {pending > 0
                   ? (curBill && billStatus(curBill) !== 'paid' ? `આ મહિનાનું બિલ તા. ${curBill.dueDate.slice(-2)} સુધીમાં ભરવા વિનંતી` : 'જૂનું બાકી છે, વિગત જુઓ')
-                  : 'બધું ચૂકવેલ છે. આભાર! 🎉'}
+                  : pending < 0 ? 'આ રકમ તમારા આગલા બિલમાં એડજસ્ટ થશે.' : 'બધું ચૂકવેલ છે. આભાર! 🎉'}
               </div>
             </div>
             <ChevronRight className={pending > 0 ? 'text-cream-200/60' : 'text-navy-300'} />
