@@ -8,7 +8,8 @@
     "phone": "+91 90000 00010",
     "occupancy": "owner",
     "sqft": 980,
-    "memberSince": 2018
+    "memberSince": 2018,
+    "email": "alpeshbhai@example.com"
   },
   {
     "id": "flat_102",
@@ -53,7 +54,8 @@
     "occupancy": "tenant",
     "tenantName": "વિપુલભાઈ જોષી",
     "sqft": 980,
-    "memberSince": 2022
+    "memberSince": 2022,
+    "tenantEmail": "vipulbhai@example.com"
   },
   {
     "id": "flat_202",

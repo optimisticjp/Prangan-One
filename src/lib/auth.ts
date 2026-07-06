@@ -34,8 +34,35 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut()
 }
 
+export interface PublicSocietyProfile {
+  societyId: string; name: string; nameEn: string; address: string; city: string; area: string; themeKey: string; logoUrl: string | null
+}
+
+/**
+ * The real, Supabase-backed version of ShareLink.tsx's society lookup by
+ * slug (the local demo layer's findSocietyBySlug in store.tsx does the
+ * same thing against localStorage). Calls find_society_public_profile,
+ * the narrow database function built specifically for this - societies
+ * isn't a table a visitor who isn't a member yet can read directly, see
+ * that function's own comment in supabase/schema.sql for exactly why.
+ * Returns null for an unknown slug, same as the local version, so
+ * ShareLink.tsx's "link not found" state works identically either way.
+ */
+export async function findSocietyPublicProfile(slug: string): Promise<PublicSocietyProfile | null> {
+  if (!supabase) return null
+  const { data, error } = await supabase.rpc('find_society_public_profile', { target_slug: slug.trim() }).maybeSingle()
+  if (error || !data) return null
+  const row = data as { society_id: string; name: string; name_en: string; address: string; city: string; area: string; theme_key: string; logo_url: string | null }
+  return {
+    societyId: row.society_id, name: row.name, nameEn: row.name_en,
+    address: row.address, city: row.city, area: row.area, themeKey: row.theme_key, logoUrl: row.logo_url,
+  }
+}
+
 export interface ClaimedMembership {
-  membershipId: string; societyId: string; societyName: string; role: string; flatId: string | null
+  // null specifically for a platform owner - see the memberships_society_id_owner_check
+  // constraint in supabase/schema.sql, an owner isn't scoped to one society.
+  membershipId: string; societyId: string | null; societyName: string; role: string; flatId: string | null
 }
 
 /**
@@ -64,6 +91,52 @@ export async function claimMemberships(userId: string, email: string): Promise<C
   if (error) throw error
   return (data ?? []).map(m => ({
     membershipId: m.id, societyId: m.society_id, role: m.role, flatId: m.flat_id,
-    societyName: (m.societies as unknown as { name_en: string } | null)?.name_en ?? m.society_id,
+    societyName: m.society_id
+      ? ((m.societies as unknown as { name_en: string } | null)?.name_en ?? m.society_id)
+      : 'Prangan One ઓનર કન્સોલ', // a global owner row has no society to join against
   }))
+}
+
+export interface JoinRequestInput { joinCode: string; flatNumber: string; name: string; phone: string; email: string }
+export type JoinRequestResult =
+  | { ok: true; status: 'active' | 'pending' }
+  | { ok: false; error: 'society_not_found' | 'flat_not_found' | 'already_enrolled' | 'unknown' }
+
+/**
+ * The real, Supabase-backed version of resident self-enrollment (the
+ * local demo layer's selfEnrollResident in store.tsx has the same
+ * matching logic, but that one only ever touches localStorage). Calls
+ * submit_join_request, a single consolidated database function -
+ * doing this as separate lookup + insert + read-back calls from the
+ * client hits a real wall: an anonymous self-enrollment can never read
+ * memberships back afterward (memberships_select requires already being
+ * a society member), so the database function does the whole thing with
+ * its own elevated internal privileges and just returns the resulting
+ * status string. See submit_join_request in supabase/schema.sql for the
+ * actual logic - this function's job is just to call it and translate
+ * whatever comes back into the error codes Join.tsx already knows how
+ * to show. Note this does NOT decide active-vs-pending, or even pick
+ * which resident role to use - the database's enforce_membership_insert
+ * trigger derives both from the flat's actual on-file record, since the
+ * client has no way to know a flat's real occupancy and should not be
+ * trusted to decide its own access level regardless.
+ */
+export async function submitJoinRequest(input: JoinRequestInput): Promise<JoinRequestResult> {
+  if (!supabase) throw new Error('Supabase not configured')
+
+  const { data, error } = await supabase.rpc('submit_join_request', {
+    target_join_code: input.joinCode.trim(),
+    target_flat_number: input.flatNumber.trim(),
+    given_name: input.name.trim(),
+    given_phone: input.phone.trim(),
+    given_email: input.email.trim().toLowerCase(),
+  })
+
+  if (error) {
+    if (error.message?.includes('society_not_found')) return { ok: false, error: 'society_not_found' }
+    if (error.message?.includes('flat_not_found')) return { ok: false, error: 'flat_not_found' }
+    if (error.code === '23505') return { ok: false, error: 'already_enrolled' } // unique(society_id, email)
+    return { ok: false, error: 'unknown' } // covers e.g. the trigger's own "tenant access is disabled" exception
+  }
+  return { ok: true, status: data as 'active' | 'pending' }
 }

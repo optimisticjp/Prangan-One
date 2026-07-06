@@ -423,9 +423,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const alreadyThere = db.memberships.some(m => m.societyId === society.id && m.email.toLowerCase() === email)
         if (alreadyThere) return { ok: false, error: 'already_enrolled' }
 
-        const normalize = (p: string) => p.replace(/\D/g, '').slice(-10) // last 10 digits, ignores +91/spaces/dashes
-        const phoneMatches = !!flat.phone && normalize(flat.phone) === normalize(input.phone)
-        const status: 'active' | 'pending' = phoneMatches ? 'active' : 'pending'
+        // Match on the pre-loaded EMAIL on file for this flat, not the
+        // phone number. A phone number isn't a secret, a neighbour, a
+        // former tenant, or anyone who's seen a WhatsApp group could
+        // know a resident's number - matching on it would let them enter
+        // THEIR OWN email alongside someone else's known phone number and
+        // get instant access, with the real login link going to the
+        // attacker's inbox, not the actual resident's. Email is the
+        // actual credential being granted here, so that's what has to
+        // match what the committee already put on file, not phone.
+        const onFileEmail = (derivedRole === 'resident_tenant' ? flat.tenantEmail : flat.email)?.trim().toLowerCase()
+        const status: 'active' | 'pending' = (!!onFileEmail && onFileEmail === email) ? 'active' : 'pending'
 
         const mem: Membership = {
           id: uid('mem'), createdAt: todayISO(), status,

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, Clock3, AlertCircle } from 'lucide-react'
 import { useData } from '../lib/store'
+import { supabaseConfigured } from '../lib/supabase'
+import { submitJoinRequest } from '../lib/auth'
 import { Button, Card, Input } from '../components/ui'
 import { PranganBrand } from '../components/PranganBrand'
 import { useAppLang } from '../lib/useAppLang'
@@ -11,13 +13,14 @@ const errorCopy: Record<string, string> = {
   flat_not_found: 'આ ફ્લેટ નંબર આ સોસાયટીમાં મળ્યો નહીં. નંબર ફરી ચેક કરો.',
   tenant_access_disabled: 'આ સોસાયટીમાં ભાડૂત માટે એક્સેસ હાલમાં બંધ છે. તમારી કમિટીનો સંપર્ક કરો.',
   already_enrolled: 'આ ઈમેલ પહેલેથી જ આ સોસાયટીમાં નોંધાયેલો છે. લોગિન કરવાનો પ્રયત્ન કરો.',
+  unknown: 'કંઈક ખોટું થયું, ફરી પ્રયત્ન કરો.',
 }
 
 /**
  * pranganone.com/join - a resident enters their society's join code
  * (shared via WhatsApp/notice board, see the code shown in
  * owner/SocietyDetail.tsx) plus their flat number and contact details.
- * If the phone matches what's already on file for that flat, they're in
+ * If the email matches what's already on file for that flat, they're in
  * immediately. Otherwise it's a pending request the committee approves
  * with one tap - see the pending-approvals card in admin/Members.tsx.
  *
@@ -25,6 +28,14 @@ const errorCopy: Record<string, string> = {
  * derived from the flat's own occupancy record, not self-declared, so it
  * can't be gamed and doesn't add an extra question to a form that's
  * already asking a fair amount.
+ *
+ * Uses the real Supabase-backed submitJoinRequest when configured,
+ * falling back to the local demo layer's selfEnrollResident otherwise -
+ * same pattern as Login.tsx. The two share the same matching rule (email
+ * on file, not phone, see both functions' own comments for exactly why
+ * phone alone isn't a safe check), but the real path calls a database
+ * function since the actual decision has to happen server-side, not in
+ * this component.
  */
 export default function Join() {
   useAppLang()
@@ -34,15 +45,20 @@ export default function Join() {
   const [form, setForm] = useState({ joinCode: '', flatNumber: '', name: '', phone: '', email: '' })
   const [result, setResult] = useState<'active' | 'pending' | null>(null)
   const [error, setError] = useState('')
+  const [sending, setSending] = useState(false)
 
   const canSubmit = form.joinCode.trim() && form.flatNumber.trim() && form.name.trim() && form.phone.trim() && form.email.trim()
 
-  const submit = () => {
+  const submit = async () => {
     if (!canSubmit) return
-    setError('')
-    const outcome = selfEnrollResident(form)
-    if (outcome.ok) setResult(outcome.status)
-    else setError(errorCopy[outcome.error] ?? 'કંઈક ખોટું થયું, ફરી પ્રયત્ન કરો.')
+    setError(''); setSending(true)
+    try {
+      const outcome = supabaseConfigured ? await submitJoinRequest(form) : selfEnrollResident(form)
+      if (outcome.ok) setResult(outcome.status)
+      else setError(errorCopy[outcome.error] ?? errorCopy.unknown)
+    } finally {
+      setSending(false)
+    }
   }
 
   const inputClass = "w-full rounded-xl border border-cream-300 bg-white px-3.5 min-h-[46px] text-[14.5px] focus:outline-none focus:ring-2 focus:ring-saffron-400/50 focus:border-saffron-400"
@@ -79,7 +95,7 @@ export default function Join() {
               <Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="ફોન નંબર" className={inputClass} />
               <Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="ઈમેલ" className={inputClass} />
               {error && <p className="text-[13px] text-over flex items-start gap-1.5"><AlertCircle size={15} className="shrink-0 mt-0.5" /> {error}</p>}
-              <Button variant="primary" className="w-full" onClick={submit} disabled={!canSubmit}>જોડાઓ</Button>
+              <Button variant="primary" className="w-full" onClick={submit} disabled={!canSubmit || sending}>{sending ? 'મોકલાય છે...' : 'જોડાઓ'}</Button>
             </div>
           )}
         </Card>

@@ -14,13 +14,13 @@ function renderJoin() {
 }
 
 describe('Join page', () => {
-  it('shows the active-confirmation state when the phone matches the flat on file', () => {
+  it('shows the active-confirmation state when the email matches what is on file for the flat', () => {
     renderJoin()
     fireEvent.change(screen.getByPlaceholderText(/સોસાયટી કોડ/), { target: { value: 'RAJHANS24' } })
     fireEvent.change(screen.getByPlaceholderText('ફ્લેટ નંબર'), { target: { value: '101' } })
     fireEvent.change(screen.getByPlaceholderText('તમારું નામ'), { target: { value: 'Test User' } })
-    fireEvent.change(screen.getByPlaceholderText('ફોન નંબર'), { target: { value: '+91 90000 00010' } })
-    fireEvent.change(screen.getByPlaceholderText('ઈમેલ'), { target: { value: 'newperson@example.com' } })
+    fireEvent.change(screen.getByPlaceholderText('ફોન નંબર'), { target: { value: '9999999999' } }) // deliberately not the flat's real phone - shouldn't matter
+    fireEvent.change(screen.getByPlaceholderText('ઈમેલ'), { target: { value: 'alpeshbhai@example.com' } }) // matches flat_101's seeded email
     fireEvent.click(screen.getByText('જોડાઓ'))
     expect(screen.getByText('તમે જોડાઈ ગયા છો!')).toBeInTheDocument()
   })

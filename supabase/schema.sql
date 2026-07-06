@@ -596,6 +596,41 @@ $$;
 -- - this function is security definer, so current_user inside it would
 -- report the function's OWNER, not whoever actually opened the
 -- connection; session_user isn't affected by that switch.
+-- Narrow public profile for /s/:slug (ShareLink.tsx) - a visitor isn't a
+-- member of anything yet, so societies_select (below) staying member-only
+-- means the raw table is unreachable to them, on purpose. Broadening that
+-- policy to "select true" (an earlier version of this fix) let anyone
+-- list every society's join_code, subscription_status, plan,
+-- grace_started_at in one query - business-sensitive fields that have
+-- nothing to do with a public share link. This function returns only
+-- what a share link actually needs to display, for one specific slug at
+-- a time, never the whole table.
+create or replace function find_society_public_profile(target_slug text)
+returns table (society_id uuid, name text, name_en text, address text, city text, area text, theme_key text, logo_url text)
+language sql
+security definer
+stable
+as $$
+  select id, name, name_en, address, city, area, theme_key, logo_url
+  from societies
+  where slug = target_slug
+  limit 1;
+$$;
+
+-- Narrow lookup for /join: resolves a join code to a society id, nothing
+-- else. Same reasoning as above - the code is meant to be handed out by
+-- the committee (WhatsApp, notice board), not discoverable by browsing
+-- every society's data, and the caller doesn't need anything about the
+-- society beyond "does this code correspond to a real one."
+create or replace function find_society_id_by_join_code(target_code text)
+returns uuid
+language sql
+security definer
+stable
+as $$
+  select id from societies where join_code = target_code limit 1;
+$$;
+
 -- Narrow, deliberately limited lookup for /join: resolves a flat NUMBER
 -- to its id within one society, nothing else. flats_select (below) stays
 -- member-only on purpose, since a flat row includes owner_name, phone,
@@ -622,6 +657,9 @@ returns trigger
 language plpgsql
 security definer
 as $$
+declare
+  flat_row flats;
+  society_row societies;
 begin
   if session_user in ('postgres', 'service_role', 'supabase_admin')
      or has_role(new.society_id, array['owner', 'society_admin', 'committee_member']) then
@@ -635,18 +673,90 @@ begin
     raise exception 'self-enrollment requires a flat_id';
   end if;
 
+  select * into flat_row from flats where id = new.flat_id and society_id = new.society_id;
+  if flat_row is null then
+    raise exception 'flat not found in this society';
+  end if;
+
+  -- The client submitting a self-enrollment can't actually know whether
+  -- a flat is owner- or tenant-occupied - flats_select is member-only,
+  -- so an anonymous /join request has no way to read that first. Derive
+  -- it here instead of trusting whatever role the client guessed at.
+  new.role := case when flat_row.occupancy = 'tenant' then 'resident_tenant' else 'resident_owner' end;
+
+  -- Tenant access is a per-society setting the committee controls -
+  -- checked here, server-side, rather than trusting a client that
+  -- already decided which role to submit. A disabled setting blocks a
+  -- tenant self-enrollment outright, no pending state, nothing to approve.
+  if new.role = 'resident_tenant' then
+    select * into society_row from societies where id = new.society_id;
+    if society_row.tenant_access = 'disabled' then
+      raise exception 'tenant access is disabled for this society';
+    end if;
+  end if;
+
   new.user_id := null; -- never let a self-enrollment insert claim a user_id directly
+
+  -- Match on the pre-loaded EMAIL on file for this flat, not the phone
+  -- number. A phone number is not a secret - a neighbour, a former
+  -- tenant, or anyone who has seen a WhatsApp group could know a
+  -- resident's number. Matching on it would let someone enter THEIR OWN
+  -- email alongside someone else's known phone number and get instant
+  -- active access, with the real login link going to the attacker's
+  -- inbox, not the actual resident's. Email is the actual credential
+  -- being granted here, so that is what has to match what the committee
+  -- already put on file, not phone. Mirrors the identical fix in
+  -- selfEnrollResident() in src/lib/store.tsx.
   new.status := case
-    when exists (
-      select 1 from flats f
-      where f.id = new.flat_id and f.society_id = new.society_id
-        and f.phone is not null
-        and right(regexp_replace(f.phone, '\D', '', 'g'), 10) = right(regexp_replace(coalesce(new.phone, ''), '\D', '', 'g'), 10)
-    ) then 'active'
+    when new.role = 'resident_tenant' and flat_row.tenant_email is not null
+         and lower(trim(flat_row.tenant_email)) = lower(trim(coalesce(new.email, ''))) then 'active'
+    when new.role = 'resident_owner' and flat_row.email is not null
+         and lower(trim(flat_row.email)) = lower(trim(coalesce(new.email, ''))) then 'active'
     else 'pending'
   end;
 
   return new;
+end;
+$$;
+
+-- The real, callable entry point for /join (src/lib/auth.ts's
+-- submitJoinRequest). Doing the insert directly from the client and then
+-- trying to select the row back would hit the same wall a real committee
+-- member's own membership row would: memberships_select only lets you
+-- see rows where you're already a society member, which an anonymous
+-- self-enrollment never is. Wrapping the whole thing here means the
+-- INSERT ... RETURNING happens inside this function's own elevated
+-- privileges, no separate SELECT needed at all. Note this does NOT bypass
+-- enforce_membership_insert's own restrictions - session_user isn't
+-- affected by security definer, so the trigger still correctly sees the
+-- real caller (anon/authenticated) and still fully applies the
+-- role-derivation, tenant-access, and email-match rules exactly as if
+-- the insert had come directly from the client.
+create or replace function submit_join_request(target_join_code text, target_flat_number text, given_name text, given_phone text, given_email text)
+returns text
+language plpgsql
+security definer
+as $$
+declare
+  resolved_society uuid;
+  resolved_flat uuid;
+  new_status text;
+begin
+  resolved_society := find_society_id_by_join_code(target_join_code);
+  if resolved_society is null then
+    raise exception using errcode = 'P0001', message = 'society_not_found';
+  end if;
+
+  resolved_flat := find_flat_for_join(resolved_society, target_flat_number);
+  if resolved_flat is null then
+    raise exception using errcode = 'P0002', message = 'flat_not_found';
+  end if;
+
+  insert into memberships (email, society_id, flat_id, role, phone, name)
+  values (lower(trim(given_email)), resolved_society, resolved_flat, 'resident_owner', given_phone, given_name)
+  returning status into new_status;
+
+  return new_status;
 end;
 $$;
 
@@ -744,14 +854,13 @@ alter table unmatched_login_attempts enable row level security;
 alter table audit_logs enable row level security;
 alter table impersonation_logs enable row level security;
 
--- societies: fully public reads, deliberately. This was previously
--- member-only, which quietly broke both /s/:slug (ShareLink.tsx, a
--- visitor isn't a member yet) and /join (same problem) against real RLS -
--- neither could even look up which society they meant. Nothing in this
--- table is actually sensitive: name, address, theme, UPI id, are all
--- already shown to any resident or public visitor through the app itself.
+-- societies: member/owner only. /s/:slug and /join don't need this at
+-- all anymore - find_society_public_profile() and
+-- find_society_id_by_join_code() above cover both, without exposing
+-- join_code, subscription_status, plan, or anything else business-
+-- sensitive to someone who isn't a member of anything yet.
 create policy societies_select on societies for select
-  using (true);
+  using (is_society_member(id) or has_role(id, array['owner']));
 create policy societies_update on societies for update
   using (has_role(id, array['society_admin', 'owner']));
 

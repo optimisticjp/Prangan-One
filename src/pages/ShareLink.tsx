@@ -1,30 +1,59 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { SearchX } from 'lucide-react'
+import { SearchX, Loader2 } from 'lucide-react'
 import { useData } from '../lib/store'
+import { supabaseConfigured } from '../lib/supabase'
+import { findSocietyPublicProfile } from '../lib/auth'
 import { SocietyBadge } from '../components/SocietyLogo'
 import { PranganBrand } from '../components/PranganBrand'
 import { Button } from '../components/ui'
 import { useAppLang } from '../lib/useAppLang'
+import { defaultModuleLayer } from '../lib/types'
+import type { Society } from '../lib/types'
 
 /**
  * A shareable, society-branded entry point: pranganone.com/s/rajhans-tower.
- * Looks up the society by slug (public metadata only - name, logo, theme,
- * area - never anything a resident wouldn't already need to find their
- * own society), shows their branding, then hands off to /login with that
- * society set as context. An unknown slug shows a clean not-found state
- * instead of leaking anything about which slugs DO exist.
+ * Looks up the society by slug, shows their branding, then hands off to
+ * /login with that society set as context. An unknown slug shows a clean
+ * not-found state instead of leaking anything about which slugs DO exist.
  *
- * Note for the eventual Supabase swap: this stays a plain public read
- * (societies.slug is not sensitive), so the same pattern holds once RLS
- * is enforcing everything else - no special-casing needed here.
+ * Uses the real Supabase-backed findSocietyPublicProfile when configured,
+ * falling back to the local demo layer's findSocietyBySlug otherwise -
+ * same pattern as Login.tsx and Join.tsx. The real path calls a narrow
+ * database function rather than reading societies directly, since that
+ * table isn't meant to be readable by a visitor who isn't a member of
+ * anything yet, see find_society_public_profile in supabase/schema.sql.
+ * The result gets adapted into a minimal Society-shaped object since
+ * SocietyBadge expects the full local type, only its logo/id/name fields
+ * actually matter for what this page renders.
  */
 export default function ShareLink() {
   useAppLang()
   const { slug } = useParams()
   const nav = useNavigate()
   const { session, findSocietyBySlug, setActiveSocietyContext } = useData()
-  const society = slug ? findSocietyBySlug(slug) : undefined
+  const [realSociety, setRealSociety] = useState<Society | null | undefined>(undefined) // undefined = not loaded yet
+  const [loading, setLoading] = useState(supabaseConfigured)
+
+  const demoSociety = slug ? findSocietyBySlug(slug) : undefined
+  const society = supabaseConfigured ? realSociety : demoSociety
+
+  useEffect(() => {
+    if (!supabaseConfigured || !slug) return
+    let cancelled = false
+    findSocietyPublicProfile(slug).then(profile => {
+      if (cancelled) return
+      if (!profile) { setRealSociety(null); setLoading(false); return }
+      setRealSociety({
+        id: profile.societyId, name: profile.name, nameEn: profile.nameEn, address: profile.address,
+        city: profile.city, area: profile.area, slug, joinCode: '', maintenanceAmount: 0, dueDay: 10, upiId: '',
+        plan: 'active', flatsLimit: 0, receiptPrefix: 'SOC', themeKey: profile.themeKey, logoDataUrl: profile.logoUrl ?? undefined,
+        modules: defaultModuleLayer, createdAt: '', receiptSeq: 1, tenantAccess: 'full', subscriptionStatus: 'active',
+      })
+      setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [slug])
 
   useEffect(() => {
     // Guarded on the actual value, not just "did this function reference
@@ -36,6 +65,14 @@ export default function ShareLink() {
     if (society && session.societyId !== society.id) setActiveSocietyContext(society.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [society?.id, session.societyId])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
+        <Loader2 size={26} className="animate-spin text-navy-400" />
+      </div>
+    )
+  }
 
   if (!society) {
     return (

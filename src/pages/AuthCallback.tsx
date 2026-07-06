@@ -5,6 +5,7 @@ import { useData } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { claimMemberships } from '../lib/auth'
 import { roleLabel, roleHomeRoute } from '../lib/permissions'
+import { DEFAULT_SOCIETY_ID } from '../lib/store'
 import { Button } from '../components/ui'
 import { PranganBrand } from '../components/PranganBrand'
 import { useAppLang } from '../lib/useAppLang'
@@ -32,7 +33,7 @@ export default function AuthCallback() {
   const nav = useNavigate()
   const { resolveRealSession, logUnmatchedLoginAttempt } = useData()
   const [state, setState] = useState<'loading' | 'error' | 'choose'>('loading')
-  const [choices, setChoices] = useState<{ membershipId: string; societyId: string; societyName: string; role: Role; flatId: string | null }[]>([])
+  const [choices, setChoices] = useState<{ membershipId: string; societyId: string | null; societyName: string; role: Role; flatId: string | null }[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -62,7 +63,7 @@ export default function AuthCallback() {
         } else if (claimed.length === 1) {
           const m = claimed[0]
           const role = m.role as Role
-          resolveRealSession({ role, societyId: m.societyId, flatId: m.flatId })
+          resolveRealSession({ role, societyId: m.societyId ?? DEFAULT_SOCIETY_ID, flatId: m.flatId })
           nav(roleHomeRoute[role] ?? '/login', { replace: true })
         } else {
           setChoices(claimed.map(m => ({ membershipId: m.membershipId, societyId: m.societyId, societyName: m.societyName, role: m.role as Role, flatId: m.flatId })))
@@ -78,7 +79,7 @@ export default function AuthCallback() {
   }, [nav, resolveRealSession, logUnmatchedLoginAttempt])
 
   const chooseSociety = (choice: typeof choices[number]) => {
-    resolveRealSession({ role: choice.role, societyId: choice.societyId, flatId: choice.flatId })
+    resolveRealSession({ role: choice.role, societyId: choice.societyId ?? DEFAULT_SOCIETY_ID, flatId: choice.flatId })
     nav(roleHomeRoute[choice.role] ?? '/login', { replace: true })
   }
 
