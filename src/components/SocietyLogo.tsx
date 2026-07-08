@@ -16,9 +16,10 @@ import type { Society } from '../lib/types'
  * common case of "show the active society's own logo."
  */
 export function SocietyBadge({ society, size = 30, dark = false }: { society: Society; size?: number; dark?: boolean }) {
-  if (society.logoDataUrl) {
+  const src = society.logoUrl || society.logoDataUrl
+  if (src) {
     return (
-      <img src={society.logoDataUrl} alt={society.name} width={size} height={size}
+      <img src={src} alt={society.name} width={size} height={size}
         className="rounded-[22%] object-cover shrink-0" style={{ width: size, height: size }} />
     )
   }

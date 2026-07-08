@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, Link } from 'react-router-dom'
 import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, ShieldAlert, Loader2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -8,7 +8,7 @@ import { SocietyLogo } from '../components/SocietyLogo'
 import { PranganBrand, PoweredByPrangan } from '../components/PranganBrand'
 import { useAppLang } from '../lib/useAppLang'
 import { SubscriptionBanner } from '../components/SubscriptionBanner'
-import type { SocietyModules } from '../lib/types'
+import type { Role, SocietyModules } from '../lib/types'
 
 /* ---------------- Resident: mobile-first ---------------- */
 // module: undefined means always shown (home, more). Others hide when the
@@ -23,12 +23,24 @@ const residentTabs: { to: string; label: string; icon: LucideIcon; end?: boolean
 
 export function ResidentLayout() {
   useAppLang()
-  const { society, session, flatById, moduleEnabled, financialsLoading } = useData()
+  const { society, session, flatById, moduleEnabled, financialsLoading, lastBlockedReason } = useData()
   const flat = session.flatId ? flatById(session.flatId) : undefined
   const tabs = residentTabs.filter(t => !t.module || moduleEnabled(t.module))
+  const [blockedToast, setBlockedToast] = useState<string | null>(null)
+  useEffect(() => {
+    if (!lastBlockedReason) return
+    setBlockedToast(lastBlockedReason)
+    const t = setTimeout(() => setBlockedToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [lastBlockedReason])
 
   return (
     <div className="min-h-screen max-w-2xl mx-auto flex flex-col">
+      {blockedToast && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] bg-navy-900 text-cream-50 text-[13px] font-semibold px-4 py-2.5 rounded-xl shadow-lift animate-fadeUp">
+          {blockedToast}
+        </div>
+      )}
       {/* Society identity is primary here, this strip keeps Prangan One
           genuinely visible (name included, not just the mark) on every
           resident screen without competing with the society's own branding
@@ -79,13 +91,35 @@ export function ResidentLayout() {
 }
 
 /* ---------------- Admin / Accountant: sidebar shell ---------------- */
-export interface NavItem { to: string; label: string; icon: LucideIcon; end?: boolean; module?: keyof SocietyModules; group?: string }
+export interface NavItem {
+  to: string; label: string; icon: LucideIcon; end?: boolean; module?: keyof SocietyModules; group?: string
+  // Undefined means visible to anyone who reached this Shell at all
+  // (society_admin, committee_member, auditor). When set, only those
+  // roles see this item - except auditor, who always sees everything
+  // regardless of this list, since read-only means seeing the whole
+  // picture but never being able to act on it, not seeing a smaller
+  // picture. This is the piece that was missing before: canManageBilling()
+  // and friends existed in permissions.ts but nothing actually filtered
+  // the nav with them, so committee_member and auditor saw the exact same
+  // menu as a full society_admin, billing and settings included.
+  roles?: Role[]
+}
 
 export function Shell({ items, title }: { items: NavItem[]; title: string }) {
   useAppLang()
-  const { society, session, logout, moduleEnabled, exitImpersonation, financialsLoading } = useData()
+  const { society, session, logout, moduleEnabled, exitImpersonation, financialsLoading, lastBlockedReason } = useData()
   const [open, setOpen] = useState(false)
-  const visibleItems = items.filter(it => !it.module || moduleEnabled(it.module))
+  const [blockedToast, setBlockedToast] = useState<string | null>(null)
+  useEffect(() => {
+    if (!lastBlockedReason) return
+    setBlockedToast(lastBlockedReason)
+    const t = setTimeout(() => setBlockedToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [lastBlockedReason])
+  const visibleItems = items.filter(it =>
+    (!it.module || moduleEnabled(it.module))
+    && (!it.roles || session.role === 'auditor' || (session.role && it.roles.includes(session.role))),
+  )
 
   const nav = (
     <nav className="flex-1 overflow-y-auto py-3 space-y-0.5">
@@ -130,6 +164,11 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
 
   return (
     <div className="min-h-screen md:flex">
+      {blockedToast && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] bg-navy-900 text-cream-50 text-[13px] font-semibold px-4 py-2.5 rounded-xl shadow-lift animate-fadeUp">
+          {blockedToast}
+        </div>
+      )}
       {/* desktop sidebar */}
       <aside className="hidden md:flex md:flex-col w-64 shrink-0 bg-navy-900 min-h-screen sticky top-0 max-h-screen">
         {sidebarInner}
@@ -149,8 +188,18 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
       <div className="flex-1 min-w-0">
         {session.actingAsOwner && (
           <div className="bg-saffron-500 text-navy-900 px-4 py-2 flex items-center justify-between gap-3 text-[13.5px] font-semibold sticky top-0 z-40">
-            <span className="inline-flex items-center gap-1.5"><ShieldAlert size={16} /> તમે Prangan One સપોર્ટ તરીકે કામ કરી રહ્યા છો</span>
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldAlert size={16} />
+              {session.supportMode === 'readonly'
+                ? 'તમે Prangan One સપોર્ટ તરીકે Read-only જુઓ છો - કંઈ સેવ નહીં થાય'
+                : 'તમે Prangan One સપોર્ટ તરીકે કામ કરી રહ્યા છો'}
+            </span>
             <button onClick={exitImpersonation} className="underline shrink-0">બહાર જાઓ</button>
+          </div>
+        )}
+        {!session.actingAsOwner && session.role === 'auditor' && (
+          <div className="bg-navy-100 text-navy-700 px-4 py-2 flex items-center gap-1.5 text-[13px] font-semibold sticky top-0 z-40">
+            <ShieldAlert size={15} /> ઓડિટર એક્સેસ - ફક્ત જોવા માટે, કંઈ સેવ કે બદલાય નહીં
           </div>
         )}
         <SubscriptionBanner audience="admin" />

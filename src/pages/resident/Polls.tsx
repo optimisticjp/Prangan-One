@@ -17,7 +17,7 @@ export default function Polls() {
 
       <div className="space-y-3">
         {polls.map(p => {
-          const counts = p.options.map((_, i) => Object.values(p.votes).filter(v => v === i).length)
+          const counts = p.resultCounts ?? p.options.map((_, i) => Object.values(p.votes).filter(v => v === i).length)
           const total = counts.reduce((a, b) => a + b, 0)
           const myVote = p.votes[flatId]
           const voted = myVote !== undefined

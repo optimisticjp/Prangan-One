@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ChevronDown, MessageCircle, Star, Users, Lock } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChevronDown, MessageCircle, Star, Users, Lock, ImageIcon } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { fmtDate } from '../../lib/format'
 import { complaintStatusLabel, complaintStatusTone } from '../../lib/copy'
@@ -16,12 +16,24 @@ const filters: { key: ComplaintStatus | 'all'; label: string }[] = [
 ]
 
 export default function Complaints() {
-  const { db, society, flatById, advanceComplaint, addInternalNote } = useData()
+  const { db, society, flatById, advanceComplaint, addInternalNote, getComplaintPhotoUrl } = useData()
   const [filter, setFilter] = useState<ComplaintStatus | 'all'>('all')
   const [openId, setOpenId] = useState<string | null>(null)
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({})
   const [intDraft, setIntDraft] = useState<Record<string, string>>({})
   const [assignDraft, setAssignDraft] = useState<Record<string, string>>({})
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+
+  // Only fetches a signed URL for whichever complaint is actually
+  // expanded right now, not the whole list eagerly - each one is a real
+  // network call, and most of this list is never opened in a given visit.
+  useEffect(() => {
+    const openComplaint = openId ? db.complaints.find(c => c.id === openId) : undefined
+    if (!openComplaint?.photoPath) { setPhotoUrl(null); return }
+    let cancelled = false
+    getComplaintPhotoUrl(openComplaint.photoPath).then(url => { if (!cancelled) setPhotoUrl(url) })
+    return () => { cancelled = true }
+  }, [openId, db.complaints, getComplaintPhotoUrl])
 
   const assignees = [
     ...db.contacts.filter(c => c.category === 'committee').map(c => c.name),
@@ -78,7 +90,13 @@ export default function Complaints() {
               {isOpen && (
                 <div className="mt-3 pt-3 border-t border-cream-200 space-y-3">
                   {c.detail && <p className="text-[14px] text-navy-600">{c.detail}</p>}
-                  {c.photoName && <div className="text-[12.5px] text-navy-400">📎 ફોટો: {c.photoName}</div>}
+                  {isOpen && photoUrl ? (
+                    <a href={photoUrl} target="_blank" rel="noreferrer" className="block">
+                      <img src={photoUrl} alt="ફરિયાદનો ફોટો" className="rounded-xl border border-cream-200 max-h-48 object-cover" />
+                    </a>
+                  ) : c.photoName && (
+                    <div className="text-[12.5px] text-navy-400 flex items-center gap-1"><ImageIcon size={13} /> ફોટો: {c.photoName}</div>
+                  )}
 
                   {/* timeline */}
                   <div>

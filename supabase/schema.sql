@@ -140,14 +140,15 @@ create table memberships (
   society_id     uuid references societies(id) on delete cascade,
   flat_id        uuid,  -- fk added after flats table exists, see below
   role           text not null check (role in (
-                   'owner', 'society_admin', 'treasurer', 'committee_member', 'accountant',
+                   'owner', 'society_admin', 'committee_member', 'accountant',
                    'resident_owner', 'resident_tenant', 'auditor'
                  )),
   phone          text,
   whatsapp       text,
   can_manage_billing boolean not null default false,  -- only meaningful when role = committee_member
   -- 'active': usable immediately (every admin-added invite, or a /join
-  -- self-enrollment whose phone matched the flat on file). 'pending': a
+  -- self-enrollment whose email matched the flat on file - not phone, a
+  -- phone number isn't a secret). 'pending': a
   -- self-enrollment nothing on file could confirm, needs committee
   -- approval (see can_write-style write policies below) before it's
   -- claimable - claimMemberships() in src/lib/auth.ts only claims
@@ -239,6 +240,7 @@ create table payments (
   note         text,
   cancelled    boolean not null default false,
   cancel_reason text,
+  proof_path   text,  -- storage path in the payment-proof bucket, set after upload succeeds (see the Storage buckets block later in this file)
   created_at   timestamptz not null default now()
 );
 
@@ -438,6 +440,20 @@ create table public_leads (
   internal_note text,
   created_at    timestamptz not null default now()
 );
+
+-- General-purpose rate limiting, used by the public lead form and /join
+-- (see enforce_public_leads_rate_limit and submit_join_request below) -
+-- both are reachable by someone with no account at all, and neither had
+-- any limit on repeated attempts before this. This won't stop a
+-- determined attacker rotating through different email addresses, but it
+-- meaningfully raises the cost of hammering either endpoint, which is the
+-- realistic bar for something enforced at the database level alone.
+create table rate_limit_attempts (
+  id           uuid primary key default gen_random_uuid(),
+  bucket       text not null,  -- e.g. 'lead:someone@example.com' or 'join:someone@example.com'
+  attempted_at timestamptz not null default now()
+);
+create index rate_limit_attempts_bucket_idx on rate_limit_attempts (bucket, attempted_at);
 
 -- An email that was typed at /login, verified via a real magic-link click,
 -- and matched no membership anywhere on the platform - see
@@ -683,6 +699,146 @@ as $$
   limit 1;
 $$;
 
+-- societies_update (below) lets society_admin update their own society's
+-- row - name, address, maintenance amount, branding, that kind of thing,
+-- all fine for them to change. But row-level security only restricts
+-- which ROWS someone can touch, not which COLUMNS within an allowed row -
+-- so without this, a society_admin could, via a direct API call bypassing
+-- the app's own UI entirely, set their own subscription_status to
+-- 'active', raise their own flats_limit, or change their own plan. Those
+-- specifically have to stay owner-only, since they're the actual
+-- business terms of the subscription, not something a customer sets for
+-- themselves. receipt_seq is deliberately NOT on this list - that one
+-- gets incremented by ordinary payment recording, which society_admin
+-- and accountant both legitimately do.
+
+-- Records an attempt against `bucket` and returns whether it's allowed,
+-- given no more than p_max_attempts within p_window. Called from a
+-- trigger for public_leads and directly inside submit_join_request - both
+-- are reachable with no account at all, so neither can be gated by role
+-- the way everything else in this file is.
+create or replace function check_rate_limit(p_bucket text, p_max_attempts int, p_window interval)
+returns boolean
+language plpgsql
+security definer
+as $$
+declare
+  recent_count int;
+begin
+  delete from rate_limit_attempts where bucket = p_bucket and attempted_at < now() - p_window;
+  select count(*) into recent_count from rate_limit_attempts where bucket = p_bucket and attempted_at > now() - p_window;
+  if recent_count >= p_max_attempts then
+    return false;
+  end if;
+  insert into rate_limit_attempts (bucket, attempted_at) values (p_bucket, now());
+  return true;
+end;
+$$;
+
+-- The public lead form (Contact.tsx) had no limit at all on repeated
+-- submissions before this - anyone could script a flood of fake leads.
+-- Skips the check entirely for a direct/service connection, same
+-- reasoning as enforce_societies_update above.
+create or replace function enforce_public_leads_rate_limit()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if session_user in ('postgres', 'service_role', 'supabase_admin') then
+    return new;
+  end if;
+  if not check_rate_limit('lead:' || lower(trim(new.email)), 3, interval '1 hour') then
+    raise exception 'too many submissions from this email recently, please try again later';
+  end if;
+  return new;
+end;
+$$;
+
+-- The one place audit_logs_insert's own permission tightening (see that
+-- policy, above) still isn't enough on its own: it stops a random
+-- unrelated caller from writing an entry, but it still trusts whoever
+-- IS a real society_admin/accountant/owner to have logged honestly and
+-- completely. This trigger removes that trust requirement for the single
+-- most sensitive audited action in the whole schema - cancelling a
+-- receipt reverses real money, and now generates its own audit row
+-- automatically from the actual data change, not from the application
+-- remembering to insert one. Even a caller with a legitimate reason to
+-- update this row cannot cancel a receipt without this firing.
+-- Returns vote counts per option for a poll, never individual rows - the
+-- app needs to show results (when a poll allows it) without exposing who
+-- voted for what, which poll_votes_select itself deliberately doesn't
+-- allow an ordinary member to see beyond their own row. security definer
+-- lets this safely aggregate across every vote while still respecting
+-- who's allowed to see results at all: management always can, an
+-- ordinary member only when the poll's own result_visible says so.
+-- Returns nothing (not an error) for a poll the caller can't see results
+-- for, or doesn't belong to their society - matches how RLS itself
+-- behaves elsewhere in this file, silence instead of an error.
+create or replace function poll_results(target_poll uuid)
+returns table(option_idx int, vote_count bigint)
+language plpgsql
+security definer
+stable
+as $$
+declare
+  target_society uuid;
+  can_see_results boolean;
+begin
+  select p.society_id, (p.result_visible or has_role(p.society_id, array['owner', 'society_admin', 'committee_member']))
+    into target_society, can_see_results
+  from polls p where p.id = target_poll;
+
+  if target_society is null or not is_society_member(target_society) or not can_see_results then
+    return;
+  end if;
+
+  return query
+    select pv.option_idx, count(*) from poll_votes pv where pv.poll_id = target_poll group by pv.option_idx;
+end;
+$$;
+
+create or replace function audit_payment_cancellation()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if new.cancelled = true and (old.cancelled is distinct from true) then
+    insert into audit_logs (society_id, actor, action, detail)
+    values (
+      new.society_id,
+      coalesce(auth.jwt() ->> 'email', session_user),
+      'receipt_cancelled',
+      'Receipt ' || coalesce(new.receipt_no, new.id::text) || ' cancelled: ' || coalesce(new.cancel_reason, 'no reason given')
+    );
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function enforce_societies_update()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if session_user in ('postgres', 'service_role', 'supabase_admin') or has_role(new.id, array['owner']) then
+    return new;
+  end if;
+
+  if new.plan is distinct from old.plan
+     or new.subscription_status is distinct from old.subscription_status
+     or new.flats_limit is distinct from old.flats_limit
+     or new.grace_started_at is distinct from old.grace_started_at
+     or new.trial_started_at is distinct from old.trial_started_at then
+    raise exception 'only the platform owner can change plan, subscription status, flat limit, grace, or trial dates';
+  end if;
+
+  return new;
+end;
+$$;
+
 create or replace function enforce_membership_insert()
 returns trigger
 language plpgsql
@@ -773,6 +929,13 @@ declare
   resolved_flat uuid;
   new_status text;
 begin
+  -- Checked first, before any lookup - a brute-force attempt against
+  -- different join codes or flat numbers using the same email gets
+  -- stopped here regardless of what it's actually trying.
+  if not check_rate_limit('join:' || lower(trim(given_email)), 5, interval '1 hour') then
+    raise exception using errcode = 'P0003', message = 'rate_limited';
+  end if;
+
   resolved_society := find_society_id_by_join_code(target_join_code);
   if resolved_society is null then
     raise exception using errcode = 'P0001', message = 'society_not_found';
@@ -804,6 +967,18 @@ $$;
 create trigger memberships_enforce_insert
   before insert on memberships
   for each row execute function enforce_membership_insert();
+
+create trigger societies_enforce_update
+  before update on societies
+  for each row execute function enforce_societies_update();
+
+create trigger public_leads_enforce_rate_limit
+  before insert on public_leads
+  for each row execute function enforce_public_leads_rate_limit();
+
+create trigger payments_audit_cancellation
+  after update on payments
+  for each row execute function audit_payment_cancellation();
 
 -- -----------------------------------------------------------------
 -- Indexes
@@ -890,6 +1065,12 @@ alter table impersonation_logs enable row level security;
 -- find_society_id_by_join_code() above cover both, without exposing
 -- join_code, subscription_status, plan, or anything else business-
 -- sensitive to someone who isn't a member of anything yet.
+-- Previously missing entirely - RLS is enabled on this table (see below),
+-- so with no insert policy at all, literally no one could create a new
+-- society through the real database, not even the owner. Only the owner
+-- ever creates a society (see Onboarding.tsx, owner-console-only).
+create policy societies_insert on societies for insert
+  with check (has_role(id, array['owner']));
 create policy societies_select on societies for select
   using (is_society_member(id) or has_role(id, array['owner']));
 create policy societies_update on societies for update
@@ -960,7 +1141,7 @@ create policy memberships_delete on memberships for delete
 -- exactly the leak the product's own privacy requirements call out.
 create policy flats_select on flats for select
   using (
-    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'treasurer', 'accountant'])
+    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
     or id = my_flat_id(society_id)
   );
 create policy flats_insert on flats for insert
@@ -974,13 +1155,13 @@ create policy flats_update on flats for update
 -- same reasoning as flats_select above.
 create policy bills_select on bills for select
   using (
-    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'treasurer', 'accountant'])
+    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
     or flat_id = my_flat_id(society_id)
   );
 create policy bills_insert on bills for insert
-  with check (has_role(society_id, array['society_admin', 'treasurer']) and can_write(society_id));
+  with check (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));
 create policy bills_update on bills for update
-  using (has_role(society_id, array['society_admin', 'treasurer', 'accountant']) and can_write(society_id));  -- paid_amount updates on payment
+  using (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));  -- paid_amount updates on payment
 
 -- payments: members read their society's payments; accountant+society_admin
 -- record them; residents can insert their OWN pending_confirmation "I have
@@ -989,25 +1170,25 @@ create policy bills_update on bills for update
 -- a resident only sees their own flat's payment history.
 create policy payments_select on payments for select
   using (
-    has_role(society_id, array['owner', 'society_admin', 'treasurer', 'committee_member', 'accountant'])
+    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
     or flat_id = my_flat_id(society_id)
   );
 create policy payments_insert on payments for insert
   with check (
     can_write(society_id)
     and (
-      has_role(society_id, array['society_admin', 'treasurer', 'accountant'])
+      has_role(society_id, array['society_admin', 'accountant'])
       or (flat_id = my_flat_id(society_id) and status = 'pending_confirmation')
     )
   );
 create policy payments_update on payments for update
-  using (has_role(society_id, array['society_admin', 'treasurer', 'accountant']) and can_write(society_id));
+  using (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));
 
--- expenses: members read; accountant+treasurer+society_admin write
+-- expenses: members read; accountant+society_admin write
 create policy expenses_select on expenses for select
   using (is_society_member(society_id) or has_role(society_id, array['owner']));
 create policy expenses_insert on expenses for insert
-  with check (has_role(society_id, array['society_admin', 'treasurer', 'accountant', 'committee_member']) and can_write(society_id));
+  with check (has_role(society_id, array['society_admin', 'accountant', 'committee_member']) and can_write(society_id));
 
 -- vendors: members read; society_admin and committee_member write
 create policy vendors_select on vendors for select
@@ -1028,7 +1209,7 @@ create policy vendors_update on vendors for update
 -- residents must not receive every row and rely on frontend filtering.
 create policy complaints_select on complaints for select
   using (
-    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'treasurer', 'accountant'])
+    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
     or flat_id = my_flat_id(society_id)
     or (visibility = 'community' and is_society_member(society_id))
   );
@@ -1051,17 +1232,27 @@ create policy complaint_timeline_select on complaint_timeline for select
     select 1 from complaints c
     where c.id = complaint_timeline.complaint_id
       and (
-        has_role(c.society_id, array['owner', 'society_admin', 'committee_member', 'treasurer', 'accountant'])
+        has_role(c.society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
         or c.flat_id = my_flat_id(c.society_id)
         or (c.visibility = 'community' and is_society_member(c.society_id))
       )
   ));
+-- A resident filing their own complaint needs to create its very first
+-- timeline row too (status='new', "you filed this") - previously this
+-- policy only allowed management roles, so a real resident's own
+-- complaint would insert fine but its initial timeline entry would
+-- silently fail. Residents can only ever insert their own flat's 'new'
+-- entry specifically, never any other status - that still requires
+-- management, so a resident can't inject a fake "resolved" row into
+-- their own complaint's history.
 create policy complaint_timeline_insert on complaint_timeline for insert
   with check (exists (
     select 1 from complaints c
     where c.id = complaint_timeline.complaint_id
-      and has_role(c.society_id, array['society_admin', 'committee_member'])
-      and can_write(c.society_id)
+      and (
+        (has_role(c.society_id, array['society_admin', 'committee_member']) and can_write(c.society_id))
+        or (complaint_timeline.status = 'new' and c.flat_id = my_flat_id(c.society_id))
+      )
   ));
 
 -- notices: members read; society_admin/committee_member publish
@@ -1107,10 +1298,24 @@ create policy polls_update on polls for update
 -- can read the votes (individual ballots aren't secret from the
 -- committee, only the running tally is optionally hidden via
 -- polls.result_visible, which the app enforces in the UI)
+-- poll_votes: private ballots, not a public tally sheet. A resident can
+-- see their own flat's vote (so the UI can show "you already voted for
+-- X"), never another flat's - the app's own UI only ever showed
+-- aggregated counts anyway (see admin/Polls.tsx), but this table itself
+-- had no matching restriction, so anyone could read individual vote rows
+-- directly. Management roles still see every vote in their society, for
+-- the same reason an election has officials who can audit ballots even
+-- when voters can't see each other's.
 create policy poll_votes_select on poll_votes for select
-  using (exists (
-    select 1 from polls p where p.id = poll_votes.poll_id and (is_society_member(p.society_id) or has_role(p.society_id, array['owner']))
-  ));
+  using (
+    exists (
+      select 1 from polls p where p.id = poll_votes.poll_id
+        and (
+          has_role(p.society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
+          or poll_votes.flat_id = my_flat_id(p.society_id)
+        )
+    )
+  );
 create policy poll_votes_insert on poll_votes for insert
   with check (exists (
     select 1 from polls p
@@ -1172,11 +1377,11 @@ create policy contacts_insert on contacts for insert
 -- adjustments tied to their own flat, same principle as bills/payments.
 create policy adjustments_select on adjustments for select
   using (
-    has_role(society_id, array['owner', 'society_admin', 'treasurer', 'accountant'])
+    has_role(society_id, array['owner', 'society_admin', 'accountant'])
     or flat_id = my_flat_id(society_id)
   );
 create policy adjustments_insert on adjustments for insert
-  with check (has_role(society_id, array['society_admin', 'treasurer', 'accountant']) and can_write(society_id));
+  with check (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));
 
 -- platform_billing, public_leads, audit_logs, impersonation_logs: owner-only,
 -- always, in every direction. These are the platform's own operational
@@ -1205,14 +1410,156 @@ create policy unmatched_login_attempts_insert on unmatched_login_attempts for in
 
 create policy audit_logs_select on audit_logs for select
   using (has_role(society_id, array['owner']) or has_role(society_id, array['society_admin']));
+-- Tightened from `with check (true)`, which meant literally anyone could
+-- insert an audit log entry claiming anything happened. This doesn't make
+-- audit logs fully tamper-proof yet - that needs the actions themselves
+-- (receipt cancellation, etc) to generate their own audit rows via
+-- database triggers, not application code choosing to insert one, which
+-- is real, separate, still-pending work. This at least means only a
+-- real management-level member of the society being logged about can
+-- write an entry, not a random unrelated caller.
 create policy audit_logs_insert on audit_logs for insert
-  with check (true);  -- system-inserted from application logic on the actions being audited
+  with check (has_role(society_id, array['owner', 'society_admin', 'accountant']));
 
 create policy impersonation_logs_all on impersonation_logs for all
   using (has_role(society_id, array['owner']))
   with check (has_role(society_id, array['owner']));
 
 -- =================================================================
--- End of schema. See supabase/README.md for how to apply this and
--- for the storage bucket setup (documents, complaint photos, logos).
+-- Storage buckets and their RLS policies
+-- =================================================================
+-- storage.buckets and storage.objects already exist in every Supabase
+-- project (part of the Storage extension, not created here). The bucket
+-- inserts below were previously a manual dashboard step documented in
+-- supabase/README.md; included directly here now so one full schema.sql
+-- run sets up everything, buckets included. society-logos is public
+-- (logos need to display without auth, e.g. on the public share link
+-- page); the other two are private, gated by RLS the same way every
+-- other table in this file is.
+--
+-- Path convention for the two private buckets: the object's path always
+-- starts with the id of the row it belongs to - '{complaint_id}/photo.jpg',
+-- '{payment_id}/proof.jpg' - so a policy can join back to that owning row
+-- via split_part(name, '/', 1) exactly the way every other RLS policy in
+-- this file already joins through a foreign key. This means the owning
+-- row (the complaint, the payment) has to exist before its file can be
+-- uploaded, not the other way around - the app already generates that
+-- row's id client-side before inserting it (see realUid() in
+-- src/lib/id.ts), so the same id is used for the upload path immediately
+-- after, not a placeholder that needs reconciling later.
+
+insert into storage.buckets (id, name, public) values ('society-logos', 'society-logos', true) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('complaint-photos', 'complaint-photos', false) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('payment-proof', 'payment-proof', false) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('documents', 'documents', false) on conflict (id) do nothing;
+
+-- society-logos: the bucket's own public flag means end users reading a
+-- logo never go through RLS at all - Supabase serves public bucket
+-- objects directly. This select policy exists for a different, easy to
+-- miss reason: without ANY select policy on this table, an
+-- INSERT/UPDATE...RETURNING (which the upload client relies on to
+-- confirm what it just wrote) fails outright, since Postgres checks
+-- RETURNING output against SELECT-level RLS same as a real SELECT would
+-- - confirmed this directly, an insert with no matching select policy
+-- errored on RETURNING even though the insert itself was permitted and
+-- actually happened.
+create policy society_logos_select on storage.objects for select
+  using (bucket_id = 'society-logos');
+create policy society_logos_insert on storage.objects for insert
+  with check (bucket_id = 'society-logos' and has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
+create policy society_logos_update on storage.objects for update
+  using (bucket_id = 'society-logos' and has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
+create policy society_logos_delete on storage.objects for delete
+  using (bucket_id = 'society-logos' and has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
+
+-- complaint-photos: same visibility rule as the complaint itself
+-- (complaints_select) - a personal complaint's photo is as private as
+-- the complaint text, a community one's photo is visible society-wide.
+create policy complaint_photos_select on storage.objects for select
+  using (
+    bucket_id = 'complaint-photos'
+    and exists (
+      select 1 from complaints c where c.id = (split_part(name, '/', 1))::uuid
+        and (
+          has_role(c.society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
+          or c.flat_id = my_flat_id(c.society_id)
+          or (c.visibility = 'community' and is_society_member(c.society_id))
+        )
+    )
+  );
+create policy complaint_photos_insert on storage.objects for insert
+  with check (
+    bucket_id = 'complaint-photos'
+    and exists (
+      select 1 from complaints c where c.id = (split_part(name, '/', 1))::uuid
+        and (has_role(c.society_id, array['owner', 'society_admin', 'committee_member']) or c.flat_id = my_flat_id(c.society_id))
+    )
+  );
+
+-- payment-proof: only the flat that made the payment and management can
+-- ever see it - a resident's UPI screenshot isn't something even a
+-- different resident in the same society should be able to browse to.
+create policy payment_proof_select on storage.objects for select
+  using (
+    bucket_id = 'payment-proof'
+    and exists (
+      select 1 from payments p where p.id = (split_part(name, '/', 1))::uuid
+        and (has_role(p.society_id, array['owner', 'society_admin', 'accountant']) or p.flat_id = my_flat_id(p.society_id))
+    )
+  );
+create policy payment_proof_insert on storage.objects for insert
+  with check (
+    bucket_id = 'payment-proof'
+    and exists (
+      select 1 from payments p where p.id = (split_part(name, '/', 1))::uuid
+        and (has_role(p.society_id, array['owner', 'society_admin', 'accountant']) or p.flat_id = my_flat_id(p.society_id))
+    )
+  );
+
+-- documents: the exact same four-tier check documents_select already
+-- does on the table row itself (public/committee/accountant/admin, plus
+-- the tenant-access gate), just joined through from the storage side.
+-- Only society_admin/committee_member can upload, matching
+-- documents_insert. A select policy is included from the start this
+-- time, not added later - see society_logos_select's comment for why a
+-- private bucket needs one even before end users ever read from it
+-- directly: without it, the upload itself would fail on its own
+-- insert...returning confirmation, the same way logo upload originally did.
+-- objects.name is qualified explicitly below, not left bare - documents
+-- has its own name column, and an unqualified `name` inside the exists
+-- subquery silently resolved to the document's own name (the filename)
+-- instead of the storage object's path, since SQL scoping prefers the
+-- innermost table when a column name exists on both. Caught this by
+-- actually running it against real data, not by reading the policy back.
+create policy documents_storage_select on storage.objects for select
+  using (
+    bucket_id = 'documents'
+    and exists (
+      select 1 from documents d where d.id = (split_part(objects.name, '/', 1))::uuid
+        and (
+          has_role(d.society_id, array['owner'])
+          or (
+            is_society_member(d.society_id)
+            and (not is_tenant(d.society_id) or (select tenant_access from societies where id = d.society_id) = 'full')
+            and (
+              d.permission = 'public'
+              or (d.permission = 'committee' and has_role(d.society_id, array['society_admin', 'committee_member']))
+              or (d.permission = 'accountant' and has_role(d.society_id, array['society_admin', 'accountant']))
+              or (d.permission = 'admin' and has_role(d.society_id, array['society_admin']))
+            )
+          )
+        )
+    )
+  );
+create policy documents_storage_insert on storage.objects for insert
+  with check (
+    bucket_id = 'documents'
+    and exists (
+      select 1 from documents d where d.id = (split_part(objects.name, '/', 1))::uuid
+        and has_role(d.society_id, array['society_admin', 'committee_member'])
+    )
+  );
+
+-- =================================================================
+-- End of schema. See supabase/README.md for how to apply this.
 -- =================================================================

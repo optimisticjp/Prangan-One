@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Mail, CheckCircle2, ArrowLeft, AlertCircle, Info } from 'lucide-react'
 import { useData } from '../lib/store'
 import { supabaseConfigured } from '../lib/supabase'
-import { sendMagicLink } from '../lib/auth'
+import { sendMagicLink, signInWithGoogle } from '../lib/auth'
 import { Button, Card, Input } from '../components/ui'
 import { SocietyLogo } from '../components/SocietyLogo'
 import { PranganBrand } from '../components/PranganBrand'
@@ -42,6 +42,20 @@ export default function Login() {
     } catch (err) {
       setSendError(err instanceof Error ? err.message : 'લિંક મોકલવામાં ભૂલ થઈ, ફરી પ્રયત્ન કરો.')
     } finally {
+      setSending(false)
+    }
+  }
+
+  const submitGoogle = async () => {
+    if (!supabaseConfigured) return
+    setSending(true); setSendError('')
+    try {
+      await signInWithGoogle()
+      // no setSending(false) here on success - the browser is about to
+      // navigate away to Google's own login page, there's nothing left
+      // for this component to show in the meantime
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : 'Google લોગિનમાં ભૂલ થઈ, ફરી પ્રયત્ન કરો.')
       setSending(false)
     }
   }
@@ -93,6 +107,21 @@ export default function Login() {
               </div>
             ) : !sent ? (
               <div>
+                <button onClick={submitGoogle} disabled={sending}
+                  className="w-full min-h-[46px] rounded-xl border border-cream-300 bg-white text-navy-800 font-semibold text-[14.5px] flex items-center justify-center gap-2.5 hover:bg-cream-50 disabled:opacity-50">
+                  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+                    <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z" />
+                    <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.55-1.85.87-3.06.87a5.4 5.4 0 0 1-5.1-3.74H.87v2.35A9 9 0 0 0 9 18z" />
+                    <path fill="#FBBC05" d="M3.9 10.69a5.4 5.4 0 0 1 0-3.38V4.96H.87a9 9 0 0 0 0 8.08l3.03-2.35z" />
+                    <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A8.6 8.6 0 0 0 9 0 9 9 0 0 0 .87 4.96L3.9 7.3A5.4 5.4 0 0 1 9 3.58z" />
+                  </svg>
+                  Google થી લોગિન કરો
+                </button>
+                <div className="flex items-center gap-2.5 my-3.5">
+                  <div className="flex-1 h-px bg-cream-200" />
+                  <span className="text-[12px] text-navy-300 font-semibold">અથવા</span>
+                  <div className="flex-1 h-px bg-cream-200" />
+                </div>
                 <div className="flex gap-2">
                   <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="તમારો ઈમેલ" className="flex-1" aria-label="ઈમેલ" />
                   <Button variant="primary" onClick={submitEmail} disabled={!email.trim() || sending}>

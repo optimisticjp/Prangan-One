@@ -1,30 +1,49 @@
 import { useState } from 'react'
-import { FileText, Upload } from 'lucide-react'
+import { FileText, Upload, Download } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { fmtDate } from '../../lib/format'
 import { docFolders, docPermissionLabel } from '../../lib/copy'
 import { Badge, Button, Card, Field, Input, PageHeader, Select, TableWrap, td, th } from '../../components/ui'
-import type { DocPermission } from '../../lib/types'
+import type { DocPermission, Doc } from '../../lib/types'
 import type { Tone } from '../../components/ui'
 
 const permTone: Record<DocPermission, Tone> = { public: 'green', committee: 'amber', accountant: 'blue', admin: 'red' }
 
+function DownloadLink({ doc }: { doc: Doc }) {
+  const { getDocumentUrl } = useData()
+  const [loading, setLoading] = useState(false)
+  if (!doc.storagePath) return null
+  const open = async () => {
+    setLoading(true)
+    const url = await getDocumentUrl(doc.storagePath!)
+    setLoading(false)
+    if (url) window.open(url, '_blank')
+  }
+  return (
+    <button onClick={open} disabled={loading} className="text-navy-400 hover:text-saffron-600 disabled:opacity-40" aria-label="ડાઉનલોડ">
+      <Download size={15} />
+    </button>
+  )
+}
+
 export default function Documents() {
-  const { db, addDocumentMeta } = useData()
+  const { db, session, addDocumentMeta } = useData()
   const [name, setName] = useState('')
   const [folder, setFolder] = useState(docFolders[0])
   const [permission, setPermission] = useState<DocPermission>('public')
   const [size, setSize] = useState('')
+  const [file, setFile] = useState<File | undefined>()
 
   const onFile = (f?: File) => {
     if (!f) return
     setName(f.name)
+    setFile(f)
     setSize(f.size > 1e6 ? `${(f.size / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(f.size / 1024))} KB`)
   }
   const save = () => {
     if (!name.trim()) return
-    addDocumentMeta({ name: name.trim(), folder, permission, size: size || '-' })
-    setName(''); setSize(''); setPermission('public'); setFolder(docFolders[0])
+    addDocumentMeta({ name: name.trim(), folder, permission, size: size || '-', file })
+    setName(''); setSize(''); setPermission('public'); setFolder(docFolders[0]); setFile(undefined)
   }
 
   const list = [...db.documents].sort((a, b) => b.date.localeCompare(a.date))
@@ -35,7 +54,7 @@ export default function Documents() {
 
       <Card className="animate-fadeUp">
         <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="ફાઈલ પસંદ કરો" hint="ડેમોમાં ફાઈલ અપલોડ થતી નથી, ફક્ત વિગત સચવાય છે">
+          <Field label="ફાઈલ પસંદ કરો" hint={session.isRealSession ? undefined : 'ડેમોમાં ફાઈલ અપલોડ થતી નથી, ફક્ત વિગત સચવાય છે'}>
             <label className="w-full min-h-[46px] rounded-xl border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center gap-2 text-[13.5px] font-semibold text-navy-500 cursor-pointer px-3">
               <Upload size={16} /> {name || 'ફાઈલ પસંદ કરો'}
               <input type="file" className="hidden" onChange={e => onFile(e.target.files?.[0])} />
@@ -55,7 +74,7 @@ export default function Documents() {
       <div className="mt-4">
         <TableWrap>
           <thead><tr>
-            <th className={th}>નામ</th><th className={th}>ફોલ્ડર</th><th className={th}>પરવાનગી</th><th className={th}>તારીખ</th><th className={th}>સાઈઝ</th>
+            <th className={th}>નામ</th><th className={th}>ફોલ્ડર</th><th className={th}>પરવાનગી</th><th className={th}>તારીખ</th><th className={th}>સાઈઝ</th><th className={th}></th>
           </tr></thead>
           <tbody>
             {list.map(d => (
@@ -65,11 +84,14 @@ export default function Documents() {
                 <td className={td}><Badge tone={permTone[d.permission]}>{docPermissionLabel[d.permission]}</Badge></td>
                 <td className={td}>{fmtDate(d.date)}</td>
                 <td className={`${td} num`}>{d.size}</td>
+                <td className={td}><DownloadLink doc={d} /></td>
               </tr>
             ))}
           </tbody>
         </TableWrap>
-        <p className="text-[12.5px] text-navy-400 mt-2">અસલ ફાઈલ સ્ટોરેજ (અપલોડ/ડાઉનલોડ) Supabase Storage સાથે જોડાશે. હાલ ડેમોમાં ફક્ત વિગત સચવાય છે.</p>
+        {!session.isRealSession && (
+          <p className="text-[12.5px] text-navy-400 mt-2">અસલ ફાઈલ સ્ટોરેજ (અપલોડ/ડાઉનલોડ) Supabase Storage સાથે જોડાયેલ છે, ડેમોમાં ફક્ત વિગત સચવાય છે.</p>
+        )}
       </div>
     </div>
   )

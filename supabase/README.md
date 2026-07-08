@@ -77,20 +77,12 @@ This was a deliberate choice over phone OTP: real SMS OTP in India needs TRAI DL
 
 ## 6. Storage buckets
 
-Three buckets are worth creating once file upload actually needs to work (currently documents and complaint photos only store a filename and size, and logos become a data-URL, not real files):
+All four buckets are live now, created and secured directly by `schema.sql` - nothing extra to run for any of them:
 
-- **`documents`**: society documents (audit reports, AGM minutes, AMC contracts). Should NOT be public; access needs to follow the same `permission` column logic as the `documents` table (public/committee/accountant/admin). Easiest approach: keep the bucket private, and serve files through a signed URL generated server-side after checking the same permission logic the RLS policy already encodes.
-- **`complaint-photos`**: photos attached to complaints. Private bucket, readable by anyone who's a member of the society the complaint belongs to (same RLS pattern as the `complaints` table).
-- **`society-logos`**: branding logos uploaded through the onboarding wizard or the owner console's society-edit page. Can be public (a logo isn't sensitive), which simplifies serving it directly without signed URLs.
-
-```sql
--- run in SQL Editor after creating the buckets in Dashboard -> Storage
-insert into storage.buckets (id, name, public) values ('documents', 'documents', false);
-insert into storage.buckets (id, name, public) values ('complaint-photos', 'complaint-photos', false);
-insert into storage.buckets (id, name, public) values ('society-logos', 'society-logos', true);
-```
-
-Storage RLS policies for the two private buckets follow the same shape as the table policies in `schema.sql`: scope by `society_id`, checked via a join back to the owning row. Write these once the upload flow itself is being built, since the exact policy depends on how the file path is structured (e.g. `{society_id}/{document_id}/{filename}`).
+- **`complaint-photos`**: photos attached to complaints. Private, visible under the same rule as the complaint itself (personal complaints stay private to that flat and management, community ones are visible society-wide).
+- **`payment-proof`**: screenshots residents attach when marking a bill paid. Private, visible only to the paying flat and management - a UPI screenshot isn't something even a neighbor in the same society should be able to browse to.
+- **`society-logos`**: branding logos. Public (a logo isn't sensitive), so it can be served directly without a signed URL - end users reading a logo never touch RLS at all, Supabase serves public bucket objects directly. It still has a `select` policy of its own, for a genuinely easy-to-miss reason: without one, an `insert ... returning` (which the upload client relies on to confirm what it just wrote) fails outright, since Postgres checks `returning` output against select-level RLS the same way it would a real `select`. Confirmed this directly while building it - worth remembering if another bucket ever needs the same public-write, public-read shape.
+- **`documents`**: society documents (audit reports, AGM minutes, AMC contracts). Follows the exact same four-tier permission the `documents` table's own RLS already encodes (public/committee/accountant/admin), joined through from the storage side the same way complaint photos and payment proof join back to their own tables. Its `select` policy was written from the start this time, not added after hitting the same `returning` issue society-logos did.
 
 ## 7. Deploying: Cloudflare Pages, not Vercel
 

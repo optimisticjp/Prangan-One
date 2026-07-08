@@ -5,6 +5,32 @@ afterEach(() => {
   vi.resetModules()
 })
 
+describe('signInWithGoogle', () => {
+  it('requests the google provider with the auth callback redirect', async () => {
+    const signInWithOAuth = vi.fn().mockResolvedValue({ error: null })
+    vi.doMock('../supabase', () => ({ supabase: { auth: { signInWithOAuth } } }))
+    const { signInWithGoogle } = await import('../auth')
+
+    await signInWithGoogle()
+    expect(signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: { redirectTo: expect.stringContaining('/auth/callback') },
+    })
+  })
+
+  it('throws if Supabase itself reports an error', async () => {
+    vi.doMock('../supabase', () => ({ supabase: { auth: { signInWithOAuth: vi.fn().mockResolvedValue({ error: { message: 'boom' } }) } } }))
+    const { signInWithGoogle } = await import('../auth')
+    await expect(signInWithGoogle()).rejects.toBeTruthy()
+  })
+
+  it('throws clearly when Supabase is not configured, rather than doing nothing silently', async () => {
+    vi.doMock('../supabase', () => ({ supabase: null }))
+    const { signInWithGoogle } = await import('../auth')
+    await expect(signInWithGoogle()).rejects.toBeTruthy()
+  })
+})
+
 describe('findSocietyPublicProfile', () => {
   it('maps the RPC result into the expected shape', async () => {
     const maybeSingle = vi.fn().mockResolvedValue({

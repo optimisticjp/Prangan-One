@@ -45,11 +45,17 @@ export default function Payments() {
     else setFailMsg('ફેલ થયેલી ચુકવણી નોંધાઈ. બિલ પર અસર નહીં થાય, રસીદ નહીં બને.')
   }
 
+  // Cancelled overrides whatever the underlying status says - the old
+  // binary check here (success vs everything-else-is-"ફેલ") meant a
+  // cancelled receipt still showed as successful, and a payment still
+  // awaiting confirmation showed as failed, neither of which is true.
+  const csvStatusLabel = (p: Payment) => p.cancelled ? 'રદ થયેલ' : p.status === 'success' ? 'સફળ' : p.status === 'pending_confirmation' ? 'મંજૂરી બાકી' : 'ફેલ'
+
   const csv = () => exportCsv('payments.csv',
     ['રસીદ નં', 'તારીખ', 'ફ્લેટ', 'નામ', 'રકમ', 'પ્રકાર', 'રેફરન્સ', 'સ્થિતિ', 'નોંધ'],
     db.payments.map(p => {
       const f = flatById(p.flatId)
-      return [p.receiptNo ?? '', p.date, f?.number, f?.ownerName, p.amount, payModeLabel[p.mode], p.refNo ?? '', p.status === 'success' ? 'સફળ' : 'ફેલ', p.note ?? '']
+      return [p.receiptNo ?? '', p.date, f?.number, f?.ownerName, p.amount, payModeLabel[p.mode], p.refNo ?? '', csvStatusLabel(p), p.note ?? '']
     }))
 
   const receiptFlat = receiptFor ? flatById(receiptFor.flatId) : undefined

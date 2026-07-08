@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { FileText, Lock } from 'lucide-react'
+import { FileText, Lock, Download } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { fmtDate } from '../../lib/format'
 import { canSeeDoc, tenantCapabilities } from '../../lib/permissions'
 import { Badge, Card, EmptyState, PageHeader } from '../../components/ui'
 
 export default function Documents() {
-  const { db, session, society } = useData()
+  const { db, session, society, getDocumentUrl } = useData()
   const [folder, setFolder] = useState('બધા')
+  const [openingId, setOpeningId] = useState<string | null>(null)
 
   // A tenant only sees documents at all if the society's tenant access
   // mode allows it (limited mode hides documents, full mode shows them).
@@ -16,6 +17,13 @@ export default function Documents() {
   const folders = ['બધા', ...Array.from(new Set(visible.map(d => d.folder)))]
   const shown = folder === 'બધા' ? visible : visible.filter(d => d.folder === folder)
   const hiddenCount = db.documents.length - visible.length
+
+  const open = async (storagePath: string, id: string) => {
+    setOpeningId(id)
+    const url = await getDocumentUrl(storagePath)
+    setOpeningId(null)
+    if (url) window.open(url, '_blank')
+  }
 
   if (tenantBlocked) {
     return (
@@ -43,14 +51,21 @@ export default function Documents() {
         <Card className="mt-2"><EmptyState icon={<FileText size={22} />} title="આ ફોલ્ડરમાં કંઈ નથી" /></Card>
       ) : (
         <div className="space-y-2 mt-2">
-          {shown.map((d, i) => (
+          {shown.map(d => (
             <Card key={d.id} className="animate-fadeUp flex items-center gap-3" >
               <div className="h-10 w-10 shrink-0 rounded-xl bg-navy-50 border border-navy-100 text-navy-600 flex items-center justify-center"><FileText size={19} /></div>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-navy-800 text-[14.5px] leading-snug truncate">{d.name}</div>
                 <div className="text-[12.5px] text-navy-400">{d.folder} · {fmtDate(d.date)} · {d.size}</div>
               </div>
-              <Badge tone="gray">ડેમો ફાઈલ</Badge>
+              {d.storagePath ? (
+                <button onClick={() => open(d.storagePath!, d.id)} disabled={openingId === d.id}
+                  className="h-9 w-9 shrink-0 rounded-lg flex items-center justify-center text-navy-500 hover:bg-cream-100 disabled:opacity-40" aria-label="ડાઉનલોડ">
+                  <Download size={17} />
+                </button>
+              ) : (
+                <Badge tone="gray">ડેમો ફાઈલ</Badge>
+              )}
             </Card>
           ))}
         </div>
@@ -61,7 +76,9 @@ export default function Documents() {
           <Lock size={15} className="shrink-0" /> {hiddenCount} દસ્તાવેજ ફક્ત કમિટી/એકાઉન્ટન્ટ માટે છે.
         </div>
       )}
-      <p className="text-[12.5px] text-navy-400 mt-3">નોંધ: ડેમોમાં ફાઈલની ફક્ત વિગત દેખાય છે. અસલ ફાઈલ સ્ટોરેજ Supabase સાથે જોડાશે.</p>
+      {!session.isRealSession && (
+        <p className="text-[12.5px] text-navy-400 mt-3">નોંધ: ડેમોમાં ફાઈલની ફક્ત વિગત દેખાય છે. અસલ ફાઈલ સ્ટોરેજ Supabase સાથે જોડાયેલ છે.</p>
+      )}
     </div>
   )
 }

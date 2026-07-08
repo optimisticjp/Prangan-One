@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Star, ImageIcon } from 'lucide-react'
 import { useData } from '../../lib/store'
@@ -8,12 +8,21 @@ import { Badge, Button, Card, Textarea } from '../../components/ui'
 
 export default function ComplaintDetail() {
   const { id } = useParams()
-  const { db, session, addFeedback } = useData()
+  const { db, session, addFeedback, getComplaintPhotoUrl } = useData()
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
   const [sent, setSent] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
 
   const c = db.complaints.find(x => x.id === id && x.flatId === session.flatId)
+
+  useEffect(() => {
+    if (!c?.photoPath) { setPhotoUrl(null); return }
+    let cancelled = false
+    getComplaintPhotoUrl(c.photoPath).then(url => { if (!cancelled) setPhotoUrl(url) })
+    return () => { cancelled = true }
+  }, [c?.photoPath, getComplaintPhotoUrl])
+
   if (!c) return (
     <Card>
       <div className="text-navy-500">આ ફરિયાદ મળી નહીં.</div>
@@ -40,7 +49,11 @@ export default function ComplaintDetail() {
         </div>
         <h1 className="text-[19px] font-bold text-navy-900 mt-2 leading-snug">{c.title}</h1>
         {c.detail && <p className="text-[14.5px] text-navy-600 mt-1.5">{c.detail}</p>}
-        {c.hasPhoto && (
+        {photoUrl ? (
+          <a href={photoUrl} target="_blank" rel="noreferrer" className="block mt-2.5">
+            <img src={photoUrl} alt="ફરિયાદનો ફોટો" className="rounded-xl border border-cream-200 max-h-56 object-cover" />
+          </a>
+        ) : c.hasPhoto && (
           <div className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] text-navy-400 bg-cream-100 border border-cream-200 rounded-lg px-2.5 py-1">
             <ImageIcon size={14} /> ફોટો જોડેલો: {c.photoName}
           </div>

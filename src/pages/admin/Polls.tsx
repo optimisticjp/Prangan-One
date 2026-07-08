@@ -24,7 +24,7 @@ export default function Polls() {
 
   const csv = (pollId: string) => {
     const p = db.polls.find(x => x.id === pollId)!
-    const counts = p.options.map((_, i) => Object.values(p.votes).filter(v => v === i).length)
+    const counts = p.resultCounts ?? p.options.map((_, i) => Object.values(p.votes).filter(v => v === i).length)
     exportCsv(`poll-results.csv`, ['વિકલ્પ', 'મત'], p.options.map((o, i) => [o, counts[i]]))
   }
 
@@ -69,7 +69,7 @@ export default function Polls() {
 
       <div className="space-y-3 mt-4">
         {polls.map(p => {
-          const counts = p.options.map((_, i) => Object.values(p.votes).filter(v => v === i).length)
+          const counts = p.resultCounts ?? p.options.map((_, i) => Object.values(p.votes).filter(v => v === i).length)
           const total = counts.reduce((a, b) => a + b, 0)
           return (
             <Card key={p.id}>

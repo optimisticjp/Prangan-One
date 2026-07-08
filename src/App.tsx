@@ -79,11 +79,11 @@ const OwnerLegacyRedirect = lazy(() => import('./pages/owner/LegacyRedirect'))
 
 const adminNav: NavItem[] = [
   { to: '/admin', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true, group: 'ઓવરવ્યૂ' },
-  { to: '/admin/billing', label: 'બિલિંગ અને બાકી', icon: ReceiptText, module: 'billing', group: 'હિસાબ' },
-  { to: '/admin/payments', label: 'ચુકવણી અને રસીદ', icon: IndianRupee, module: 'billing', group: 'હિસાબ' },
+  { to: '/admin/billing', label: 'બિલિંગ અને બાકી', icon: ReceiptText, module: 'billing', group: 'હિસાબ', roles: ['society_admin'] },
+  { to: '/admin/payments', label: 'ચુકવણી અને રસીદ', icon: IndianRupee, module: 'billing', group: 'હિસાબ', roles: ['society_admin'] },
   { to: '/admin/expenses', label: 'ખર્ચ', icon: Wallet, group: 'હિસાબ' },
   { to: '/admin/reports', label: 'રિપોર્ટ', icon: BarChart3, module: 'reports', group: 'હિસાબ' },
-  { to: '/admin/members', label: 'સભ્યો / ફ્લેટ', icon: Users, group: 'કામકાજ' },
+  { to: '/admin/members', label: 'સભ્યો / ફ્લેટ', icon: Users, group: 'કામકાજ', roles: ['society_admin'] },
   { to: '/admin/vendors', label: 'વેન્ડર / AMC', icon: StoreIcon, module: 'vendors', group: 'કામકાજ' },
   { to: '/admin/complaints', label: 'ફરિયાદ', icon: Wrench, module: 'complaints', group: 'કામકાજ' },
   { to: '/admin/parking', label: 'પાર્કિંગ / વાહન', icon: Car, module: 'parking', group: 'કામકાજ' },
@@ -91,7 +91,7 @@ const adminNav: NavItem[] = [
   { to: '/admin/documents', label: 'દસ્તાવેજો', icon: FolderOpen, module: 'documents', group: 'સંવાદ' },
   { to: '/admin/polls', label: 'મતદાન', icon: Vote, module: 'polls', group: 'સંવાદ' },
   { to: '/admin/events', label: 'ઇવેન્ટ / ફાળો', icon: PartyPopper, module: 'events', group: 'સંવાદ' },
-  { to: '/admin/settings', label: 'સેટિંગ્સ', icon: SettingsIcon, group: 'સેટિંગ્સ' },
+  { to: '/admin/settings', label: 'સેટિંગ્સ', icon: SettingsIcon, group: 'સેટિંગ્સ', roles: ['society_admin'] },
 ]
 const acctNav: NavItem[] = [
   { to: '/accounts', label: 'હિસાબ ડેશબોર્ડ', icon: LayoutDashboard, end: true },
@@ -152,9 +152,9 @@ export default function App() {
 
         <Route path="/admin" element={<RoleGate allow={['society_admin', 'committee_member', 'auditor']}><Shell items={adminNav} title="કમિટી પેનલ" /></RoleGate>}>
           <Route index element={<Lazy><ADashboard /></Lazy>} />
-          <Route path="members" element={<Lazy><AMembers /></Lazy>} />
-          <Route path="billing" element={<ModuleGate module="billing" fallback="/admin"><Lazy><ABilling /></Lazy></ModuleGate>} />
-          <Route path="payments" element={<ModuleGate module="billing" fallback="/admin"><Lazy><APayments /></Lazy></ModuleGate>} />
+          <Route path="members" element={<RoleGate allow={['society_admin', 'auditor']}><Lazy><AMembers /></Lazy></RoleGate>} />
+          <Route path="billing" element={<RoleGate allow={['society_admin', 'auditor']}><ModuleGate module="billing" fallback="/admin"><Lazy><ABilling /></Lazy></ModuleGate></RoleGate>} />
+          <Route path="payments" element={<RoleGate allow={['society_admin', 'auditor']}><ModuleGate module="billing" fallback="/admin"><Lazy><APayments /></Lazy></ModuleGate></RoleGate>} />
           <Route path="expenses" element={<Lazy><AExpenses /></Lazy>} />
           <Route path="vendors" element={<ModuleGate module="vendors" fallback="/admin"><Lazy><AVendors /></Lazy></ModuleGate>} />
           <Route path="complaints" element={<ModuleGate module="complaints" fallback="/admin"><Lazy><AComplaints /></Lazy></ModuleGate>} />
@@ -164,10 +164,10 @@ export default function App() {
           <Route path="events" element={<ModuleGate module="events" fallback="/admin"><Lazy><AEvents /></Lazy></ModuleGate>} />
           <Route path="parking" element={<ModuleGate module="parking" fallback="/admin"><Lazy><AParking /></Lazy></ModuleGate>} />
           <Route path="reports" element={<ModuleGate module="reports" fallback="/admin"><Lazy><AReports /></Lazy></ModuleGate>} />
-          <Route path="settings" element={<Lazy><ASettings /></Lazy>} />
+          <Route path="settings" element={<RoleGate allow={['society_admin', 'auditor']}><Lazy><ASettings /></Lazy></RoleGate>} />
         </Route>
 
-        <Route path="/accounts" element={<RoleGate allow={['accountant', 'treasurer', 'society_admin', 'owner']}><Shell items={acctNav} title="એકાઉન્ટન્ટ પેનલ" /></RoleGate>}>
+        <Route path="/accounts" element={<RoleGate allow={['accountant', 'society_admin', 'owner']}><Shell items={acctNav} title="એકાઉન્ટન્ટ પેનલ" /></RoleGate>}>
           <Route index element={<Lazy><CDashboard /></Lazy>} />
           <Route path="reports" element={<Lazy><CReports /></Lazy>} />
           <Route path="adjustments" element={<Lazy><CAdjustments /></Lazy>} />

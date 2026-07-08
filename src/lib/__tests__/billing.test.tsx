@@ -4,7 +4,7 @@ import { DataProvider, useData } from '../store'
 
 function setup() {
   const { result } = renderHook(() => useData(), { wrapper: DataProvider })
-  act(() => { result.current.enterSociety('soc_rajhans', 'society_admin') })
+  act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
   return result
 }
 
@@ -87,6 +87,47 @@ describe('per-flat maintenance override', () => {
     act(() => { result.current.updateFlat('flat_101', { maintenanceOverride: 1800 }) })
     const preview = result.current.previewBillGeneration('2027-04')
     expect(preview.find(p => p.flatId === 'flat_102')?.amount).toBe(1200)
+  })
+})
+
+describe('advance balance actually applies itself now (previously it just sat there)', () => {
+  it('overpaying a bill creates a real, trackable credit adjustment for the difference', () => {
+    const result = setup()
+    act(() => { result.current.generateBills('2027-12') })
+    const bill = result.current.db.bills.find(b => b.flatId === 'flat_101' && b.month === '2027-12')!
+    const owed = bill.amount - bill.paidAmount
+    act(() => {
+      result.current.recordPayment({ flatId: 'flat_101', billId: bill.id, amount: owed + 500, mode: 'upi' })
+    })
+    const creditAdj = result.current.db.adjustments.find(a => a.flatId === 'flat_101' && a.type === 'credit' && a.amount === 500)
+    expect(creditAdj).toBeDefined()
+  })
+
+  it('generateBills auto-applies an existing credit to a flat\u2019s new bill, and records a matching debit so it isn\u2019t double-counted', () => {
+    const result = setup()
+    act(() => {
+      result.current.addAdjustment({ date: '2027-01-01', flatId: 'flat_102', amount: 800, type: 'credit', reason: 'Advance payment from resident' })
+    })
+    act(() => { result.current.generateBills('2027-10') })
+    const newBill = result.current.db.bills.find(b => b.flatId === 'flat_102' && b.month === '2027-10')
+    expect(newBill?.paidAmount).toBe(800)
+
+    // the credit shouldn't still show as available afterward
+    const pendingAfter = result.current.flatPending('flat_102')
+    const billPortionOwed = Math.max(0, (newBill?.amount ?? 0) - (newBill?.paidAmount ?? 0))
+    expect(pendingAfter).toBe(billPortionOwed) // no leftover negative (credit) component
+  })
+
+  it('credit only ever covers up to the bill amount, never creates a negative bill', () => {
+    const result = setup()
+    act(() => {
+      result.current.addAdjustment({ date: '2027-01-01', flatId: 'flat_103', amount: 5000, type: 'credit', reason: 'Large advance' })
+    })
+    act(() => { result.current.generateBills('2027-11') })
+    const newBill = result.current.db.bills.find(b => b.flatId === 'flat_103' && b.month === '2027-11')
+    expect(newBill?.paidAmount).toBe(newBill?.amount) // capped at the bill's own amount, not the full 5000
+    // remaining credit should still show as an actual credit afterward
+    expect(result.current.flatPending('flat_103')).toBeLessThan(0)
   })
 })
 

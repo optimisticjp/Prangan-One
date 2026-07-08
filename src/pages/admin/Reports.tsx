@@ -7,7 +7,7 @@ import { HBars, PairBars } from '../../components/charts'
 import { Card, PageHeader, Progress, SectionTitle, StatCard, Button } from '../../components/ui'
 
 export default function Reports() {
-  const { db, flatById, monthIncome, monthExpense } = useData()
+  const { db, flatById, flatPending, monthIncome, monthExpense } = useData()
   const months = lastMonths(4)
   const income = months.map(monthIncome)
   const expense = months.map(monthExpense)
@@ -35,7 +35,12 @@ export default function Reports() {
   const csvDues = () => exportCsv('dues.csv',
     ['ફ્લેટ', 'નામ', 'ફોન', 'બાકી રકમ'],
     db.flats.map(f => {
-      const pend = db.bills.filter(b => b.flatId === f.id).reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0)
+      // flatPending(), not a re-derived sum of unpaid bills - that
+      // duplicate calculation used to live here and quietly ignored
+      // adjustments, so this export could disagree with what the screen
+      // itself showed for the same flat. One canonical number, used
+      // everywhere pending gets shown or exported.
+      const pend = flatPending(f.id)
       return [f.number, f.ownerName, f.phone, pend]
     }).filter(r => Number(r[3]) > 0))
 

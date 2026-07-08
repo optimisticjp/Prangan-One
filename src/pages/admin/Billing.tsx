@@ -87,6 +87,7 @@ export default function Billing() {
                       <td className={td}>
                         {inr(p.amount)}
                         {p.amount !== society.maintenanceAmount && <span className="ml-1.5 text-[11px] text-saffron-600 font-semibold">અલગ રકમ</span>}
+                        {p.creditApplied > 0 && <span className="ml-1.5 text-[11px] text-paid font-semibold">{inr(p.creditApplied)} ક્રેડિટ લાગુ થશે</span>}
                       </td>
                     </tr>
                   ))}

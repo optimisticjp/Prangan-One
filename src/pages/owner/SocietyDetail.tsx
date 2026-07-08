@@ -34,11 +34,11 @@ const statusOptions: { value: SubscriptionStatus; label: string }[] = [
   { value: 'trial', label: 'ટ્રાયલ' }, { value: 'active', label: 'એક્ટિવ' }, { value: 'grace', label: 'ગ્રેસ' },
   { value: 'paused', label: 'થોભાવેલ' }, { value: 'archived', label: 'આર્કાઇવ' },
 ]
-const memberRoles: Role[] = ['society_admin', 'treasurer', 'committee_member', 'accountant', 'auditor']
+const memberRoles: Role[] = ['society_admin', 'committee_member', 'accountant', 'auditor']
 
 export default function SocietyDetail() {
   const { id } = useParams()
-  const { rawDb, updateSocietyById, setSubscriptionStatus, enterSociety, addMembership } = useData()
+  const { rawDb, updateSocietyById, setSubscriptionStatus, enterSociety, addMembership, session, uploadSocietyLogoAndSave } = useData()
   const nav = useNavigate()
 
   const soc = rawDb.societies.find(s => s.id === id)
@@ -52,6 +52,7 @@ export default function SocietyDetail() {
   }
   const [newMemberEmail, setNewMemberEmail] = useState('')
   const [newMemberRole, setNewMemberRole] = useState<Role>('committee_member')
+  const [logoFile, setLogoFile] = useState<File | undefined>()
 
   const [form, setForm] = useState(() => soc ? {
     name: soc.name, nameEn: soc.nameEn, city: soc.city, area: soc.area, address: soc.address,
@@ -80,6 +81,7 @@ export default function SocietyDetail() {
   const onLogoFile = (f?: File) => {
     if (!f) return
     setForm({ ...form, logoName: f.name })
+    setLogoFile(f)
     const reader = new FileReader()
     reader.onload = () => setForm(prev => prev ? { ...prev, logoDataUrl: typeof reader.result === 'string' ? reader.result : prev.logoDataUrl } : prev)
     reader.readAsDataURL(f)
@@ -94,6 +96,9 @@ export default function SocietyDetail() {
       plan: form.plan, flatsLimit: Number(form.flatsLimit) || soc.flatsLimit, tenantAccess: form.tenantAccess as TenantAccessMode,
       modules: { ownerEnabled: form.ownerModules, adminVisible: soc.modules.adminVisible },
     })
+    if (session.isRealSession && logoFile) {
+      uploadSocietyLogoAndSave(soc.id, logoFile).catch(() => { /* the rest of the save already went through either way */ })
+    }
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }

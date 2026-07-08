@@ -6,20 +6,22 @@
 //   content access, controlled support sessions only" model a later
 //   roadmap revision proposed) - revisit this later, not now.
 // - society_admin: full control of their own society only.
-// - treasurer: billing configuration, bill generation, payment
-//   confirmation/rejection, expenses, adjustments, receipt cancellation
-//   (with a mandatory reason) - the financial powers accountant doesn't
-//   have. Shares accountant's existing pages for now (see App.tsx's
-//   acctNav); its own dedicated pages are part of the billing engine
-//   work, not built yet.
 // - committee_member: manages enabled modules within their society, but
 //   NOT billing/payments/settings unless that's explicitly true for them.
 //   In the current localStorage demo this is enforced at the route level
 //   (see permissions.ts); a real per-membership override flag is real
 //   future work once Supabase memberships exist, not built here.
-// - accountant: records and confirms payments and expenses, adjustments,
-//   reports and export. Cannot configure billing, cancel receipts, or
-//   manage society settings/roles - that's what separates it from treasurer.
+// - accountant: the sole finance role, for now. An earlier pass split
+//   this into accountant (records/confirms payments and expenses) and
+//   treasurer (that, plus billing configuration and receipt cancellation)
+//   - explicitly merged back into one role since the two dedicated page
+//   surfaces that split was meant to support were never actually built,
+//   and maintaining two roles with no real UI difference between them
+//   just added confusion. Accountant now carries the fuller capability
+//   set: billing configuration, bill generation, payment confirmation and
+//   rejection, expenses, adjustments, and receipt cancellation with a
+//   mandatory reason. Revisit splitting this again once/if it actually
+//   gets its own distinct screens.
 // - resident_owner / resident_tenant: split out of the old single
 //   'resident' role, because tenant access is governed by its own
 //   per-society setting (see TenantAccessMode) and needs to be a real
@@ -28,7 +30,7 @@
 //   (financial reports, audit history), changes nothing. Renamed from the
 //   old generic 'viewer' to match what it actually is.
 export type Role =
-  | 'owner' | 'society_admin' | 'treasurer' | 'committee_member' | 'accountant'
+  | 'owner' | 'society_admin' | 'committee_member' | 'accountant'
   | 'resident_owner' | 'resident_tenant' | 'auditor'
 
 export type PayMode = 'cash' | 'upi' | 'cheque' | 'bank'
@@ -90,7 +92,7 @@ export interface Society {
   joinCode: string
   maintenanceAmount: number; dueDay: number; upiId: string
   plan: string; flatsLimit: number
-  receiptPrefix: string; themeKey: string; logoDataUrl?: string
+  receiptPrefix: string; themeKey: string; logoDataUrl?: string; logoUrl?: string
   supportPhone?: string; modules: ModuleLayer; createdAt: string
   receiptSeq: number
   tenantAccess: TenantAccessMode
@@ -188,7 +190,7 @@ export interface Payment {
   id: string; societyId: string; flatId: string; billId?: string
   date: string; amount: number; mode: PayMode; refNo?: string
   receiptNo?: string; status: 'success' | 'failed' | 'pending_confirmation'; note?: string
-  cancelled?: boolean; cancelReason?: string
+  cancelled?: boolean; cancelReason?: string; proofPath?: string
 }
 export interface Expense {
   id: string; societyId: string; date: string; category: string
@@ -205,9 +207,9 @@ export interface Complaint {
   status: ComplaintStatus; assignedTo?: string; createdAt: string
   timeline: TimelineEntry[]; internalNotes: string[]
   feedback?: { rating: number; comment: string }
-  hasPhoto?: boolean; photoName?: string; hasVoice?: boolean
+  hasPhoto?: boolean; photoName?: string; photoPath?: string; hasVoice?: boolean
   // 'personal': only the resident who filed it, plus committee/accountant/
-  // treasurer/owner (whoever can already manage complaints), ever see it -
+  // owner (whoever can already manage complaints), ever see it -
   // a leaking tap in one specific bathroom, say. 'community': visible to
   // every authenticated member of the society, not just complaint
   // managers - a broken lift, a common-area leak, anything that affects
@@ -223,12 +225,20 @@ export interface Notice {
 }
 export interface Doc {
   id: string; societyId: string; name: string; folder: string
-  permission: DocPermission; date: string; size: string
+  permission: DocPermission; date: string; size: string; storagePath?: string
 }
 export interface Poll {
   id: string; societyId: string; question: string; type: 'yesno' | 'multi'
   options: string[]; votes: Record<string, number>
   status: 'open' | 'closed'; resultVisible: boolean; endDate?: string
+  // Real sessions only. votes above is whatever poll_votes RLS actually
+  // returns for the caller - the full picture for management, just their
+  // own single vote for an ordinary resident - so counting it directly
+  // undercounts for anyone who isn't management. resultCounts holds the
+  // real, true aggregate (from the poll_results() function, which
+  // aggregates without ever exposing whose vote is whose), used instead
+  // of counting votes whenever it's present.
+  resultCounts?: number[]
 }
 export interface SocietyEvent {
   id: string; societyId: string; name: string; type: string; date: string; note?: string
@@ -298,4 +308,12 @@ export interface DB {
 // See fetchSocietyFinancials in store.tsx, gated on exactly this flag -
 // getting this gate wrong would mean demo and production data mixing,
 // which the product's own hard separation requirement rules out entirely.
-export interface Session { role: Role | null; flatId: string | null; societyId: string; explicitSociety: boolean; actingAsOwner: boolean; isRealSession: boolean }
+export interface Session {
+  role: Role | null; flatId: string | null; societyId: string; explicitSociety: boolean; actingAsOwner: boolean; isRealSession: boolean
+  // Which mode an owner's support session is actually in. Previously
+  // enterSociety() took a mode argument and only logged it - canWriteNow
+  // never checked it, so "read-only" support was a banner and a label
+  // with nothing behind it; the owner could write regardless of which
+  // mode they picked. Undefined outside of actingAsOwner sessions.
+  supportMode?: 'readonly' | 'write'
+}

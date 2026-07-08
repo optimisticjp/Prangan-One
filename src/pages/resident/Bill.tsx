@@ -19,6 +19,7 @@ export default function Bill() {
   const [payMode, setPayMode] = useState<PayMode>('upi')
   const [payRef, setPayRef] = useState('')
   const [payNote, setPayNote] = useState('')
+  const [proofFile, setProofFile] = useState<File | undefined>()
   const [justMarked, setJustMarked] = useState(false)
   const flat = session.flatId ? flatById(session.flatId) : undefined
   if (!flat) return null
@@ -31,9 +32,9 @@ export default function Bill() {
 
   const submitMarkPaid = () => {
     if (!cur) return
-    recordPayment({ flatId: flat.id, billId: cur.id, amount: cur.amount - cur.paidAmount, mode: payMode, refNo: payRef.trim() || undefined, note: payNote.trim() || undefined, pending: true })
+    recordPayment({ flatId: flat.id, billId: cur.id, amount: cur.amount - cur.paidAmount, mode: payMode, refNo: payRef.trim() || undefined, note: payNote.trim() || undefined, pending: true, proofFile })
     setMarkingPaid(false); setJustMarked(true); setPayOpen(false)
-    setPayRef(''); setPayNote('')
+    setPayRef(''); setPayNote(''); setProofFile(undefined)
   }
 
   return (
@@ -158,6 +159,10 @@ export default function Bill() {
               <Input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="ટ્રાન્ઝેક્શન નં (વૈકલ્પિક)" />
             </div>
             <Input value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="નોંધ (વૈકલ્પિક)" />
+            <label className="min-h-[42px] rounded-xl border border-dashed border-cream-300 bg-white flex items-center justify-center gap-2 text-[13px] font-semibold text-navy-500 cursor-pointer">
+              <CreditCard size={16} /> {proofFile ? 'સ્ક્રીનશોટ ✓' : 'સ્ક્રીનશોટ ઉમેરો (વૈકલ્પિક)'}
+              <input type="file" accept="image/*" className="hidden" onChange={e => setProofFile(e.target.files?.[0])} />
+            </label>
             <div className="flex gap-2">
               <Button variant="soft" full onClick={() => setMarkingPaid(false)}>રદ કરો</Button>
               <Button full onClick={submitMarkPaid}>નોંધ કરો</Button>

@@ -8,7 +8,7 @@ import { Button, Card, PageHeader, SectionTitle, StatCard } from '../../componen
 import type { PayMode } from '../../lib/types'
 
 export default function Reports() {
-  const { db, flatById, monthIncome, monthExpense } = useData()
+  const { db, flatById, flatPending, monthIncome, monthExpense } = useData()
   const months = lastMonths(4)
   const income = months.map(monthIncome)
   const expense = months.map(monthExpense)
@@ -36,7 +36,10 @@ export default function Reports() {
     lastMonths(6).map(m => [fmtMonth(m), monthIncome(m), monthExpense(m), monthIncome(m) - monthExpense(m)]))
   const csvDues = () => exportCsv('audit-dues.csv',
     ['ફ્લેટ', 'નામ', 'બાકી રકમ'],
-    db.flats.map(f => { const pend = db.bills.filter(b => b.flatId === f.id).reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0); return [f.number, f.ownerName, pend] }).filter(r => Number(r[2]) > 0))
+    // flatPending(), same reasoning as admin/Reports.tsx's csvDues - this
+    // used to recompute pending from bills alone, ignoring adjustments,
+    // and could disagree with the same flat's number shown on screen.
+    db.flats.map(f => { const pend = flatPending(f.id); return [f.number, f.ownerName, pend] }).filter(r => Number(r[2]) > 0))
 
   return (
     <div>

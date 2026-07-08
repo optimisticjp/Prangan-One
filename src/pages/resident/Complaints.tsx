@@ -15,6 +15,7 @@ export default function Complaints() {
   const [priority, setPriority] = useState<'normal' | 'urgent'>('normal')
   const [visibility, setVisibility] = useState<'personal' | 'community'>('personal')
   const [photoName, setPhotoName] = useState('')
+  const [photoFile, setPhotoFile] = useState<File | undefined>()
 
   const flatId = session.flatId ?? ''
   // "My complaints": everything filed from my own flat, personal or
@@ -30,9 +31,9 @@ export default function Complaints() {
 
   const submit = () => {
     if (!title.trim()) return
-    addComplaint({ flatId, category, title: title.trim(), detail: detail.trim(), priority, photoName: photoName || undefined, visibility })
+    addComplaint({ flatId, category, title: title.trim(), detail: detail.trim(), priority, photoName: photoName || undefined, photoFile, visibility })
     setOpen(false)
-    setTitle(''); setDetail(''); setPriority('normal'); setVisibility('personal'); setPhotoName('')
+    setTitle(''); setDetail(''); setPriority('normal'); setVisibility('personal'); setPhotoName(''); setPhotoFile(undefined)
   }
 
   const ComplaintRow = ({ c }: { c: typeof mine[number] }) => (
@@ -116,13 +117,17 @@ export default function Complaints() {
         <div className="grid grid-cols-2 gap-2">
           <label className="min-h-[46px] rounded-xl border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center gap-2 text-[13.5px] font-semibold text-navy-500 cursor-pointer">
             <ImagePlus size={17} /> {photoName ? 'ફોટો ✓' : 'ફોટો ઉમેરો'}
-            <input type="file" accept="image/*" className="hidden" onChange={e => setPhotoName(e.target.files?.[0]?.name ?? '')} />
+            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; setPhotoName(f?.name ?? ''); setPhotoFile(f) }} />
           </label>
           <button disabled className="min-h-[46px] rounded-xl border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center gap-2 text-[13.5px] font-semibold text-navy-300">
             <Mic size={17} /> વૉઇસ નોટ (જલ્દી)
           </button>
         </div>
-        {photoName && <div className="text-[12.5px] text-navy-400">ફોટો: {photoName} (ડેમોમાં ફક્ત નામ સચવાય છે)</div>}
+        {photoName && (
+          <div className="text-[12.5px] text-navy-400">
+            ફોટો: {photoName} {!session.isRealSession && '(ડેમોમાં ફક્ત નામ સચવાય છે)'}
+          </div>
+        )}
         <div className="flex gap-2 pt-1">
           <Button variant="soft" full onClick={() => setOpen(false)}>રદ કરો</Button>
           <Button full onClick={submit} disabled={!title.trim()}>ફરિયાદ નોંધાવો</Button>

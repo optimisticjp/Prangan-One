@@ -22,6 +22,26 @@ export async function sendMagicLink(email: string): Promise<void> {
   if (error) throw error
 }
 
+/**
+ * Google sign-in, added after email magic-link login had already been
+ * proven working end to end against a real, live project - deliberately
+ * not built alongside it, since stacking a second unverified external
+ * integration on top of the first would have made it harder to tell
+ * which one broke if something didn't work. Lands on the exact same
+ * /auth/callback resolution as the email path (see AuthCallback.tsx) -
+ * how someone authenticated never changes what happens next, only that
+ * they're now a real, verified Supabase user with an email Prangan One
+ * can match against real memberships the same way either path works.
+ */
+export async function signInWithGoogle(): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + '/auth/callback' },
+  })
+  if (error) throw error
+}
+
 export async function getCurrentAuthUser() {
   if (!supabase) return null
   const { data, error } = await supabase.auth.getUser()

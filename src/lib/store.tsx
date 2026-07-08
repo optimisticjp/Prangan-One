@@ -31,11 +31,24 @@ import type { ReactNode } from 'react'
 import type {
   Adjustment, AuditLogEntry, Bill, Complaint, ComplaintStatus, DB, Doc, DocPermission, Expense,
   Flat, ImpersonationLog, Membership, ModuleLayer, Notice, PayMode, Payment, Poll, PublicLead,
-  Role, Session, Society, SocietyEvent, SocietyModules, SubscriptionStatus, TenantAccessMode, Vehicle,
+  Role, Session, Society, SocietyEvent, SocietyModules, SubscriptionStatus, TenantAccessMode, Vehicle, Vendor,
 } from './types'
 import { uid, realUid } from './id'
 import { supabaseConfigured } from './supabase'
-import { fetchSocietyFinancials, insertFlatReal, updateFlatReal, insertBillsReal, recordPaymentReal, updateBillPaidAmountReal, updatePaymentReal, insertAdjustmentReal } from './realData'
+import {
+  fetchSocietyFinancials, insertFlatReal, updateFlatReal, insertBillsReal, recordPaymentReal, updateBillPaidAmountReal, updatePaymentReal, insertAdjustmentReal,
+  fetchSocietyComplaints, insertComplaintReal, advanceComplaintReal, updateComplaintNotesReal, updateComplaintFeedbackReal, updateComplaintPhotoPathReal,
+  fetchSocietyNotices, insertNoticeReal, updateNoticePinnedReal,
+  uploadSocietyLogo, uploadPrivateFile, getSignedFileUrl,
+  fetchSociety, fetchAllSocieties, insertSocietyReal, updateSocietyReal, updateSocietyStatusReal,
+  fetchSocietyDocuments, insertDocumentReal, updateDocumentStoragePathReal,
+  fetchSocietyMemberships, approveMembershipReal, rejectMembershipReal, insertMembershipReal,
+  fetchSocietyVendors, insertVendorReal, updateVendorReal,
+  fetchSocietyVehicles, insertVehicleReal,
+  fetchSocietyContacts,
+  fetchSocietyPolls, insertPollReal, closePollReal, insertPollVoteReal,
+  fetchSocietyEvents, insertEventReal, insertContributionReal, insertVolunteerReal, insertEventExpenseReal,
+} from './realData'
 
 // A short, human-typeable code a resident enters at /join to find their
 // society - like a Google Classroom class code. Derived from the
@@ -182,6 +195,12 @@ interface Store {
    * rendering "nothing owed"/"no bills yet" so a real fetch in progress
    * doesn't briefly look like an empty, all-paid-up account. */
   financialsLoading: boolean
+  /** Why the most recent write attempt was blocked, if it was - null
+   * means either nothing's been blocked yet, or the last attempt
+   * succeeded. Set by guardedSetDb; check this after a mutation returns
+   * false/null to show the person something real instead of nothing
+   * happening. */
+  lastBlockedReason: string | null
   /* subscription / write guard */
   canWriteNow: boolean
   subscriptionBannerFor: (audience: 'admin' | 'resident') => string | null
@@ -206,9 +225,12 @@ interface Store {
   findSocietyByJoinCode: (code: string) => Society | undefined
   /** A resident self-enrolling via /join: society join code + their flat
    * number + name/phone/email. Auto-confirms (status 'active') when the
-   * phone matches what's already on file for that flat; otherwise creates
-   * a 'pending' membership a committee member has to approve. Never lets
-   * a tenant in when the society's tenantAccess is 'disabled'. */
+   * email matches what's already on file for that flat; otherwise creates
+   * a 'pending' membership a committee member has to approve. Matches on
+   * email, not phone - a phone number isn't a secret, so matching on it
+   * would let anyone who knew a resident's number claim their flat with
+   * their own email. Never lets a tenant in when the society's
+   * tenantAccess is 'disabled'. */
   selfEnrollResident: (input: { joinCode: string; flatNumber: string; name: string; phone: string; email: string }) =>
     { ok: true; status: 'active' | 'pending' } | { ok: false; error: 'society_not_found' | 'flat_not_found' | 'tenant_access_disabled' | 'already_enrolled' }
   /** Committee approves a resident's pending self-enrollment (see
@@ -238,28 +260,39 @@ interface Store {
   moduleEnabled: (key: keyof SocietyModules) => boolean
   adminCanToggle: (key: keyof SocietyModules) => boolean
   /* billing + payments */
-  /** What generateBills(month) would actually do, without doing it - lets the admin see the total and any per-flat overrides before confirming. */
-  previewBillGeneration: (month: string) => { flatId: string; flatNumber: string; amount: number; alreadyExists: boolean }[]
+  /** What generateBills(month) would actually do, without doing it - lets the admin see the total, any per-flat overrides, and any existing credit that would auto-apply, before confirming. */
+  previewBillGeneration: (month: string) => { flatId: string; flatNumber: string; amount: number; alreadyExists: boolean; creditApplied: number }[]
   generateBills: (month: string) => number
+  /** proofFile is only actually uploaded during a real session, same reasoning as addComplaint's photoFile. */
   recordPayment: (p: {
     flatId: string; billId?: string; amount: number; mode: PayMode
     refNo?: string; note?: string; failed?: boolean; date?: string
-    pending?: boolean
+    pending?: boolean; proofFile?: File
   }) => Payment | null
   confirmPendingPayment: (paymentId: string) => void
   cancelReceipt: (paymentId: string, reason: string) => void
   /* complaints */
-  addComplaint: (c: { flatId: string; category: string; title: string; detail: string; priority: 'normal' | 'urgent'; photoName?: string; visibility?: 'personal' | 'community' }) => Complaint | null
+  /** photoFile is only actually uploaded during a real session (see realData.ts's uploadPrivateFile) - during the local demo, photoName alone is stored, matching how the demo has always worked. */
+  addComplaint: (c: { flatId: string; category: string; title: string; detail: string; priority: 'normal' | 'urgent'; photoName?: string; photoFile?: File; visibility?: 'personal' | 'community' }) => Complaint | null
   advanceComplaint: (id: string, status: ComplaintStatus, note: string, by: string, assignedTo?: string) => void
   addInternalNote: (id: string, note: string) => void
   addFeedback: (id: string, rating: number, comment: string) => void
+  /** A temporary, authenticated URL for a real, uploaded complaint photo - regenerated fresh each call, since a signed URL expires and isn't meant to be cached or stored. Only works during a real session; returns null otherwise (the local demo never had real photo bytes to show in the first place). */
+  getComplaintPhotoUrl: (photoPath: string) => Promise<string | null>
+  /** Same reasoning as getComplaintPhotoUrl - a temporary signed URL for a payment's uploaded proof screenshot, real sessions only. */
+  getPaymentProofUrl: (proofPath: string) => Promise<string | null>
+  /** Uploads a society's logo and saves the resulting URL onto that society's own record, real sessions only. Returns the URL on success, null otherwise (including during the local demo, which still uses logoDataUrl set directly on the society object instead). */
+  uploadSocietyLogoAndSave: (societyId: string, file: File) => Promise<string | null>
   /* content */
   addNotice: (n: { title: string; body: string; category: string; pinned: boolean }) => void
   togglePin: (id: string) => void
   addExpense: (e: { date: string; category: string; vendorId?: string; amount: number; mode: PayMode; note?: string; billFile?: string }) => void
   addVendor: (v: { name: string; service: string; contactPerson: string; phone: string; amcStart?: string; amcEnd?: string; notes?: string }) => void
   updateVendor: (id: string, patch: Partial<Omit<import('./types').Vendor, 'id' | 'societyId'>>) => void
-  addDocumentMeta: (d: { name: string; folder: string; permission: DocPermission; size: string }) => void
+  /** file is only actually uploaded during a real session, same reasoning as addComplaint's photoFile. */
+  addDocumentMeta: (d: { name: string; folder: string; permission: DocPermission; size: string; file?: File }) => void
+  /** A temporary, authenticated URL for a real, uploaded document - real sessions only, same shape as getComplaintPhotoUrl. */
+  getDocumentUrl: (storagePath: string) => Promise<string | null>
   /* polls */
   addPoll: (p: { question: string; type: 'yesno' | 'multi'; options: string[]; resultVisible: boolean; endDate?: string }) => void
   closePoll: (id: string) => void
@@ -278,9 +311,11 @@ interface Store {
   addAdjustment: (a: { date: string; flatId?: string; amount: number; type: 'credit' | 'debit'; reason: string }) => void
   updateSociety: (patch: Partial<Society>) => void
   /* membership */
-  addMembership: (m: { societyId: string; email: string; role: Role; flatId?: string; phone?: string; whatsapp?: string; canManageBilling?: boolean; name?: string }) => Membership
+  addMembership: (m: { societyId: string; email: string; role: Role; flatId?: string; phone?: string; whatsapp?: string; canManageBilling?: boolean; name?: string }) => Membership | null
   /* owner backend */
   addSociety: (s: NewSocietyInput) => Society
+  /** Sets trialStartedAt for real - the moment a society is actually ready to use, not the moment its record was created. See the comment on Society.trialStartedAt in types.ts and subscription.ts for why this distinction is a real requirement, not just tidiness: a society with no trialStartedAt yet never has its trial read as expired, since effectiveStatus only checks expiry once a start date actually exists. */
+  activateSociety: (societyId: string) => void
   updateSocietyById: (id: string, patch: Partial<Society>) => void
   addPlatformBillingRecord: (r: Omit<import('./types').PlatformBillingRecord, 'id'>) => void
   updatePlatformBillingRecord: (id: string, patch: Partial<import('./types').PlatformBillingRecord>) => void
@@ -295,6 +330,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>(loadDB)
   const [session, setSession] = useState<Session>(loadSession)
   const [financialsLoading, setFinancialsLoading] = useState(false)
+  // Surfaces WHY a write was just blocked, so a page can show something
+  // like "you're in read-only mode" instead of the write just silently
+  // doing nothing - before this, guardedSetDb only ever logged a console
+  // warning nobody but a developer would ever see.
+  const [lastBlockedReason, setLastBlockedReason] = useState<string | null>(null)
 
   useEffect(() => {
     try { localStorage.setItem(DB_KEY, JSON.stringify(db)) } catch { /* storage full */ }
@@ -322,8 +362,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!supabaseConfigured || !session.isRealSession) return
     let cancelled = false
     setFinancialsLoading(true)
-    fetchSocietyFinancials(activeSocietyId)
-      .then(({ flats, bills, payments, adjustments }) => {
+
+    // The owner doesn't have one meaningful "active society" the way a
+    // resident or admin does - their own console shows every society at
+    // once, aggregated, not one society's flats/bills/complaints. So
+    // their fetch is just the societies list, not the full financial
+    // bundle scoped to whatever activeSocietyId happens to currently be
+    // (which for an owner session is essentially arbitrary).
+    if (session.role === 'owner') {
+      fetchAllSocieties()
+        .then(societies => { if (!cancelled) setDb(d => ({ ...d, societies })) })
+        .catch(() => { /* the person still sees whatever was already loaded */ })
+        .finally(() => { if (!cancelled) setFinancialsLoading(false) })
+      return () => { cancelled = true }
+    }
+
+    Promise.all([
+      fetchSocietyFinancials(activeSocietyId),
+      fetchSocietyComplaints(activeSocietyId),
+      fetchSocietyNotices(activeSocietyId),
+      fetchSociety(activeSocietyId),
+      fetchSocietyDocuments(activeSocietyId),
+      fetchSocietyMemberships(activeSocietyId),
+      fetchSocietyVendors(activeSocietyId),
+      fetchSocietyVehicles(activeSocietyId),
+      fetchSocietyContacts(activeSocietyId),
+      fetchSocietyPolls(activeSocietyId),
+      fetchSocietyEvents(activeSocietyId),
+    ])
+      .then(([{ flats, bills, payments, adjustments }, complaints, notices, society, documents, memberships, vendors, vehicles, contacts, polls, events]) => {
         if (cancelled) return
         setDb(d => ({
           ...d,
@@ -331,12 +398,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
           bills: [...d.bills.filter(b => b.societyId !== activeSocietyId), ...bills],
           payments: [...d.payments.filter(p => p.societyId !== activeSocietyId), ...payments],
           adjustments: [...d.adjustments.filter(a => a.societyId !== activeSocietyId), ...adjustments],
+          complaints: [...d.complaints.filter(c => c.societyId !== activeSocietyId), ...complaints],
+          notices: [...d.notices.filter(n => n.societyId !== activeSocietyId), ...notices],
+          societies: society ? [...d.societies.filter(s => s.id !== activeSocietyId), society] : d.societies,
+          documents: [...d.documents.filter(doc => doc.societyId !== activeSocietyId), ...documents],
+          memberships: [...d.memberships.filter(m => m.societyId !== activeSocietyId), ...memberships],
+          vendors: [...d.vendors.filter(v => v.societyId !== activeSocietyId), ...vendors],
+          vehicles: [...d.vehicles.filter(v => v.societyId !== activeSocietyId), ...vehicles],
+          contacts: [...d.contacts.filter(c => c.societyId !== activeSocietyId), ...contacts],
+          polls: [...d.polls.filter(p => p.societyId !== activeSocietyId), ...polls],
+          events: [...d.events.filter(ev => ev.societyId !== activeSocietyId), ...events],
         }))
       })
       .catch(() => { /* the person still sees whatever was already loaded; a real error-surface for this is worth adding later */ })
       .finally(() => { if (!cancelled) setFinancialsLoading(false) })
     return () => { cancelled = true }
-  }, [activeSocietyId, session.isRealSession])
+  }, [activeSocietyId, session.isRealSession, session.role])
 
   useEffect(() => {
     applyTheme(activeSociety?.themeKey ?? defaultThemeKey)
@@ -344,7 +421,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const store = useMemo<Store>(() => {
     const society = activeSociety
-    const canWriteNow = session.role === 'owner' || canWrite(society)
+    // Auditor is read-only everywhere, full stop. An owner support
+    // session in read-only mode is also genuinely blocked now - checked
+    // via actingAsOwner + supportMode, not session.role, since entering a
+    // society sets role to whatever's being impersonated (society_admin,
+    // say), not 'owner' - checking session.role === 'owner' here would
+    // never have caught a read-only society_admin impersonation at all.
+    const canWriteNow = session.role !== 'auditor'
+      && !(session.actingAsOwner && session.supportMode === 'readonly')
+      && (session.role === 'owner' || canWrite(society))
 
     const scope = <T extends { societyId: string }>(arr: T[]): T[] =>
       arr.filter(x => x.societyId === activeSocietyId)
@@ -379,10 +464,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // real enforcement, which has to live in Supabase RLS once connected.
     const guardedSetDb = (updater: (d: DB) => DB): boolean => {
       if (!canWriteNow) {
+        const reason = session.role === 'auditor'
+          ? 'ઓડિટર એક્સેસ ફક્ત જોવા માટે છે, કંઈ સેવ થતું નથી.'
+          : session.actingAsOwner && session.supportMode === 'readonly'
+            ? 'તમે Read-only સપોર્ટ મોડમાં છો, કંઈ સેવ થતું નથી.'
+            : `${society?.name ?? 'આ સોસાયટી'} હાલમાં લખવા માટે ખુલ્લી નથી (સબ્સ્ક્રિપ્શન સ્થિતિ).`
+        setLastBlockedReason(reason)
         // eslint-disable-next-line no-console
-        console.warn(`Write blocked: ${society?.name ?? 'this society'} is not in a writable subscription state.`)
+        console.warn(`Write blocked: ${reason}`)
         return false
       }
+      setLastBlockedReason(null)
       setDb(updater)
       return true
     }
@@ -409,8 +501,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       scopedDb.bills.filter(b => b.flatId === flatId).reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0) + flatAdjustmentNet(flatId)
     const totalPending = () =>
       scopedDb.bills.reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0) + allAdjustmentNet()
+    // A cancelled receipt keeps status: 'success' (cancelReceipt reverses
+    // the bill credit but never rewrites status, since 'status' means "did
+    // this payment succeed at the time", not "is it still valid now" -
+    // those are different questions). Income specifically needs the
+    // second one: money that was later reversed was never really
+    // collected, so it must not count here even though it once did.
     const monthIncome = (month: string) =>
-      scopedDb.payments.filter(p => p.status === 'success' && p.date.startsWith(month)).reduce((s, p) => s + p.amount, 0)
+      scopedDb.payments.filter(p => p.status === 'success' && !p.cancelled && p.date.startsWith(month)).reduce((s, p) => s + p.amount, 0)
     const monthExpense = (month: string) =>
       scopedDb.expenses.filter(e => e.date.startsWith(month)).reduce((s, e) => s + e.amount, 0)
     // A module is usable if the OWNER has enabled it AND the society's own
@@ -422,7 +520,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const adminCanToggle = (key: keyof SocietyModules) => society?.modules?.ownerEnabled?.[key] !== false
 
     return {
-      db: scopedDb, rawDb: db, session, society, financialsLoading, canWriteNow,
+      db: scopedDb, rawDb: db, session, society, financialsLoading, lastBlockedReason, canWriteNow,
       subscriptionBannerFor: (audience) => statusBanner(society, audience),
 
       setSubscriptionStatus: (societyId, status) => {
@@ -444,10 +542,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
           setSession({ role, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false })
         }
       },
-      logout: () => setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false }),
+      // Clears the real (Supabase-fetched) financial data for whichever
+      // society this session was actually looking at, if it was a real
+      // session at all - this used to not happen, meaning a real login's
+      // bills/payments/flats/adjustments stayed cached in this browser's
+      // local storage indefinitely. On a shared device that meant the
+      // data was still readable after signing out, and a second person
+      // from a different society logging in on the same device would add
+      // their data alongside the first person's rather than replacing it,
+      // since nothing ever cleared it. Local demo data (which belongs to
+      // DEFAULT_SOCIETY_ID or another seeded id, never the real society
+      // this session was in) is untouched by this.
+      logout: () => {
+        const wasReal = session.isRealSession
+        const leavingSocietyId = activeSocietyId
+        setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false })
+        if (wasReal) {
+          setDb(d => ({
+            ...d,
+            flats: d.flats.filter(f => f.societyId !== leavingSocietyId),
+            bills: d.bills.filter(b => b.societyId !== leavingSocietyId),
+            payments: d.payments.filter(p => p.societyId !== leavingSocietyId),
+            adjustments: d.adjustments.filter(a => a.societyId !== leavingSocietyId),
+          }))
+        }
+      },
       enterSociety: (societyId, role, mode = 'readonly', reason) => {
         setDb(d => ({ ...d, impersonationLogs: [{ id: uid('imp'), societyId, enteredAt: new Date().toISOString(), mode, reason }, ...d.impersonationLogs] }))
-        setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true, isRealSession: false })
+        setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true, isRealSession: false, supportMode: mode })
       },
       exitImpersonation: () => {
         setDb(d => ({
@@ -499,11 +621,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { ok: true, status }
       },
 
-      approveMembership: (membershipId) =>
-        setDb(d => ({ ...d, memberships: d.memberships.map(m => m.id === membershipId ? { ...m, status: 'active' } : m) })),
+      approveMembership: (membershipId) => {
+        const ok = guardedSetDb(d => ({ ...d, memberships: d.memberships.map(m => m.id === membershipId ? { ...m, status: 'active' } : m) }))
+        if (ok && session.isRealSession) {
+          approveMembershipReal(membershipId).catch(() => { /* local state already reflects it */ })
+        }
+      },
 
-      rejectMembership: (membershipId) =>
-        setDb(d => ({ ...d, memberships: d.memberships.filter(m => m.id !== membershipId) })),
+      rejectMembership: (membershipId) => {
+        const ok = guardedSetDb(d => ({ ...d, memberships: d.memberships.filter(m => m.id !== membershipId) }))
+        if (ok && session.isRealSession) {
+          rejectMembershipReal(membershipId).catch(() => { /* local state already reflects it */ })
+        }
+      },
 
       logUnmatchedLoginAttempt: (email) =>
         setDb(d => ({ ...d, unmatchedLoginAttempts: [{ id: uid('ula'), email: email.trim().toLowerCase(), at: new Date().toISOString() }, ...d.unmatchedLoginAttempts] })),
@@ -515,11 +645,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       previewBillGeneration: (month) => {
         const existing = new Set(scopedDb.bills.filter(b => b.month === month).map(b => b.flatId))
-        return scopedDb.flats.map(f => ({
-          flatId: f.id, flatNumber: f.number,
-          amount: f.maintenanceOverride ?? society.maintenanceAmount,
-          alreadyExists: existing.has(f.id),
-        }))
+        return scopedDb.flats.map(f => {
+          const amount = f.maintenanceOverride ?? society.maintenanceAmount
+          const availableCredit = Math.max(0, -flatAdjustmentNet(f.id))
+          return {
+            flatId: f.id, flatNumber: f.number, amount,
+            alreadyExists: existing.has(f.id),
+            creditApplied: existing.has(f.id) ? 0 : Math.min(amount, availableCredit),
+          }
+        })
       },
 
       generateBills: (month) => {
@@ -535,23 +669,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
         // updater itself just applies a fixed, already-known list, so it
         // produces the same result no matter how many times it's invoked.
         const existing = new Set(scopedDb.bills.filter(b => b.month === month).map(b => b.flatId))
-        const fresh: Bill[] = scopedDb.flats
-          .filter(f => !existing.has(f.id))
-          .map(f => ({
-            id: session.isRealSession ? realUid() : uid('bill'), societyId: activeSocietyId, flatId: f.id,
-            month, amount: f.maintenanceOverride ?? society.maintenanceAmount, paidAmount: 0,
+        const fresh: Bill[] = []
+        // A flat's existing advance balance (net credit from adjustments -
+        // an overpayment, or a credit the committee entered directly) used
+        // to just sit there forever unless someone manually applied it.
+        // Each new bill below auto-applies whatever credit is available,
+        // up to its own amount, and records a matching debit so the
+        // credit is actually consumed, not double-counted on the next run.
+        const creditAdjustments: Adjustment[] = []
+        for (const f of scopedDb.flats) {
+          if (existing.has(f.id)) continue
+          const amount = f.maintenanceOverride ?? society.maintenanceAmount
+          const availableCredit = Math.max(0, -flatAdjustmentNet(f.id))
+          const applied = Math.min(amount, availableCredit)
+          const billId = session.isRealSession ? realUid() : uid('bill')
+          fresh.push({
+            id: billId, societyId: activeSocietyId, flatId: f.id, month, amount, paidAmount: applied,
             dueDate: `${month}-${String(society.dueDay).padStart(2, '0')}`,
-          }))
+          })
+          if (applied > 0) {
+            creditAdjustments.push({
+              id: session.isRealSession ? realUid() : uid('adj'), societyId: activeSocietyId, flatId: f.id,
+              date: todayISO(), amount: applied, type: 'debit', reason: `${month} બિલમાં હાલની ક્રેડિટ એડજસ્ટ કરી`,
+            })
+          }
+        }
         if (fresh.length) {
-          guardedSetDb(d => ({ ...d, bills: [...d.bills, ...fresh] }))
+          guardedSetDb(d => ({ ...d, bills: [...d.bills, ...fresh], adjustments: [...creditAdjustments, ...d.adjustments] }))
           if (session.isRealSession) {
             insertBillsReal(fresh).catch(() => { /* local state already reflects it; a real error-surface for this is worth adding later */ })
+            for (const adj of creditAdjustments) insertAdjustmentReal(adj).catch(() => { /* same */ })
           }
         }
         return fresh.length
       },
 
-      recordPayment: ({ flatId, billId, amount, mode, refNo, note, failed, date, pending }) => {
+      recordPayment: ({ flatId, billId, amount, mode, refNo, note, failed, date, pending, proofFile }) => {
         const year = (date ?? todayISO()).slice(0, 4)
         const status: Payment['status'] = failed ? 'failed' : pending ? 'pending_confirmation' : 'success'
         const receiptNo = status === 'success' ? `${society.receiptPrefix}-${year}-${String(society.receiptSeq).padStart(4, '0')}` : undefined
@@ -560,16 +713,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
           date: date ?? todayISO(), amount, mode, refNo, status, receiptNo, note,
         }
         const targetBill = billId ? scopedDb.bills.find(b => b.id === billId) : undefined
+        // Anything paid beyond what this specific bill still owed becomes
+        // a real, tracked credit adjustment - this used to just vanish,
+        // since the bill's own paidAmount is capped at its own amount and
+        // nothing recorded the difference anywhere.
+        const overpayAmount = status === 'success' && targetBill
+          ? Math.max(0, amount - Math.max(0, targetBill.amount - targetBill.paidAmount))
+          : 0
+        const overpayAdj: Adjustment | null = overpayAmount > 0
+          ? { id: session.isRealSession ? realUid() : uid('adj'), societyId: activeSocietyId, flatId, date: date ?? todayISO(), amount: overpayAmount, type: 'credit', reason: `વધારે ચૂકવણી, ${receiptNo ?? 'રસીદ'} માંથી ક્રેડિટ તરીકે રાખેલ` }
+          : null
         const ok = guardedSetDb(d => {
           const bills = status === 'success' && billId
             ? d.bills.map(b => b.id === billId ? { ...b, paidAmount: Math.min(b.amount, b.paidAmount + amount) } : b)
             : d.bills
           const societies = status === 'success' ? d.societies.map(s => s.id === activeSocietyId ? { ...s, receiptSeq: s.receiptSeq + 1 } : s) : d.societies
-          return { ...d, bills, societies, payments: [pay, ...d.payments] }
+          return { ...d, bills, societies, payments: [pay, ...d.payments], adjustments: overpayAdj ? [overpayAdj, ...d.adjustments] : d.adjustments }
         })
         if (ok && session.isRealSession) {
           recordPaymentReal(pay, targetBill?.paidAmount ?? 0, targetBill?.amount ?? amount)
-            .catch(() => { /* local state already reflects it; a real error-surface for this is worth adding later */ })
+            .then(async () => {
+              // Same reasoning as addComplaint's photo upload - the
+              // payment row has to exist in the real database first (the
+              // storage policy checks for it), so the proof screenshot
+              // uploads as a genuine second step, not part of the
+              // original insert.
+              if (!proofFile) return
+              const path = await uploadPrivateFile('payment-proof', pay.id, proofFile)
+              await updatePaymentReal(pay.id, { proofPath: path })
+              setDb(d => ({ ...d, payments: d.payments.map(x => x.id === pay.id ? { ...x, proofPath: path } : x) }))
+            })
+            .catch(() => { /* local state already reflects the payment itself; a proof upload failure specifically doesn't have its own retry/error surface yet */ })
+          if (overpayAdj) insertAdjustmentReal(overpayAdj).catch(() => { /* same */ })
         }
         return ok ? pay : null
       },
@@ -617,75 +792,220 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       },
 
-      addComplaint: ({ flatId, category, title, detail, priority, photoName, visibility }) => {
+      addComplaint: ({ flatId, category, title, detail, priority, photoName, photoFile, visibility }) => {
         const flat = flatById(flatId)
         const c: Complaint = {
-          id: uid('cmp'), societyId: activeSocietyId, flatId, category, title, detail, priority,
+          id: session.isRealSession ? realUid() : uid('cmp'), societyId: activeSocietyId, flatId, category, title, detail, priority,
           status: 'new', createdAt: todayISO(), internalNotes: [],
-          hasPhoto: !!photoName, photoName, visibility: visibility ?? 'personal',
+          hasPhoto: !!photoName || !!photoFile, photoName, visibility: visibility ?? 'personal',
           timeline: [{ date: todayISO(), status: 'new', by: flat?.ownerName ?? 'સભ્ય' }],
         }
         const ok = guardedSetDb(d => ({ ...d, complaints: [c, ...d.complaints] }))
+        if (ok && session.isRealSession) {
+          // The complaint has to exist in the real database before its
+          // photo can be uploaded (the storage policy checks for that
+          // row), so this is a real sequence, not a fire-and-forget
+          // write like most other real mutations - insert, then upload,
+          // then attach the resulting path back onto the same row.
+          insertComplaintReal(c)
+            .then(async () => {
+              if (!photoFile) return
+              const path = await uploadPrivateFile('complaint-photos', c.id, photoFile)
+              await updateComplaintPhotoPathReal(c.id, path)
+              setDb(d => ({ ...d, complaints: d.complaints.map(x => x.id === c.id ? { ...x, photoPath: path } : x) }))
+            })
+            .catch(() => { /* the complaint itself is already reflected locally; a photo upload failure specifically doesn't have its own retry/error surface yet */ })
+        }
         return ok ? c : null
       },
-      advanceComplaint: (id, status, note, by, assignedTo) =>
-        guardedSetDb(d => ({
+      advanceComplaint: (id, status, note, by, assignedTo) => {
+        const ok = guardedSetDb(d => ({
           ...d,
           complaints: d.complaints.map(c => c.id === id ? {
             ...c, status,
             assignedTo: assignedTo ?? c.assignedTo,
             timeline: [...c.timeline, { date: todayISO(), status, note: note || undefined, by }],
           } : c),
-        })),
-      addInternalNote: (id, note) =>
-        guardedSetDb(d => ({ ...d, complaints: d.complaints.map(c => c.id === id ? { ...c, internalNotes: [...c.internalNotes, note] } : c) })),
-      addFeedback: (id, rating, comment) =>
-        guardedSetDb(d => ({ ...d, complaints: d.complaints.map(c => c.id === id ? { ...c, feedback: { rating, comment } } : c) })),
+        }))
+        if (ok && session.isRealSession) {
+          advanceComplaintReal(id, status, note, by, assignedTo).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      addInternalNote: (id, note) => {
+        let updatedNotes: string[] = []
+        const ok = guardedSetDb(d => ({
+          ...d,
+          complaints: d.complaints.map(c => {
+            if (c.id !== id) return c
+            updatedNotes = [...c.internalNotes, note]
+            return { ...c, internalNotes: updatedNotes }
+          }),
+        }))
+        if (ok && session.isRealSession) {
+          updateComplaintNotesReal(id, updatedNotes).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      addFeedback: (id, rating, comment) => {
+        const ok = guardedSetDb(d => ({ ...d, complaints: d.complaints.map(c => c.id === id ? { ...c, feedback: { rating, comment } } : c) }))
+        if (ok && session.isRealSession) {
+          updateComplaintFeedbackReal(id, { rating, comment }).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      getComplaintPhotoUrl: async (photoPath) => {
+        if (!session.isRealSession) return null
+        try {
+          return await getSignedFileUrl('complaint-photos', photoPath)
+        } catch {
+          return null
+        }
+      },
+      getPaymentProofUrl: async (proofPath) => {
+        if (!session.isRealSession) return null
+        try {
+          return await getSignedFileUrl('payment-proof', proofPath)
+        } catch {
+          return null
+        }
+      },
+      uploadSocietyLogoAndSave: async (societyId, file) => {
+        if (!session.isRealSession) return null
+        try {
+          const url = await uploadSocietyLogo(societyId, file)
+          setDb(d => ({ ...d, societies: d.societies.map(s => s.id === societyId ? { ...s, logoUrl: url } : s) }))
+          await updateSocietyReal(societyId, { logoUrl: url })
+          return url
+        } catch {
+          return null
+        }
+      },
 
-      addNotice: (n) =>
-        guardedSetDb(d => ({ ...d, notices: [{ id: uid('not'), societyId: activeSocietyId, date: todayISO(), ...n }, ...d.notices] })),
-      togglePin: (id) =>
-        guardedSetDb(d => ({ ...d, notices: d.notices.map(n => n.id === id ? { ...n, pinned: !n.pinned } : n) })),
+      addNotice: (n) => {
+        const notice: Notice = { id: session.isRealSession ? realUid() : uid('not'), societyId: activeSocietyId, date: todayISO(), ...n }
+        const ok = guardedSetDb(d => ({ ...d, notices: [notice, ...d.notices] }))
+        if (ok && session.isRealSession) {
+          insertNoticeReal(notice).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      togglePin: (id) => {
+        let newPinned = false
+        const ok = guardedSetDb(d => ({
+          ...d,
+          notices: d.notices.map(n => {
+            if (n.id !== id) return n
+            newPinned = !n.pinned
+            return { ...n, pinned: newPinned }
+          }),
+        }))
+        if (ok && session.isRealSession) {
+          updateNoticePinnedReal(id, newPinned).catch(() => { /* local state already reflects it */ })
+        }
+      },
 
       addExpense: (e) =>
         guardedSetDb(d => ({ ...d, expenses: [{ id: uid('exp'), societyId: activeSocietyId, ...e }, ...d.expenses] })),
-      addVendor: (v) =>
-        guardedSetDb(d => ({ ...d, vendors: [...d.vendors, { id: uid('ven'), societyId: activeSocietyId, ...v }] })),
-      updateVendor: (id, patch) =>
-        guardedSetDb(d => ({ ...d, vendors: d.vendors.map(v => v.id === id ? { ...v, ...patch } : v) })),
-      addDocumentMeta: (doc) =>
-        guardedSetDb(d => ({ ...d, documents: [{ id: uid('doc'), societyId: activeSocietyId, date: todayISO(), ...doc }, ...d.documents] })),
+      addVendor: (v) => {
+        const vendor: Vendor = { id: session.isRealSession ? realUid() : uid('ven'), societyId: activeSocietyId, ...v }
+        const ok = guardedSetDb(d => ({ ...d, vendors: [...d.vendors, vendor] }))
+        if (ok && session.isRealSession) {
+          insertVendorReal(vendor).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      updateVendor: (id, patch) => {
+        const ok = guardedSetDb(d => ({ ...d, vendors: d.vendors.map(v => v.id === id ? { ...v, ...patch } : v) }))
+        if (ok && session.isRealSession) {
+          updateVendorReal(id, patch).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      addDocumentMeta: (doc) => {
+        const { file, ...meta } = doc
+        const d: Doc = { id: session.isRealSession ? realUid() : uid('doc'), societyId: activeSocietyId, date: todayISO(), ...meta }
+        const ok = guardedSetDb(d2 => ({ ...d2, documents: [d, ...d2.documents] }))
+        if (ok && session.isRealSession) {
+          insertDocumentReal(d)
+            .then(async () => {
+              if (!file) return
+              const path = await uploadPrivateFile('documents', d.id, file)
+              await updateDocumentStoragePathReal(d.id, path)
+              setDb(d2 => ({ ...d2, documents: d2.documents.map(x => x.id === d.id ? { ...x, storagePath: path } : x) }))
+            })
+            .catch(() => { /* the document record itself is already reflected locally; an upload failure specifically doesn't have its own retry/error surface yet */ })
+        }
+      },
+      getDocumentUrl: async (storagePath) => {
+        if (!session.isRealSession) return null
+        try {
+          return await getSignedFileUrl('documents', storagePath)
+        } catch {
+          return null
+        }
+      },
 
-      addPoll: (p) =>
-        guardedSetDb(d => ({ ...d, polls: [{ id: uid('poll'), societyId: activeSocietyId, votes: {}, status: 'open', ...p }, ...d.polls] })),
-      closePoll: (id) =>
-        guardedSetDb(d => ({ ...d, polls: d.polls.map(p => p.id === id ? { ...p, status: 'closed', resultVisible: true } : p) })),
+      addPoll: (p) => {
+        const poll: Poll = { id: session.isRealSession ? realUid() : uid('poll'), societyId: activeSocietyId, votes: {}, status: 'open', ...p }
+        const ok = guardedSetDb(d => ({ ...d, polls: [poll, ...d.polls] }))
+        if (ok && session.isRealSession) {
+          insertPollReal(poll).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      closePoll: (id) => {
+        const ok = guardedSetDb(d => ({ ...d, polls: d.polls.map(p => p.id === id ? { ...p, status: 'closed', resultVisible: true } : p) }))
+        if (ok && session.isRealSession) {
+          closePollReal(id).catch(() => { /* local state already reflects it */ })
+        }
+      },
       vote: (pollId, flatId, optionIdx) => {
         if (!canWriteNow) return false
         const poll = scopedDb.polls.find(p => p.id === pollId)
         if (!poll || poll.status !== 'open') return false
         if (poll.votes[flatId] !== undefined) return false // one vote per flat
-        return guardedSetDb(d => ({
+        const ok = guardedSetDb(d => ({
           ...d,
           polls: d.polls.map(p => p.id === pollId ? { ...p, votes: { ...p.votes, [flatId]: optionIdx } } : p),
         }))
+        if (ok && session.isRealSession) {
+          insertPollVoteReal(pollId, flatId, optionIdx).catch(() => { /* local state already reflects it */ })
+        }
+        return ok
       },
 
-      addEvent: (e) =>
-        guardedSetDb(d => ({ ...d, events: [{ id: uid('evt'), societyId: activeSocietyId, contributions: [], volunteers: [], expenses: [], ...e }, ...d.events] })),
-      addContribution: (eventId, flatId, amount) =>
-        guardedSetDb(d => ({
+      addEvent: (e) => {
+        const ev: SocietyEvent = { id: session.isRealSession ? realUid() : uid('evt'), societyId: activeSocietyId, contributions: [], volunteers: [], expenses: [], ...e }
+        const ok = guardedSetDb(d => ({ ...d, events: [ev, ...d.events] }))
+        if (ok && session.isRealSession) {
+          insertEventReal(ev).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      addContribution: (eventId, flatId, amount) => {
+        const date = todayISO()
+        const ok = guardedSetDb(d => ({
           ...d,
           events: d.events.map(ev => ev.id === eventId
-            ? { ...ev, contributions: [...ev.contributions, { flatId, amount, date: todayISO() }] } : ev),
-        })),
-      addVolunteer: (eventId, name) =>
-        guardedSetDb(d => ({ ...d, events: d.events.map(ev => ev.id === eventId && !ev.volunteers.includes(name) ? { ...ev, volunteers: [...ev.volunteers, name] } : ev) })),
-      addEventExpense: (eventId, label, amount) =>
-        guardedSetDb(d => ({ ...d, events: d.events.map(ev => ev.id === eventId ? { ...ev, expenses: [...ev.expenses, { label, amount }] } : ev) })),
+            ? { ...ev, contributions: [...ev.contributions, { flatId, amount, date }] } : ev),
+        }))
+        if (ok && session.isRealSession) {
+          insertContributionReal(eventId, flatId, amount, date).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      addVolunteer: (eventId, name) => {
+        const ok = guardedSetDb(d => ({ ...d, events: d.events.map(ev => ev.id === eventId && !ev.volunteers.includes(name) ? { ...ev, volunteers: [...ev.volunteers, name] } : ev) }))
+        if (ok && session.isRealSession) {
+          insertVolunteerReal(eventId, name).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      addEventExpense: (eventId, label, amount) => {
+        const ok = guardedSetDb(d => ({ ...d, events: d.events.map(ev => ev.id === eventId ? { ...ev, expenses: [...ev.expenses, { label, amount }] } : ev) }))
+        if (ok && session.isRealSession) {
+          insertEventExpenseReal(eventId, label, amount).catch(() => { /* local state already reflects it */ })
+        }
+      },
 
-      addVehicle: (v) =>
-        guardedSetDb(d => ({ ...d, vehicles: [...d.vehicles, { id: uid('veh'), societyId: activeSocietyId, ...v }] })),
+      addVehicle: (v) => {
+        const vehicle: Vehicle = { id: session.isRealSession ? realUid() : uid('veh'), societyId: activeSocietyId, ...v }
+        const ok = guardedSetDb(d => ({ ...d, vehicles: [...d.vehicles, vehicle] }))
+        if (ok && session.isRealSession) {
+          insertVehicleReal(vehicle).catch(() => { /* local state already reflects it */ })
+        }
+      },
       addFlat: (f) => {
         const newFlat: Flat = { id: session.isRealSession ? realUid() : uid('flat'), societyId: activeSocietyId, memberSince: new Date().getFullYear(), ...f }
         const ok = guardedSetDb(d => ({ ...d, flats: [...d.flats, newFlat] }))
@@ -721,13 +1041,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
           insertAdjustmentReal(adj).catch(() => { /* local state already reflects it */ })
         }
       },
-      updateSociety: (patch) =>
-        guardedSetDb(d => ({ ...d, societies: d.societies.map(s => s.id === activeSocietyId ? { ...s, ...patch } : s) })),
+      updateSociety: (patch) => {
+        const ok = guardedSetDb(d => ({ ...d, societies: d.societies.map(s => s.id === activeSocietyId ? { ...s, ...patch } : s) }))
+        if (ok && session.isRealSession) {
+          updateSocietyReal(activeSocietyId, patch).catch(() => { /* local state already reflects it */ })
+        }
+      },
 
       addMembership: (m) => {
-        const mem: Membership = { id: uid('mem'), createdAt: todayISO(), status: 'active', ...m }
-        setDb(d => ({ ...d, memberships: [...d.memberships, mem] }))
-        return mem
+        const mem: Membership = { id: session.isRealSession ? realUid() : uid('mem'), createdAt: todayISO(), status: 'active', ...m }
+        const ok = guardedSetDb(d => ({ ...d, memberships: [...d.memberships, mem] }))
+        if (ok && session.isRealSession) {
+          insertMembershipReal(mem).catch(() => { /* local state already reflects it */ })
+        }
+        return ok ? mem : null
       },
 
       addSociety: (s) => {
@@ -739,15 +1066,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
         let joinCode = generateJoinCode(s.nameEn)
         while (takenCodes.has(joinCode)) joinCode = generateJoinCode(s.nameEn)
         const newSoc: Society = {
-          id: uid('soc'), upiId: '', plan: 'trial', flatsLimit: 60, slug, joinCode,
+          id: session.isRealSession ? realUid() : uid('soc'), upiId: '', plan: 'trial', flatsLimit: 60, slug, joinCode,
           subscriptionStatus: 'trial', receiptSeq: 1, createdAt: todayISO(),
-          trialStartedAt: new Date().toISOString(), ...s,
+          // trialStartedAt deliberately NOT set here - see the comment on
+          // Society.trialStartedAt in types.ts. It gets set later, by
+          // activateSociety, once the society is actually ready to use,
+          // not at the moment this bare record is created. A 'trial'
+          // society with no trialStartedAt yet is fully writable in the
+          // meantime (see canWrite/effectiveStatus in subscription.ts),
+          // its trial simply hasn't started counting down yet.
+          ...s,
         }
         setDb(d => ({ ...d, societies: [...d.societies, newSoc] }))
+        if (session.isRealSession) {
+          insertSocietyReal(newSoc).catch(() => { /* local state already reflects it */ })
+        }
         return newSoc
       },
-      updateSocietyById: (id, patch) =>
-        setDb(d => ({ ...d, societies: d.societies.map(s => s.id === id ? { ...s, ...patch } : s) })),
+      activateSociety: (societyId) => {
+        const trialStartedAt = new Date().toISOString()
+        const ok = guardedSetDb(d => ({ ...d, societies: d.societies.map(s => s.id === societyId ? { ...s, trialStartedAt } : s) }))
+        if (ok && session.isRealSession) {
+          updateSocietyStatusReal(societyId, { trialStartedAt }).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      updateSocietyById: (id, patch) => {
+        setDb(d => ({ ...d, societies: d.societies.map(s => s.id === id ? { ...s, ...patch } : s) }))
+        if (session.isRealSession) {
+          // Split across the two real functions - this is the owner
+          // console, the one legitimate place both regular fields (name,
+          // address) and owner-only protected ones (plan, flatsLimit,
+          // subscriptionStatus) can be set together in a single save.
+          updateSocietyReal(id, patch).catch(() => { /* local state already reflects it */ })
+          if (patch.plan !== undefined || patch.flatsLimit !== undefined || patch.subscriptionStatus !== undefined || patch.graceStartedAt !== undefined) {
+            updateSocietyStatusReal(id, { plan: patch.plan, flatsLimit: patch.flatsLimit, subscriptionStatus: patch.subscriptionStatus, graceStartedAt: patch.graceStartedAt })
+              .catch(() => { /* same */ })
+          }
+        }
+      },
 
       addPlatformBillingRecord: (r) =>
         setDb(d => ({ ...d, platformBilling: [...d.platformBilling, { id: uid('pb'), ...r }] })),
@@ -764,7 +1120,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setDb(DEMO_SEED_ENABLED ? buildSeed() : emptySeed())
       },
     }
-  }, [db, session, activeSociety, activeSocietyId, financialsLoading])
+  }, [db, session, activeSociety, activeSocietyId, financialsLoading, lastBlockedReason])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }
