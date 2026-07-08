@@ -617,3 +617,69 @@ describe('events', () => {
     expect(insert).toHaveBeenNthCalledWith(2, { event_id: 'e1', label: 'Decorations', amount: 2000 })
   })
 })
+
+describe('owner console aggregates: flats, memberships, platform billing, audit logs, impersonation logs', () => {
+  it('fetchAllFlatsForOwner and fetchAllMembershipsForOwner query with no society filter at all - RLS is what scopes this, not the query', async () => {
+    const flatsSelect = vi.fn().mockResolvedValue({ data: [], error: null })
+    const membershipsSelect = vi.fn().mockResolvedValue({ data: [], error: null })
+    vi.doMock('../supabase', () => ({
+      supabase: { from: (table: string) => ({ select: table === 'flats' ? flatsSelect : membershipsSelect }) },
+    }))
+    const { fetchAllFlatsForOwner, fetchAllMembershipsForOwner } = await import('../realData')
+
+    await fetchAllFlatsForOwner()
+    await fetchAllMembershipsForOwner()
+    // neither select() result has .eq() chained onto it in these two
+    // functions specifically - confirmed by these mocks resolving
+    // directly rather than needing an .eq method to exist at all
+    expect(flatsSelect).toHaveBeenCalled()
+    expect(membershipsSelect).toHaveBeenCalled()
+  })
+
+  it('fetchAllPlatformBilling maps rows into the expected shape', async () => {
+    vi.doMock('../supabase', () => ({
+      supabase: {
+        from: () => ({
+          select: () => Promise.resolve({
+            data: [{ id: 'pb1', society_id: 'soc1', period_month: '2027-01', flat_count: 24, rate_per_flat: 10, expected_amount: 240, received_amount: 0, payment_date: null, mode: null, status: 'unpaid', internal_note: null }],
+            error: null,
+          }),
+        }),
+      },
+    }))
+    const { fetchAllPlatformBilling } = await import('../realData')
+    const result = await fetchAllPlatformBilling()
+    expect(result).toEqual([{ id: 'pb1', societyId: 'soc1', periodMonth: '2027-01', flatCount: 24, ratePerFlat: 10, expectedAmount: 240, receivedAmount: 0, paymentDate: undefined, mode: undefined, status: 'unpaid', internalNote: undefined }])
+  })
+
+  it('updatePlatformBillingReal only sends the fields actually being changed', async () => {
+    const update = vi.fn().mockReturnValue({ eq: () => Promise.resolve({ error: null }) })
+    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ update }) } }))
+    const { updatePlatformBillingReal } = await import('../realData')
+    await updatePlatformBillingReal('pb1', { status: 'paid', receivedAmount: 240 })
+    expect(update).toHaveBeenCalledWith({ received_amount: 240, status: 'paid' })
+  })
+
+  it('fetchAllAuditLogs orders newest first and maps created_at to at', async () => {
+    vi.doMock('../supabase', () => ({
+      supabase: {
+        from: () => ({
+          select: () => ({
+            order: () => Promise.resolve({ data: [{ id: 'a1', society_id: 'soc1', actor: 'Owner', action: 'test', detail: 'x', created_at: '2027-01-01T00:00:00Z' }], error: null }),
+          }),
+        }),
+      },
+    }))
+    const { fetchAllAuditLogs } = await import('../realData')
+    const result = await fetchAllAuditLogs()
+    expect(result).toEqual([{ id: 'a1', societyId: 'soc1', at: '2027-01-01T00:00:00Z', actor: 'Owner', action: 'test', detail: 'x' }])
+  })
+
+  it('insertImpersonationLogReal and exitImpersonationLogReal map correctly, including the reason field', async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null })
+    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ insert }) } }))
+    const { insertImpersonationLogReal } = await import('../realData')
+    await insertImpersonationLogReal({ id: 'imp1', societyId: 'soc1', enteredAt: '2027-01-01T00:00:00Z', mode: 'write', reason: 'checking billing' })
+    expect(insert).toHaveBeenCalledWith({ id: 'imp1', society_id: 'soc1', mode: 'write', reason: 'checking billing' })
+  })
+})

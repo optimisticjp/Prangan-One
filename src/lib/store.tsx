@@ -48,6 +48,9 @@ import {
   fetchSocietyContacts,
   fetchSocietyPolls, insertPollReal, closePollReal, insertPollVoteReal,
   fetchSocietyEvents, insertEventReal, insertContributionReal, insertVolunteerReal, insertEventExpenseReal,
+  fetchAllFlatsForOwner, fetchAllMembershipsForOwner,
+  fetchAllPlatformBilling, insertPlatformBillingReal, updatePlatformBillingReal,
+  fetchAllAuditLogs, fetchAllImpersonationLogs, insertImpersonationLogReal, exitImpersonationLogReal,
 } from './realData'
 
 // A short, human-typeable code a resident enters at /join to find their
@@ -401,12 +404,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // The owner doesn't have one meaningful "active society" the way a
     // resident or admin does - their own console shows every society at
     // once, aggregated, not one society's flats/bills/complaints. So
-    // their fetch is just the societies list, not the full financial
-    // bundle scoped to whatever activeSocietyId happens to currently be
-    // (which for an owner session is essentially arbitrary).
+    // their fetch is platform-wide - every flat, every membership, every
+    // platform billing record, the full audit log, and impersonation
+    // history, across every society at once - not the per-society
+    // financial bundle scoped to whatever activeSocietyId happens to
+    // currently be (which for an owner session is essentially arbitrary).
     if (session.role === 'owner') {
-      fetchAllSocieties()
-        .then(societies => { if (!cancelled) setDb(d => ({ ...d, societies })) })
+      Promise.all([
+        fetchAllSocieties(), fetchAllFlatsForOwner(), fetchAllMembershipsForOwner(),
+        fetchAllPlatformBilling(), fetchAllAuditLogs(), fetchAllImpersonationLogs(),
+      ])
+        .then(([societies, flats, memberships, platformBilling, auditLogs, impersonationLogs]) => {
+          if (!cancelled) setDb(d => ({ ...d, societies, flats, memberships, platformBilling, auditLogs, impersonationLogs }))
+        })
         .catch(() => { /* the person still sees whatever was already loaded */ })
         .finally(() => { if (!cancelled) setFinancialsLoading(false) })
       return () => { cancelled = true }
@@ -603,14 +613,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       },
       enterSociety: (societyId, role, mode = 'readonly', reason) => {
-        setDb(d => ({ ...d, impersonationLogs: [{ id: uid('imp'), societyId, enteredAt: new Date().toISOString(), mode, reason }, ...d.impersonationLogs] }))
+        // session.isRealSession here reflects the owner's own genuine
+        // identity, captured before setSession below overwrites it with
+        // the impersonated view's local session - the log entry itself
+        // isn't limited by the impersonated society staying on the local
+        // data layer for now, so it's written for real regardless.
+        const wasRealOwner = session.isRealSession
+        const log: ImpersonationLog = { id: wasRealOwner ? realUid() : uid('imp'), societyId, enteredAt: new Date().toISOString(), mode, reason }
+        setDb(d => ({ ...d, impersonationLogs: [log, ...d.impersonationLogs] }))
+        if (wasRealOwner) {
+          insertImpersonationLogReal(log).catch(() => { /* local state already reflects it */ })
+        }
         setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true, isRealSession: false, supportMode: mode })
       },
       exitImpersonation: () => {
+        const current = db.impersonationLogs.find((l, i) => i === 0 && l.societyId === session.societyId && !l.exitedAt)
         setDb(d => ({
           ...d,
           impersonationLogs: d.impersonationLogs.map((l, i) => i === 0 && l.societyId === session.societyId && !l.exitedAt ? { ...l, exitedAt: new Date().toISOString() } : l),
         }))
+        // The log id itself tells us whether it was written for real
+        // (realUid()'s shape) vs. the local demo's uid('imp') prefix -
+        // simpler than threading the owner's real-session state through
+        // a second time here.
+        if (current && !current.id.startsWith('imp_')) {
+          exitImpersonationLogReal(current.id).catch(() => { /* local state already reflects it */ })
+        }
         setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false })
       },
       findSocietyBySlug: (slug) => db.societies.find(s => s.slug === slug),
@@ -1140,10 +1168,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       },
 
-      addPlatformBillingRecord: (r) =>
-        setDb(d => ({ ...d, platformBilling: [...d.platformBilling, { id: uid('pb'), ...r }] })),
-      updatePlatformBillingRecord: (id, patch) =>
-        setDb(d => ({ ...d, platformBilling: d.platformBilling.map(r => r.id === id ? { ...r, ...patch } : r) })),
+      addPlatformBillingRecord: (r) => {
+        const rec = { id: session.isRealSession ? realUid() : uid('pb'), ...r }
+        setDb(d => ({ ...d, platformBilling: [...d.platformBilling, rec] }))
+        if (session.isRealSession) {
+          insertPlatformBillingReal(rec).catch(() => { /* local state already reflects it */ })
+        }
+      },
+      updatePlatformBillingRecord: (id, patch) => {
+        setDb(d => ({ ...d, platformBilling: d.platformBilling.map(r => r.id === id ? { ...r, ...patch } : r) }))
+        if (session.isRealSession) {
+          updatePlatformBillingReal(id, patch).catch(() => { /* local state already reflects it */ })
+        }
+      },
 
       addLead: (l) =>
         setDb(d => ({ ...d, leads: [{ id: uid('lead'), status: 'new', createdAt: todayISO(), ...l }, ...d.leads] })),

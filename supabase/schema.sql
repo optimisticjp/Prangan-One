@@ -493,6 +493,7 @@ create table impersonation_logs (
   society_id  uuid not null references societies(id) on delete cascade,
   owner_user_id uuid references auth.users(id) on delete set null,
   mode        text not null check (mode in ('readonly', 'write')),
+  reason      text,  -- required for write-mode entries at the application layer (see ImpersonationLog in types.ts); not enforced here since a readonly "just looking" entry legitimately has none
   entered_at  timestamptz not null default now(),
   exited_at   timestamptz
 );

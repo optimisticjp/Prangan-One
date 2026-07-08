@@ -18,6 +18,22 @@ This file exists so a future Claude Code session (or a human) can pick this proj
 
 *(Note on reading the session log below: earlier sessions correctly used "Essancia" when describing who was operating the platform at the time that was written. That's accurate history, left as-is rather than sanitized, the standing description above is what's current now.)*
 
+## Fix (this session): the owner dashboard was still showing stale local data, and it wasn't the same bug as before
+
+Raised again directly, after the two earlier hotfixes this session were already live - the platform billing table and activity log kept showing the same old demo numbers (soc_rajhans, soc_shreehari) that had already been investigated once. Turned out to be a real, different, previously undiagnosed gap, not a leftover of the earlier ones.
+
+**What was actually happening.** When societies moved to the real data layer a few sessions back, the owner's own fetch was built to pull real societies - but nothing else. Flats, memberships, platform billing, and the audit log were never wired up for the owner's aggregate view at all, so the owner dashboard's flat/member counts, the platform billing table, and the activity log were all still reading from whatever was sitting in local browser state the entire time, completely independent of whether societies itself was working correctly.
+
+**Five things fetched now, all platform-wide, none of them scoped to one society.** Every other real fetch in this app is scoped to `activeSocietyId`; the owner's own view genuinely isn't - it's meant to show everything across every society at once. So these five queries have no `.eq()` filter on them at all: RLS itself (`has_role(society_id, ['owner'])` on each of these tables) is what actually limits this to the real owner, not the shape of the query, the same way every other table's own policy - not the query - is what really enforces its scope. Verified this directly: two societies set up with their own flat, billing record, and audit log entry each, the real owner sees all of it, a real non-owner admin sees only their own society's slice, and can't see platform billing at all.
+
+**A genuine schema gap found while building this, not before.** The real `impersonation_logs` table never had a `reason` column, even though the local type already tracks one and the product's own roadmap explicitly calls for logging why someone entered a society, not just that they did. Added the column.
+
+**Impersonation logging is real now too, with one deliberate limit kept as-is.** Entering or exiting a society as its admin now writes a real log entry when the owner's own login is real - but the *society being viewed* still uses the local data layer during that session, unchanged from the existing, documented decision from several sessions back. The log entry itself was never actually limited by that decision, it just hadn't been built yet.
+
+**Database change:** `reason` added to `impersonation_logs` (nullable, so this is safe to apply with the usual reset-and-reapply - no separate migration needed, just re-running the same two SQL files as always).
+
+**Tests:** 190 passing, up from 185. 5 new, covering the platform-wide fetches (confirmed no per-society filter is present, which is the entire point), the platform billing row mapping and its partial-update behavior, the audit log's newest-first ordering, and the impersonation log insert including its new reason field.
+
 ## Feature (this session): email + password login, alongside Google and magic link, not replacing either
 
 Requested directly: a genuine third way to log in, for anyone who'd rather use a password than wait for an email or use a Google account.

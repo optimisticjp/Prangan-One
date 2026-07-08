@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Adjustment, Bill, Complaint, Contact, Doc, Flat, Membership, Notice, Payment, Poll, Society, SocietyEvent, TimelineEntry, Vehicle, Vendor } from './types'
+import type { Adjustment, AuditLogEntry, Bill, Complaint, Contact, Doc, Flat, ImpersonationLog, Membership, Notice, Payment, PlatformBillingRecord, Poll, Society, SocietyEvent, TimelineEntry, Vehicle, Vendor } from './types'
 
 /**
  * The real, Supabase-backed data layer for the core financial loop:
@@ -735,5 +735,108 @@ export async function insertVolunteerReal(eventId: string, name: string): Promis
 export async function insertEventExpenseReal(eventId: string, label: string, amount: number): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
   const { error } = await supabase.from('event_expenses').insert({ event_id: eventId, label, amount })
+  if (error) throw error
+}
+
+// ---------------------------------------------------------------------
+// Owner console aggregates - flats, memberships, platform billing, the
+// audit log, and impersonation history, all across every society at
+// once. Every other real fetch in this file is scoped to one society
+// (activeSocietyId); the owner's own dashboard genuinely isn't, it's
+// platform-wide by design, so these five deliberately have no .eq()
+// filter at all - RLS itself is what limits this to the real owner
+// (has_role(society_id, ['owner']) on every one of these tables), the
+// same way every other table's own policy is what actually enforces
+// its own scope, not the shape of the query.
+//
+// Previously the owner's dashboard, platform billing table, and
+// activity log all silently kept showing whatever was in local/demo
+// state, since only fetchAllSocieties was ever wired up for a real
+// owner session - this closes that gap for the four tables it was
+// still open on.
+// ---------------------------------------------------------------------
+
+export async function fetchAllFlatsForOwner(): Promise<Flat[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('flats').select('id, society_id, number, floor, owner_name, phone, email, occupancy, tenant_name, tenant_email, sqft, member_since, maintenance_override')
+  if (error) throw error
+  return ((data ?? []) as FlatRow[]).map(flatFromRow)
+}
+
+export async function fetchAllMembershipsForOwner(): Promise<Membership[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('memberships').select('id, society_id, email, user_id, role, flat_id, phone, whatsapp, name, can_manage_billing, status, created_at')
+  if (error) throw error
+  return ((data ?? []) as MembershipRow[]).map(membershipFromRow)
+}
+
+interface PlatformBillingRow {
+  id: string; society_id: string; period_month: string; flat_count: number; rate_per_flat: number
+  expected_amount: number; received_amount: number; payment_date: string | null; mode: PlatformBillingRecord['mode'] | null
+  status: PlatformBillingRecord['status']; internal_note: string | null
+}
+const platformBillingFromRow = (r: PlatformBillingRow): PlatformBillingRecord => ({
+  id: r.id, societyId: r.society_id, periodMonth: r.period_month, flatCount: r.flat_count, ratePerFlat: r.rate_per_flat,
+  expectedAmount: r.expected_amount, receivedAmount: r.received_amount, paymentDate: r.payment_date ?? undefined,
+  mode: r.mode ?? undefined, status: r.status, internalNote: r.internal_note ?? undefined,
+})
+
+export async function fetchAllPlatformBilling(): Promise<PlatformBillingRecord[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('platform_billing').select('id, society_id, period_month, flat_count, rate_per_flat, expected_amount, received_amount, payment_date, mode, status, internal_note')
+  if (error) throw error
+  return ((data ?? []) as PlatformBillingRow[]).map(platformBillingFromRow)
+}
+
+export async function insertPlatformBillingReal(r: PlatformBillingRecord): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { error } = await supabase.from('platform_billing').insert({
+    id: r.id, society_id: r.societyId, period_month: r.periodMonth, flat_count: r.flatCount, rate_per_flat: r.ratePerFlat,
+    expected_amount: r.expectedAmount, received_amount: r.receivedAmount, payment_date: r.paymentDate ?? null,
+    mode: r.mode ?? null, status: r.status, internal_note: r.internalNote ?? null,
+  })
+  if (error) throw error
+}
+
+export async function updatePlatformBillingReal(id: string, patch: Partial<PlatformBillingRecord>): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const row: Record<string, unknown> = {}
+  if (patch.receivedAmount !== undefined) row.received_amount = patch.receivedAmount
+  if (patch.paymentDate !== undefined) row.payment_date = patch.paymentDate
+  if (patch.mode !== undefined) row.mode = patch.mode
+  if (patch.status !== undefined) row.status = patch.status
+  if (patch.internalNote !== undefined) row.internal_note = patch.internalNote
+  const { error } = await supabase.from('platform_billing').update(row).eq('id', id)
+  if (error) throw error
+}
+
+interface AuditLogRow { id: string; society_id: string; actor: string; action: string; detail: string; created_at: string }
+export async function fetchAllAuditLogs(): Promise<AuditLogEntry[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('audit_logs').select('id, society_id, actor, action, detail, created_at').order('created_at', { ascending: false })
+  if (error) throw error
+  return ((data ?? []) as AuditLogRow[]).map(r => ({ id: r.id, societyId: r.society_id, at: r.created_at, actor: r.actor, action: r.action, detail: r.detail }))
+}
+
+interface ImpersonationLogRow { id: string; society_id: string; mode: ImpersonationLog['mode']; reason: string | null; entered_at: string; exited_at: string | null }
+export async function fetchAllImpersonationLogs(): Promise<ImpersonationLog[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('impersonation_logs').select('id, society_id, mode, reason, entered_at, exited_at').order('entered_at', { ascending: false })
+  if (error) throw error
+  return ((data ?? []) as ImpersonationLogRow[]).map(r => ({ id: r.id, societyId: r.society_id, enteredAt: r.entered_at, mode: r.mode, exitedAt: r.exited_at ?? undefined, reason: r.reason ?? undefined }))
+}
+
+/** The owner's genuine identity is real even while the society they're viewing stays on the local data layer for now (see enterSociety in store.tsx) - the log entry itself doesn't have that same limitation, so it's written for real regardless. */
+export async function insertImpersonationLogReal(log: ImpersonationLog): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { error } = await supabase.from('impersonation_logs').insert({
+    id: log.id, society_id: log.societyId, mode: log.mode, reason: log.reason ?? null,
+  })
+  if (error) throw error
+}
+
+export async function exitImpersonationLogReal(logId: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { error } = await supabase.from('impersonation_logs').update({ exited_at: new Date().toISOString() }).eq('id', logId)
   if (error) throw error
 }
