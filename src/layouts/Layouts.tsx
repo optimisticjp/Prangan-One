@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, Link } from 'react-router-dom'
-import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, ShieldAlert, Loader2 } from 'lucide-react'
+import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, LogOut, ShieldAlert, Loader2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useData } from '../lib/store'
 import { roleLabel } from '../lib/permissions'
@@ -154,8 +154,9 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
       <div className="p-3 border-t border-navy-800">
         <Link to="/login" onClick={logout}
           className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
-          <ArrowLeftRight size={17} /> રોલ બદલો
-          <span className="ml-auto text-[11.5px] bg-navy-800 rounded-full px-2 py-0.5">{session.role ? roleLabel[session.role] : ''}</span>
+          {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
+          {session.isRealSession ? 'લોગ આઉટ' : 'રોલ બદલો'}
+          {!session.isRealSession && <span className="ml-auto text-[11.5px] bg-navy-800 rounded-full px-2 py-0.5">{session.role ? roleLabel[session.role] : ''}</span>}
         </Link>
         <p className="text-center mt-3 flex items-center justify-center"><PoweredByPrangan dark /></p>
       </div>

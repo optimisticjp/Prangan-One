@@ -7,7 +7,7 @@
  */
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Building2, Wallet, Inbox, ScrollText, ArrowLeftRight, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Building2, Wallet, Inbox, ScrollText, ArrowLeftRight, LogOut, Menu, X } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { PranganBrand } from '../../components/PranganBrand'
 import { useAppLang } from '../../lib/useAppLang'
@@ -22,7 +22,7 @@ const nav = [
 
 export default function OwnerLayout() {
   useAppLang()
-  const { logout } = useData()
+  const { logout, session } = useData()
   const nav_ = useNavigate()
   const [open, setOpen] = useState(false)
 
@@ -47,7 +47,8 @@ export default function OwnerLayout() {
       <div className="p-3 border-t border-navy-800">
         <button onClick={() => { logout(); nav_('/login') }}
           className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
-          <ArrowLeftRight size={17} /> રોલ બદલો
+          {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
+          {session.isRealSession ? 'લોગ આઉટ' : 'રોલ બદલો'}
         </button>
         <p className="text-center text-[10.5px] text-navy-500 mt-2">Prangan One · The Society OS</p>
       </div>

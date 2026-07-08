@@ -116,13 +116,17 @@ function buildSeed(): DB {
   }
 }
 
-// Used when VITE_DEMO_SEED=false: no Rajhans/lead sample data, just enough
-// to boot safely (one placeholder society, so activeSociety always resolves
-// to something) until the owner creates a real one from /owner/societies/new.
-// This is a stopgap for the localStorage era only - once the Supabase swap
-// lands, a fresh project is naturally empty and this stops being relevant.
-function emptySeed(): DB {
-  const placeholder: Society = {
+// A minimal, safe society object - never null, never crashes anything
+// that reads society.whatever. Used both for the VITE_DEMO_SEED=false
+// empty-start case below, and as activeSociety's own fallback when
+// db.societies is genuinely empty (a real session with zero real
+// societies yet, e.g. the owner's very first real login before creating
+// one) - that case used to leave activeSociety as literal undefined,
+// which crashed the moment any code (there wasn't just one place, which
+// is exactly why this needed a structural fix rather than a single
+// guard) read a field off it expecting a real object to always be there.
+function placeholderSociety(): Society {
+  return {
     id: 'soc_placeholder', name: 'તમારી સોસાયટી', nameEn: 'Your Society', slug: 'your-society',
     joinCode: 'WELCOME',
     address: '', city: '', area: '', maintenanceAmount: 1000, dueDay: 10, upiId: '',
@@ -134,8 +138,16 @@ function emptySeed(): DB {
       adminVisible: { billing: true, complaints: true, notices: true, documents: true, vendors: true, polls: true, events: true, parking: true, reports: true },
     },
   }
+}
+
+// Used when VITE_DEMO_SEED=false: no Rajhans/lead sample data, just enough
+// to boot safely (one placeholder society, so activeSociety always resolves
+// to something) until the owner creates a real one from /owner/societies/new.
+// This is a stopgap for the localStorage era only - once the Supabase swap
+// lands, a fresh project is naturally empty and this stops being relevant.
+function emptySeed(): DB {
   return {
-    version: 3, societies: [placeholder], flats: [], bills: [], payments: [],
+    version: 3, societies: [placeholderSociety()], flats: [], bills: [], payments: [],
     expenses: [], vendors: [], complaints: [], notices: [], documents: [],
     polls: [], events: [], vehicles: [], contacts: [], adjustments: [],
     memberships: [], platformBilling: [], leads: [], unmatchedLoginAttempts: [], auditLogs: [], impersonationLogs: [],
@@ -147,17 +159,40 @@ function emptySeed(): DB {
 // for a deployment that should start clean. See .env.example.
 const DEMO_SEED_ENABLED = import.meta.env.VITE_DEMO_SEED !== 'false'
 
+// Every array field on DB, used by loadDB below to defensively backfill
+// anything missing from an old saved snapshot. The DB shape has grown
+// many new fields across sessions (documents, polls, vehicles, contacts,
+// unmatchedLoginAttempts, and more) without the version number ever
+// being bumped to match - so a browser holding an older saved state
+// still passes the version check, but comes back missing whatever was
+// added since. That's exactly what caused a real crash: a page assuming
+// unmatchedLoginAttempts was always an array, hit an older saved db
+// where the field simply didn't exist yet.
+const DB_ARRAY_FIELDS: (keyof DB)[] = [
+  'societies', 'flats', 'bills', 'payments', 'expenses', 'vendors', 'complaints', 'notices',
+  'documents', 'polls', 'events', 'vehicles', 'contacts', 'adjustments', 'memberships',
+  'platformBilling', 'leads', 'unmatchedLoginAttempts', 'auditLogs', 'impersonationLogs',
+]
+function backfillDB(parsed: DB, fresh: DB): DB {
+  const result = { ...parsed }
+  for (const key of DB_ARRAY_FIELDS) {
+    if (!Array.isArray(result[key])) (result[key] as unknown) = fresh[key]
+  }
+  return result
+}
+
 function loadDB(): DB {
+  const fresh = DEMO_SEED_ENABLED ? buildSeed() : emptySeed()
   try {
     const raw = localStorage.getItem(DB_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as DB
-      if (parsed && parsed.version === 3) return parsed
+      if (parsed && parsed.version === 3) return backfillDB(parsed, fresh)
     }
   } catch {
     /* corrupted -> reseed */
   }
-  return DEMO_SEED_ENABLED ? buildSeed() : emptySeed()
+  return fresh
 }
 function loadSession(): Session {
   try {
@@ -344,10 +379,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [session])
 
   const activeSociety = useMemo(
-    () => db.societies.find(s => s.id === session.societyId) ?? db.societies[0],
+    () => db.societies.find(s => s.id === session.societyId) ?? db.societies[0] ?? placeholderSociety(),
     [db.societies, session.societyId],
   )
-  const activeSocietyId = activeSociety?.id ?? DEFAULT_SOCIETY_ID
+  const activeSocietyId = activeSociety.id
 
   // The first slice of the real (Supabase-backed) data layer: flats,
   // bills, payments, adjustments - the core financial loop. Everything

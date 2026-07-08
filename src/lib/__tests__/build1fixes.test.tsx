@@ -175,3 +175,87 @@ describe('owner read-only support mode actually blocks writes now (previously it
     expect(result.current.session.supportMode).toBeUndefined()
   })
 })
+
+describe('loadDB backfills fields missing from an older saved browser snapshot (real bug, found live)', () => {
+  const minimalSociety = {
+    id: 'soc_test', name: 'ટેસ્ટ', nameEn: 'Test', slug: 'test', joinCode: 'TEST1',
+    address: 'x', city: 'x', area: 'x', maintenanceAmount: 1000, dueDay: 10, upiId: '',
+    plan: 'trial', flatsLimit: 50, receiptPrefix: 'T', themeKey: 'navy-saffron', receiptSeq: 1, createdAt: '2027-01-01',
+    tenantAccess: 'full', subscriptionStatus: 'trial',
+    modules: {
+      ownerEnabled: { billing: true, complaints: true, notices: true, documents: true, vendors: true, polls: true, events: true, parking: true, reports: true },
+      adminVisible: { billing: true, complaints: true, notices: true, documents: true, vendors: true, polls: true, events: true, parking: true, reports: true },
+    },
+  }
+
+  it('a saved db missing unmatchedLoginAttempts entirely no longer crashes - it backfills to an empty array', () => {
+    // Reproduces exactly what happened on a real deployment: a browser
+    // holding a saved db from before unmatchedLoginAttempts existed on
+    // the DB shape at all, still tagged version 3 (the version number
+    // was never bumped when new fields were added across sessions), so
+    // the old version check alone let it through unchanged, and the
+    // owner's leads page crashed trying to iterate a field that was
+    // simply undefined.
+    const oldSavedShape = {
+      version: 3, societies: [minimalSociety], flats: [], bills: [], payments: [], expenses: [], vendors: [],
+      complaints: [], notices: [], documents: [], polls: [], events: [], vehicles: [], contacts: [],
+      adjustments: [], memberships: [], platformBilling: [], leads: [], auditLogs: [], impersonationLogs: [],
+      // unmatchedLoginAttempts is deliberately absent here, matching the real old snapshot
+    }
+    localStorage.setItem('rt_db_v3', JSON.stringify(oldSavedShape))
+
+    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    expect(Array.isArray(result.current.rawDb.unmatchedLoginAttempts)).toBe(true)
+    expect(result.current.rawDb.unmatchedLoginAttempts).toEqual([])
+  })
+
+  it('a field saved as null (not just missing) also gets backfilled, not left null', () => {
+    const oldSavedShape = {
+      version: 3, societies: [minimalSociety], flats: [], bills: [], payments: [], expenses: [], vendors: [],
+      complaints: [], notices: [], documents: [], polls: [], events: [], vehicles: [], contacts: [],
+      adjustments: [], memberships: [], platformBilling: [], leads: [], unmatchedLoginAttempts: null,
+      auditLogs: [], impersonationLogs: [],
+    }
+    localStorage.setItem('rt_db_v3', JSON.stringify(oldSavedShape))
+
+    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    expect(Array.isArray(result.current.rawDb.unmatchedLoginAttempts)).toBe(true)
+  })
+
+  it('fields that were already present and correct are left exactly as saved, not overwritten', () => {
+    const oldSavedShape = {
+      version: 3, societies: [minimalSociety], flats: [{ id: 'kept_flat', number: '999' }], bills: [], payments: [], expenses: [], vendors: [],
+      complaints: [], notices: [], documents: [], polls: [], events: [], vehicles: [], contacts: [],
+      adjustments: [], memberships: [], platformBilling: [], leads: [], auditLogs: [], impersonationLogs: [],
+    }
+    localStorage.setItem('rt_db_v3', JSON.stringify(oldSavedShape))
+
+    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    expect(result.current.rawDb.flats).toEqual([{ id: 'kept_flat', number: '999' }])
+  })
+})
+
+describe('activeSociety can never be undefined, even with zero real societies (real bug, found live)', () => {
+  it('a saved db with zero societies does not crash on load - activeSociety falls back to a safe placeholder, not undefined', () => {
+    // Reproduces the exact real scenario: a genuine owner logs in for
+    // real (via Google, in the actual report), their real fetch
+    // correctly returns zero societies since none have been created yet
+    // and replaces db.societies with that empty result - activeSociety
+    // used to become literal undefined in that case, crashing the
+    // moment anything read a field off it, which several different
+    // places in the app do, not just one, which is exactly why the fix
+    // needed to be structural rather than one extra guard somewhere.
+    const emptySocietiesDb = {
+      version: 3, societies: [], flats: [], bills: [], payments: [], expenses: [], vendors: [],
+      complaints: [], notices: [], documents: [], polls: [], events: [], vehicles: [], contacts: [],
+      adjustments: [], memberships: [], platformBilling: [], leads: [], unmatchedLoginAttempts: [],
+      auditLogs: [], impersonationLogs: [],
+    }
+    localStorage.setItem('rt_db_v3', JSON.stringify(emptySocietiesDb))
+
+    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    expect(result.current.society).toBeDefined()
+    expect(result.current.society.id).toBeTruthy()
+    expect(() => result.current.society.subscriptionStatus).not.toThrow()
+  })
+})

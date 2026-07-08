@@ -18,6 +18,42 @@ This file exists so a future Claude Code session (or a human) can pick this proj
 
 *(Note on reading the session log below: earlier sessions correctly used "Essancia" when describing who was operating the platform at the time that was written. That's accurate history, left as-is rather than sanitized, the standing description above is what's current now.)*
 
+## Feature (this session): email + password login, alongside Google and magic link, not replacing either
+
+Requested directly: a genuine third way to log in, for anyone who'd rather use a password than wait for an email or use a Google account.
+
+**Deliberately designed so a password can never be the only way in.** Nobody signs up with a password cold - there'd be no way to verify a fresh password-only signup is actually who they claim to be, the same reasoning that's applied to every other identity decision in this app. Instead, someone who's already verified their identity the normal way at least once (magic link or Google) can opt into setting a password from their own profile or settings page, for faster login the next time. This is the only path that ever creates a password.
+
+**Three places, one reusable component.** A `SetPasswordCard` shows up on the resident profile page, the admin/committee/accountant settings page, and the owner's dashboard - same component, same behavior, only rendered for a real session (the local demo has no real account to set a password on).
+
+**Forgot password is real, not a stub.** A dedicated `/auth/reset-password` page, reached through Supabase's own password-recovery email link - deliberately not reusing `/auth/callback`, since a recovery click is a different intent than a normal login even though both start with an email link. Once a new password is set there, it hands off to the exact same session-resolution `/auth/callback` already does for every other login path.
+
+**No new Supabase dashboard setup needed for this one.** Password sign-in lives under the same "Email" provider magic link already uses - confirmed this directly before writing anything, rather than assuming. If magic link already works (it does), password sign-in works the moment this code is live.
+
+**Tests:** 185 passing, up from 178. 9 new, covering the three new auth functions directly (password sign-in, setting a password, and the reset-email request), each checked for the success path, a wrong-credentials/rejected-password path, and the not-configured path, matching how every other auth function in this file was already tested.
+
+## Hotfix 2 (this session): activeSociety could genuinely be undefined, and now it structurally can't be
+
+Found immediately after fixing the first hotfix, from the same live testing session, once Google login actually worked. A real owner's first genuine login correctly fetched zero real societies (since none had been created yet) - and the app had never accounted for that being possible.
+
+**Root cause.** `activeSociety` was computed as `db.societies.find(...) ?? db.societies[0]` - if `db.societies` is empty, both sides of that fall through to `undefined`. The local demo never surfaced this, since the seed data always guarantees at least one society exists. But a real session with zero real societies is a completely normal, expected state (the owner's very first login, before creating anything), and `activeSociety` becoming undefined meant every place in the app that reads a field off `society` assuming it's always a real object - and there are several such places, not one - was one click away from crashing.
+
+**Fix, deliberately structural rather than a single guard.** `activeSociety` can no longer be undefined at all - it falls back to a minimal, safe placeholder society object (reusing the same one already built for the "start completely empty" deployment mode) instead of `undefined`. This closes the entire class of bug at once, rather than patching whichever specific line happened to be the first to crash - a different page or component hitting the same empty-societies state would have just crashed somewhere else next.
+
+**Tests:** 178 passing, up from 177. 1 new, reproducing the exact real condition (a saved database with zero societies) and confirming `society` is always a real, safe object, never undefined, no matter what.
+
+## Hotfix (this session): a real crash on the live deployment, found and fixed
+
+Not a planned session, a live bug report. The owner's leads page was crashing outright on a real, deployed session with `TypeError: o.unmatchedLoginAttempts is not iterable`.
+
+**Root cause, found from the actual browser error, not guessed at.** `loadDB()` checks a saved browser snapshot against a version number before trusting it. That version number was never bumped across all the sessions that kept adding new fields to the `DB` shape (documents, polls, vehicles, contacts, `unmatchedLoginAttempts`, and others) - so a browser holding an older saved snapshot, still correctly tagged with the same version number, passed the check and came back missing whatever had been added since. The leads page was the one place that happened to iterate directly over that specific field, so it was the one that crashed; other pages reading the same stale snapshot just silently showed old data instead, which is a real, separate, already-known gap, not this bug.
+
+**Confirmed the actual mechanism before fixing anything.** The activity log screenshot from the live site showed a real, one-off impersonation session with a one-character test reason "j" - a real click, not seed data - which is what confirmed the dashboard really was running on locally-cached data rather than a genuinely broken database connection.
+
+**Fix:** `loadDB()` now defensively backfills every array field on `DB` against a fresh baseline if it's missing, null, or not actually an array, regardless of whether the version check passes. Fields that were already present and correct are left exactly as they were. This isn't specific to `unmatchedLoginAttempts` - it protects against the exact same class of bug for any field, including ones added in future sessions, without needing the version number to be remembered and bumped correctly every time the shape changes.
+
+**Tests:** 177 passing, up from 174. 3 new, reproducing the exact real failure (a saved snapshot missing the field entirely), a related case (the field saved as `null` rather than simply absent), and a check that fields already present and valid are left untouched, not silently overwritten.
+
 ## Session 22 summary (this session): the fuller onboarding wizard, and the last item on every pending list
 
 Ten steps now, not five, and genuinely different in shape, not just longer. The old wizard collected everything up front and only created the society at the very last step, which meant flats and the first bill run always had to wait for "later, from the Members page" - there was no real society for them to attach to until the wizard was already finished.

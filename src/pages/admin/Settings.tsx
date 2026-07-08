@@ -4,6 +4,7 @@ import { useData } from '../../lib/store'
 import { permissionMatrix } from '../../lib/permissions'
 import { exportJson } from '../../lib/csv'
 import { Badge, Button, Card, Field, Input, PageHeader, Progress, SectionTitle, TableWrap, td, th } from '../../components/ui'
+import { SetPasswordCard } from '../../components/SetPasswordCard'
 import type { SocietyModules } from '../../lib/types'
 
 const moduleInfo: { key: keyof SocietyModules; icon: typeof ReceiptText; label: string }[] = [
@@ -48,6 +49,8 @@ export default function Settings() {
   return (
     <div>
       <PageHeader title="સેટિંગ્સ" sub="સોસાયટીની માહિતી, સુવિધા અને ડેટા" />
+
+      {session.isRealSession && <div className="mb-4"><SetPasswordCard /></div>}
 
       <div className="grid lg:grid-cols-2 gap-4">
         <Card className="animate-fadeUp">

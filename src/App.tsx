@@ -20,6 +20,7 @@ import { PageLoading } from './components/PageLoading'
 import Login from './pages/Login'
 import Demo from './pages/Demo'
 import AuthCallback from './pages/AuthCallback'
+import ResetPassword from './pages/ResetPassword'
 import NoAccess from './pages/NoAccess'
 import Join from './pages/Join'
 import Home from './pages/public/Home'
@@ -124,6 +125,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/demo" element={<Demo />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/no-access" element={<NoAccess />} />
         <Route path="/join" element={<Join />} />
 

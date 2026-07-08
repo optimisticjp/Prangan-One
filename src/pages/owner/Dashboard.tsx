@@ -4,12 +4,13 @@ import { useData } from '../../lib/store'
 import { effectiveStatus } from '../../lib/subscription'
 import { inr } from '../../lib/format'
 import { Badge, Button, Card, PageHeader, StatCard } from '../../components/ui'
+import { SetPasswordCard } from '../../components/SetPasswordCard'
 
 const statusLabel: Record<string, string> = { trial: 'ટ્રાયલ', active: 'એક્ટિવ', grace: 'ગ્રેસ', paused: 'થોભાવેલ', archived: 'આર્કાઇવ' }
 const statusTone: Record<string, 'green' | 'amber' | 'red' | 'gray' | 'blue'> = { trial: 'blue', active: 'green', grace: 'amber', paused: 'red', archived: 'gray' }
 
 export default function OwnerDashboard() {
-  const { rawDb } = useData()
+  const { rawDb, session } = useData()
 
   const counts: Record<string, number> = { trial: 0, active: 0, grace: 0, paused: 0, archived: 0 }
   for (const s of rawDb.societies) counts[effectiveStatus(s)] = (counts[effectiveStatus(s)] ?? 0) + 1
@@ -30,6 +31,8 @@ export default function OwnerDashboard() {
     <div>
       <PageHeader title="ઓનર ડેશબોર્ડ" sub="પ્લેટફોર્મ પર બધી સોસાયટીની સ્થિતિ એક નજરમાં"
         actions={<Link to="/owner/societies/new"><Button variant="accent"><Plus size={16} /> નવી સોસાયટી</Button></Link>} />
+
+      {session.isRealSession && <div className="mb-4"><SetPasswordCard /></div>}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {(['trial', 'active', 'grace', 'paused', 'archived'] as const).map(k => (

@@ -42,6 +42,55 @@ export async function signInWithGoogle(): Promise<void> {
   if (error) throw error
 }
 
+/**
+ * Password sign-in, added alongside magic link and Google as a genuine
+ * third option, not a replacement for either - some people specifically
+ * want a password rather than waiting on an email or having a Google
+ * account. Unlike magic link and Google, this returns an authenticated
+ * session immediately, no redirect involved - so Login.tsx sends the
+ * person to /auth/callback itself right after this succeeds, reusing
+ * the exact same membership-claiming resolution every other login path
+ * already goes through, rather than duplicating that logic here.
+ */
+export async function signInWithPassword(email: string, password: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) throw error
+}
+
+/**
+ * Sets or changes a password for whoever is currently authenticated -
+ * only meaningful for someone already logged in via magic link or
+ * Google, since a brand-new person has no Supabase account yet to set a
+ * password on. This is deliberately the only way a password gets
+ * created in this app: nobody signs up with a password cold, they
+ * verify who they are the usual way at least once, then can opt into a
+ * password for faster login next time. Supabase's own minimum length
+ * (6 characters by default) is enforced server-side regardless of what
+ * the UI asks for.
+ */
+export async function setPasswordForCurrentUser(password: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
+}
+
+/**
+ * Forgot-password flow: sends a reset link to the given email, landing
+ * on /auth/reset-password (a dedicated page, not /auth/callback -
+ * Supabase's recovery link authenticates the person temporarily
+ * specifically to set a new password, which is a different intent than
+ * a normal login even though both start with clicking a link in an
+ * email).
+ */
+export async function sendPasswordResetEmail(email: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/auth/reset-password',
+  })
+  if (error) throw error
+}
+
 export async function getCurrentAuthUser() {
   if (!supabase) return null
   const { data, error } = await supabase.auth.getUser()

@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeftRight, Building2 } from 'lucide-react'
+import { ArrowLeftRight, LogOut, Building2 } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { Badge, Button, Card, PageHeader } from '../../components/ui'
+import { SetPasswordCard } from '../../components/SetPasswordCard'
 
 export default function Profile() {
   const { session, flatById, society, logout } = useData()
@@ -42,13 +43,16 @@ export default function Profile() {
         </div>
       </Card>
 
+      {session.isRealSession && <div className="mt-3"><SetPasswordCard /></div>}
+
       <Card className="mt-3">
         <div className="flex items-center gap-2.5 text-navy-700 font-semibold"><Building2 size={18} /> {society.name}</div>
         <div className="text-[13.5px] text-navy-400 mt-1">{society.address} · મેન્ટેનન્સ દર મહિને ₹{society.maintenanceAmount}, તા. {society.dueDay} સુધીમાં</div>
       </Card>
 
       <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav('/login') }}>
-        <ArrowLeftRight size={17} /> રોલ બદલો / બહાર નીકળો
+        {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
+        {session.isRealSession ? 'લોગ આઉટ' : 'રોલ બદલો / બહાર નીકળો'}
       </Button>
       <p className="text-center text-[12px] text-navy-300 mt-4">{society.name} · Prangan One દ્વારા સંચાલિત</p>
     </div>
