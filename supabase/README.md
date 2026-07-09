@@ -107,3 +107,18 @@ The whole point of `src/lib/store.tsx` is that it's the only file that should ne
 - [ ] Turn a module off for a society in Settings and confirm its routes redirect away even when typed directly into the address bar, not just hidden from navigation
 - [ ] Confirm the `service_role` key never appears in any client-side bundle (`grep -r "service_role" dist/` after a build should return nothing)
 - [ ] Confirm the keep-alive ping (step 4) is actually running, not just configured
+
+## 10. Automated isolation tests
+
+The checklist above is worth doing by hand once, after first connecting. For every change after that, `supabase/tests/run-isolation-tests.sh` runs the same kind of verification automatically - two societies, every role, checked against a completely fresh, throwaway database, not the real project.
+
+```bash
+cd supabase/tests
+./run-isolation-tests.sh
+```
+
+Needs a local Postgres reachable as the `postgres` superuser (the same one everything else in this file already assumes). Creates a temporary database, applies the real schema to it, runs about 20 checks, and drops the database again - nothing here ever touches the real Supabase project.
+
+What it actually checks: cross-tenant isolation across flats, complaints, and expenses; that a personal complaint stays private to its own flat while a community one is visible society-wide; all four document permission tiers individually, not just "some are hidden"; that poll results aggregate correctly without ever exposing whose vote is whose; that an auditor can read but genuinely cannot write (blocked by RLS itself, not just missing from the UI); that the owner sees every society at once; and that only actual management can approve a pending membership, not the resident it belongs to.
+
+Run this after any schema change, not just once. A regression genuinely gets caught, not just a hypothetical one - confirmed directly by deliberately weakening a real policy (removing a flat's own-flat-only restriction) and watching the suite fail with an exact, specific message pointing at what broke, then restoring it and confirming a clean pass again.

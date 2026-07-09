@@ -80,13 +80,14 @@ export default function Complaints() {
       )}
 
       <Modal open={open} onClose={() => setOpen(false)} title="નવી ફરિયાદ">
+        <form onSubmit={e => { e.preventDefault(); submit() }} className="space-y-4">
         <Field label="ફરિયાદ કઈ બાબતની છે?">
           <Select value={category} onChange={e => setCategory(e.target.value)}>
             {complaintCategories.map(c => <option key={c}>{c}</option>)}
           </Select>
         </Field>
         <Field label="ટૂંકમાં લખો">
-          <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="દા.ત. લિફ્ટ અવાજ કરે છે" />
+          <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="દા.ત. લિફ્ટ અવાજ કરે છે" required />
         </Field>
         <Field label="થોડી વધુ વિગત (વૈકલ્પિક)">
           <Textarea value={detail} onChange={e => setDetail(e.target.value)} placeholder="ક્યારે, ક્યાં, શું થાય છે..." />
@@ -94,7 +95,7 @@ export default function Complaints() {
         <Field label="કેટલું અગત્યનું છે?">
           <div className="grid grid-cols-2 gap-2">
             {(['normal', 'urgent'] as const).map(p => (
-              <button key={p} onClick={() => setPriority(p)}
+              <button key={p} type="button" onClick={() => setPriority(p)}
                 className={`min-h-[46px] rounded-xl border font-semibold text-[14.5px] transition-colors ${priority === p ? 'bg-navy-800 text-cream-50 border-navy-800' : 'bg-white border-cream-300 text-navy-600'}`}>
                 {p === 'normal' ? 'સામાન્ય' : 'તાત્કાલિક'}
               </button>
@@ -103,11 +104,11 @@ export default function Complaints() {
         </Field>
         <Field label="કોણ જોઈ શકે?">
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => setVisibility('personal')}
+            <button type="button" onClick={() => setVisibility('personal')}
               className={`min-h-[46px] rounded-xl border font-semibold text-[13.5px] transition-colors flex items-center justify-center gap-1.5 ${visibility === 'personal' ? 'bg-navy-800 text-cream-50 border-navy-800' : 'bg-white border-cream-300 text-navy-600'}`}>
               <Lock size={15} /> ફક્ત મારી અને કમિટી
             </button>
-            <button onClick={() => setVisibility('community')}
+            <button type="button" onClick={() => setVisibility('community')}
               className={`min-h-[46px] rounded-xl border font-semibold text-[13.5px] transition-colors flex items-center justify-center gap-1.5 ${visibility === 'community' ? 'bg-navy-800 text-cream-50 border-navy-800' : 'bg-white border-cream-300 text-navy-600'}`}>
               <Users size={15} /> આખી સોસાયટી જુએ
             </button>
@@ -119,7 +120,7 @@ export default function Complaints() {
             <ImagePlus size={17} /> {photoName ? 'ફોટો ✓' : 'ફોટો ઉમેરો'}
             <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; setPhotoName(f?.name ?? ''); setPhotoFile(f) }} />
           </label>
-          <button disabled className="min-h-[46px] rounded-xl border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center gap-2 text-[13.5px] font-semibold text-navy-300">
+          <button type="button" disabled className="min-h-[46px] rounded-xl border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center gap-2 text-[13.5px] font-semibold text-navy-300">
             <Mic size={17} /> વૉઇસ નોટ (જલ્દી)
           </button>
         </div>
@@ -129,9 +130,10 @@ export default function Complaints() {
           </div>
         )}
         <div className="flex gap-2 pt-1">
-          <Button variant="soft" full onClick={() => setOpen(false)}>રદ કરો</Button>
-          <Button full onClick={submit} disabled={!title.trim()}>ફરિયાદ નોંધાવો</Button>
+          <Button type="button" variant="soft" full onClick={() => setOpen(false)}>રદ કરો</Button>
+          <Button type="submit" full disabled={!title.trim()}>ફરિયાદ નોંધાવો</Button>
         </div>
+        </form>
       </Modal>
     </div>
   )

@@ -1,14 +1,11 @@
 /* Self-hosted fonts (via @fontsource), not the Google Fonts CDN: no
    third-party request on every page load, and no resident IP addresses
-   leaked to Google, which matters for the "data in India" positioning. */
-@import '@fontsource/noto-sans-gujarati/400.css';
-@import '@fontsource/noto-sans-gujarati/500.css';
-@import '@fontsource/noto-sans-gujarati/600.css';
-@import '@fontsource/noto-sans-gujarati/700.css';
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/500.css';
-@import '@fontsource/inter/600.css';
-@import '@fontsource/inter/700.css';
+   leaked to Google, which matters for the "data in India" positioning.
+   ./fonts.css declares only the Unicode subsets this app actually needs
+   (Gujarati + Latin) instead of every subset each font package ships -
+   see that file's own comment for the reasoning and the exact size
+   difference this made. */
+@import './fonts.css';
 
 @tailwind base;
 @tailwind components;

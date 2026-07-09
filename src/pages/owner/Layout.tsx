@@ -11,6 +11,7 @@ import { LayoutDashboard, Building2, Wallet, Inbox, ScrollText, ArrowLeftRight, 
 import { useData } from '../../lib/store'
 import { PranganBrand } from '../../components/PranganBrand'
 import { useAppLang } from '../../lib/useAppLang'
+import { SyncFailureBanner } from '../../components/SyncFailureBanner'
 
 const nav = [
   { to: '/owner', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true },
@@ -57,6 +58,7 @@ export default function OwnerLayout() {
 
   return (
     <div className="min-h-screen bg-cream-100 flex">
+      <SyncFailureBanner />
       <aside className="hidden md:flex md:w-64 md:flex-col bg-brand-navy shrink-0">{sidebar}</aside>
 
       {open && (

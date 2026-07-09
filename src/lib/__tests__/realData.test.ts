@@ -66,7 +66,9 @@ describe('fetchSocietyFinancials', () => {
 describe('insertBillsReal', () => {
   it('maps camelCase bills into the real snake_case columns, including the client-provided id', async () => {
     const insert = vi.fn().mockResolvedValue({ error: null })
-    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ insert }) } }))
+    vi.doMock('../supabase', () => ({
+      supabase: { from: () => ({ select: () => ({ in: () => Promise.resolve({ data: [], error: null }) }), insert }) },
+    }))
     const { insertBillsReal } = await import('../realData')
 
     await insertBillsReal([{ id: 'b1', societyId: 'soc1', flatId: 'f1', month: '2027-01', amount: 1200, paidAmount: 0, dueDate: '2027-01-10' }])
@@ -80,6 +82,34 @@ describe('insertBillsReal', () => {
     await insertBillsReal([])
     expect(insert).not.toHaveBeenCalled()
   })
+
+  it('on a retry, filters out whichever bills in the batch already exist and only inserts the rest - not all-or-nothing', async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null })
+    vi.doMock('../supabase', () => ({
+      supabase: {
+        from: () => ({
+          select: () => ({ in: () => Promise.resolve({ data: [{ id: 'b1' }], error: null }) }), // b1 already exists, b2 doesn't
+          insert,
+        }),
+      },
+    }))
+    const { insertBillsReal } = await import('../realData')
+    await insertBillsReal([
+      { id: 'b1', societyId: 'soc1', flatId: 'f1', month: '2027-01', amount: 1200, paidAmount: 0, dueDate: '2027-01-10' },
+      { id: 'b2', societyId: 'soc1', flatId: 'f2', month: '2027-01', amount: 1200, paidAmount: 0, dueDate: '2027-01-10' },
+    ])
+    expect(insert).toHaveBeenCalledWith([{ id: 'b2', society_id: 'soc1', flat_id: 'f2', month: '2027-01', amount: 1200, paid_amount: 0, due_date: '2027-01-10', note: null }])
+  })
+
+  it('skips the insert call entirely when every bill in the batch already exists', async () => {
+    const insert = vi.fn()
+    vi.doMock('../supabase', () => ({
+      supabase: { from: () => ({ select: () => ({ in: () => Promise.resolve({ data: [{ id: 'b1' }], error: null }) }), insert }) },
+    }))
+    const { insertBillsReal } = await import('../realData')
+    await insertBillsReal([{ id: 'b1', societyId: 'soc1', flatId: 'f1', month: '2027-01', amount: 1200, paidAmount: 0, dueDate: '2027-01-10' }])
+    expect(insert).not.toHaveBeenCalled()
+  })
 })
 
 describe('recordPaymentReal', () => {
@@ -88,6 +118,7 @@ describe('recordPaymentReal', () => {
     vi.doMock('../supabase', () => ({
       supabase: {
         from: (table: string) => ({
+          select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }),
           insert: (payload: unknown) => { calls.push({ table, payload }); return Promise.resolve({ error: null }) },
           update: (payload: unknown) => { calls.push({ table, payload }); return { eq: () => Promise.resolve({ error: null }) } },
         }),
@@ -105,13 +136,14 @@ describe('recordPaymentReal', () => {
     expect(billUpdate?.payload).toEqual({ paid_amount: 1000 }) // capped at the bill's total, not 700+500=1200
   })
 
-  it('does not touch the bill at all for a pending or failed payment', async () => {
+  it('skips the insert entirely on a retry where the payment row already exists, and still does not touch the bill for a pending or failed payment either way', async () => {
     const calls: string[] = []
     vi.doMock('../supabase', () => ({
       supabase: {
         from: (table: string) => ({
-          insert: () => Promise.resolve({ error: null }),
-          update: () => { calls.push(table); return { eq: () => Promise.resolve({ error: null }) } },
+          select: () => ({ eq: () => Promise.resolve({ count: 1, error: null }) }), // simulates the row already existing, e.g. a retry
+          insert: () => { calls.push(`${table}:insert`); return Promise.resolve({ error: null }) },
+          update: () => { calls.push(`${table}:update`); return { eq: () => Promise.resolve({ error: null }) } },
         }),
       },
     }))
@@ -120,7 +152,8 @@ describe('recordPaymentReal', () => {
       { id: 'p1', societyId: 'soc1', flatId: 'f1', billId: 'b1', date: '2027-01-05', amount: 500, mode: 'upi', status: 'pending_confirmation' },
       0, 1000,
     )
-    expect(calls).not.toContain('bills')
+    expect(calls).not.toContain('payments:insert') // the row already existed, so no duplicate insert
+    expect(calls).not.toContain('bills:update') // pending status still doesn't touch the bill
   })
 })
 
@@ -167,6 +200,7 @@ describe('insertComplaintReal', () => {
     vi.doMock('../supabase', () => ({
       supabase: {
         from: (table: string) => ({
+          select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }), // neither row exists yet
           insert: (payload: unknown) => { calls.push({ table, payload }); return Promise.resolve({ error: null }) },
         }),
       },
@@ -180,6 +214,25 @@ describe('insertComplaintReal', () => {
     expect(calls.some(c => c.table === 'complaints')).toBe(true)
     const timelineCall = calls.find(c => c.table === 'complaint_timeline')
     expect(timelineCall?.payload).toMatchObject({ complaint_id: 'c1', status: 'new', by_name: 'Resident' })
+  })
+
+  it('on a retry where both rows already exist, inserts neither again - the real scenario this exists for: the complaint succeeded but a later step (the photo upload) failed, and the whole sequence gets retried', async () => {
+    const calls: string[] = []
+    vi.doMock('../supabase', () => ({
+      supabase: {
+        from: (table: string) => ({
+          select: () => ({ eq: () => Promise.resolve({ count: 1, error: null }) }), // both rows already exist
+          insert: (_payload: unknown) => { calls.push(table); return Promise.resolve({ error: null }) },
+        }),
+      },
+    }))
+    const { insertComplaintReal } = await import('../realData')
+    await insertComplaintReal({
+      id: 'c1', societyId: 'soc1', flatId: 'f1', category: 'Lift', title: 'Noisy', detail: 'x', priority: 'normal',
+      status: 'new', createdAt: '2027-01-01', internalNotes: [], visibility: 'personal',
+      timeline: [{ date: '2027-01-01', status: 'new', by: 'Resident' }],
+    })
+    expect(calls).toEqual([]) // neither insert call happened - retry-safe, not just retry-attempted
   })
 })
 
@@ -309,7 +362,7 @@ describe('notices', () => {
 
   it('insertNoticeReal maps camelCase into the real columns', async () => {
     const insert = vi.fn().mockResolvedValue({ error: null })
-    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ insert }) } }))
+    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }), insert }) } }))
     const { insertNoticeReal } = await import('../realData')
     await insertNoticeReal({ id: 'n1', societyId: 'soc1', title: 'Water cut', body: 'x', date: '2027-01-01', category: 'Maintenance', pinned: false })
     expect(insert).toHaveBeenCalledWith({ id: 'n1', society_id: 'soc1', title: 'Water cut', body: 'x', date: '2027-01-01', category: 'Maintenance', pinned: false })
@@ -355,7 +408,7 @@ describe('documents', () => {
 
   it('insertDocumentReal maps camelCase into the real columns', async () => {
     const insert = vi.fn().mockResolvedValue({ error: null })
-    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ insert }) } }))
+    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }), insert }) } }))
     const { insertDocumentReal } = await import('../realData')
     await insertDocumentReal({ id: 'd1', societyId: 'soc1', name: 'AGM Minutes', folder: 'General', permission: 'public', date: '2027-01-01', size: '1.2 MB' })
     expect(insert).toHaveBeenCalledWith({ id: 'd1', society_id: 'soc1', name: 'AGM Minutes', folder: 'General', permission: 'public', date: '2027-01-01', size_label: '1.2 MB' })
@@ -409,7 +462,7 @@ describe('memberships', () => {
 
   it('insertMembershipReal maps camelCase into the real columns, including the client-provided id', async () => {
     const insert = vi.fn().mockResolvedValue({ error: null })
-    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ insert }) } }))
+    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }), insert }) } }))
     const { insertMembershipReal } = await import('../realData')
     await insertMembershipReal({ id: 'm1', societyId: 'soc1', email: 'a@example.com', role: 'committee_member', status: 'active', createdAt: '2027-01-01' })
     expect(insert).toHaveBeenCalledWith({
@@ -440,7 +493,7 @@ describe('vendors', () => {
 
   it('insertVendorReal maps camelCase into the real columns', async () => {
     const insert = vi.fn().mockResolvedValue({ error: null })
-    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ insert }) } }))
+    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }), insert }) } }))
     const { insertVendorReal } = await import('../realData')
     await insertVendorReal({ id: 'v1', societyId: 'soc1', name: 'ABC Lift Co', service: 'Lift AMC', contactPerson: 'Ramesh', phone: '9000000000' })
     expect(insert).toHaveBeenCalledWith({ id: 'v1', society_id: 'soc1', name: 'ABC Lift Co', service: 'Lift AMC', contact_person: 'Ramesh', phone: '9000000000', amc_start: null, amc_end: null, notes: null })
@@ -473,7 +526,7 @@ describe('vehicles', () => {
 
   it('insertVehicleReal maps camelCase into the real columns', async () => {
     const insert = vi.fn().mockResolvedValue({ error: null })
-    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ insert }) } }))
+    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }), insert }) } }))
     const { insertVehicleReal } = await import('../realData')
     await insertVehicleReal({ id: 've1', societyId: 'soc1', flatId: 'f1', kind: '2W', number: 'GJ05CD5678', slot: 'A-3', ownerType: 'tenant' })
     expect(insert).toHaveBeenCalledWith({ id: 've1', society_id: 'soc1', flat_id: 'f1', kind: '2W', number: 'GJ05CD5678', slot: 'A-3', owner_type: 'tenant' })
@@ -677,9 +730,43 @@ describe('owner console aggregates: flats, memberships, platform billing, audit 
 
   it('insertImpersonationLogReal and exitImpersonationLogReal map correctly, including the reason field', async () => {
     const insert = vi.fn().mockResolvedValue({ error: null })
-    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ insert }) } }))
+    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }), insert }) } }))
     const { insertImpersonationLogReal } = await import('../realData')
     await insertImpersonationLogReal({ id: 'imp1', societyId: 'soc1', enteredAt: '2027-01-01T00:00:00Z', mode: 'write', reason: 'checking billing' })
     expect(insert).toHaveBeenCalledWith({ id: 'imp1', society_id: 'soc1', mode: 'write', reason: 'checking billing' })
+  })
+})
+
+describe('expenses (the module an external audit caught as never having been moved to real data)', () => {
+  it('fetchSocietyExpenses maps rows into the expected shape', async () => {
+    vi.doMock('../supabase', () => ({
+      supabase: {
+        from: () => ({
+          select: () => ({
+            eq: () => Promise.resolve({
+              data: [{ id: 'e1', society_id: 'soc1', date: '2027-01-15', category: 'Lift Maintenance', vendor_id: 'v1', amount: 4500, mode: 'upi', note: null, bill_file: null }],
+              error: null,
+            }),
+          }),
+        }),
+      },
+    }))
+    const { fetchSocietyExpenses } = await import('../realData')
+    const result = await fetchSocietyExpenses('soc1')
+    expect(result).toEqual([{ id: 'e1', societyId: 'soc1', date: '2027-01-15', category: 'Lift Maintenance', vendorId: 'v1', amount: 4500, mode: 'upi', note: undefined, billFile: undefined }])
+  })
+
+  it('insertExpenseReal maps camelCase into the real columns', async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null })
+    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }), insert }) } }))
+    const { insertExpenseReal } = await import('../realData')
+    await insertExpenseReal({ id: 'e1', societyId: 'soc1', date: '2027-01-15', category: 'Lift Maintenance', amount: 4500, mode: 'upi' })
+    expect(insert).toHaveBeenCalledWith({ id: 'e1', society_id: 'soc1', date: '2027-01-15', category: 'Lift Maintenance', vendor_id: null, amount: 4500, mode: 'upi', note: null, bill_file: null })
+  })
+
+  it('throws rather than silently succeeding when Supabase reports an error', async () => {
+    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ insert: vi.fn().mockResolvedValue({ error: { message: 'boom' } }) }) } }))
+    const { insertExpenseReal } = await import('../realData')
+    await expect(insertExpenseReal({ id: 'e1', societyId: 'soc1', date: '2027-01-15', category: 'x', amount: 100, mode: 'cash' })).rejects.toBeTruthy()
   })
 })

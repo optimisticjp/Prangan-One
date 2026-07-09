@@ -38,34 +38,36 @@ export default function Expenses() {
         actions={<Button variant="soft" onClick={csv}><Download size={16} /> CSV</Button>} />
 
       <Card className="animate-fadeUp">
-        <div className="grid sm:grid-cols-3 gap-3">
-          <Field label="તારીખ"><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></Field>
-          <Field label="કેટેગરી">
-            <Select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-              {expenseCategories.map(c => <option key={c}>{c}</option>)}
-            </Select>
-          </Field>
-          <Field label="વેન્ડર (વૈકલ્પિક)">
-            <Select value={form.vendorId} onChange={e => setForm({ ...form, vendorId: e.target.value })}>
-              <option value="">કોઈ નહીં</option>
-              {db.vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </Select>
-          </Field>
-          <Field label="રકમ (₹)"><Input type="number" inputMode="numeric" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /></Field>
-          <Field label="ચુકવણી પ્રકાર">
-            <Select value={form.mode} onChange={e => setForm({ ...form, mode: e.target.value as PayMode })}>
-              {(Object.keys(payModeLabel) as PayMode[]).map(m => <option key={m} value={m}>{payModeLabel[m]}</option>)}
-            </Select>
-          </Field>
-          <Field label="નોંધ"><Input value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="શેના માટે?" /></Field>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <label className="inline-flex items-center gap-2 text-[13.5px] font-semibold text-navy-500 border border-dashed border-cream-300 bg-cream-50 rounded-xl px-3.5 py-2.5 cursor-pointer">
-            <Paperclip size={16} /> {form.billFile ? `બિલ: ${form.billFile}` : 'બિલનો ફોટો જોડો (ડેમો)'}
-            <input type="file" className="hidden" onChange={e => setForm({ ...form, billFile: e.target.files?.[0]?.name ?? '' })} />
-          </label>
-          <Button variant="accent" onClick={submit} disabled={!Number(form.amount)}>ખર્ચ નોંધો</Button>
-        </div>
+        <form onSubmit={e => { e.preventDefault(); submit() }}>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <Field label="તારીખ"><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required /></Field>
+            <Field label="કેટેગરી">
+              <Select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                {expenseCategories.map(c => <option key={c}>{c}</option>)}
+              </Select>
+            </Field>
+            <Field label="વેન્ડર (વૈકલ્પિક)">
+              <Select value={form.vendorId} onChange={e => setForm({ ...form, vendorId: e.target.value })}>
+                <option value="">કોઈ નહીં</option>
+                {db.vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </Select>
+            </Field>
+            <Field label="રકમ (₹)"><Input type="number" inputMode="numeric" min="1" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required /></Field>
+            <Field label="ચુકવણી પ્રકાર">
+              <Select value={form.mode} onChange={e => setForm({ ...form, mode: e.target.value as PayMode })}>
+                {(Object.keys(payModeLabel) as PayMode[]).map(m => <option key={m} value={m}>{payModeLabel[m]}</option>)}
+              </Select>
+            </Field>
+            <Field label="નોંધ"><Input value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="શેના માટે?" /></Field>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="inline-flex items-center gap-2 text-[13.5px] font-semibold text-navy-500 border border-dashed border-cream-300 bg-cream-50 rounded-xl px-3.5 py-2.5 cursor-pointer">
+              <Paperclip size={16} /> {form.billFile ? `બિલ: ${form.billFile}` : 'બિલનો ફોટો જોડો (ડેમો)'}
+              <input type="file" className="hidden" onChange={e => setForm({ ...form, billFile: e.target.files?.[0]?.name ?? '' })} />
+            </label>
+            <Button type="submit" variant="accent" disabled={!Number(form.amount)}>ખર્ચ નોંધો</Button>
+          </div>
+        </form>
       </Card>
 
       <div className="grid lg:grid-cols-3 gap-4 mt-4">

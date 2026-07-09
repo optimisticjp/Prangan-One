@@ -1,32 +1,44 @@
 /**
- * Local-first data layer, now multi-tenant, with the full role model and
- * subscription write-guard.
+ * The data layer, serving two genuinely different modes from one shared
+ * API - a real Supabase-backed session and a local-only demo session both
+ * call the exact same useData() hook and get back the same shape, so no
+ * page ever needs to know or care which one it's actually talking to.
  *
- * Everything lives in one DB object persisted to localStorage. First run
- * seeds from /sample-data/*.json. "ડેમો ડેટા રીસેટ" in Settings clears the
- * key and re-seeds.
+ * Local demo mode: everything lives in one DB object persisted to
+ * localStorage. First run seeds from /sample-data/*.json. "ડેમો ડેટા
+ * રીસેટ" in Settings clears the key and re-seeds. Entirely browser-only,
+ * nothing here is ever sent anywhere.
  *
- * Multi-tenancy: db.societies is always the FULL list (every society on the
- * platform - the owner console needs to see all of them). Every other
- * society-owned table is scoped to the active society (session.societyId)
- * before it's handed to pages. The raw, unscoped state lives in this file
- * only; nothing outside it ever sees cross-society data by accident.
+ * Real sessions: every core module (societies, flats, bills, payments,
+ * adjustments, complaints, notices, documents, memberships, vendors,
+ * vehicles, polls, events, expenses, platform billing, audit logs,
+ * impersonation logs, leads) reads and writes through Supabase for real -
+ * see realData.ts for the actual fetch/insert/update functions, and
+ * attemptRealWrite below for how a failed real write surfaces and retries
+ * rather than failing silently. One known, deliberate exception: an owner
+ * support session's own log entry is real, but the society being viewed
+ * during that session still comes from the local layer for now.
+ *
+ * Multi-tenancy: db.societies is always the FULL list for a real owner (the
+ * owner console needs to see every society on the platform - RLS itself is
+ * what actually enforces this is only true for a genuine owner, not the
+ * shape of the query). Every other society-owned table is scoped to the
+ * active society (session.societyId) before it's handed to pages. The raw,
+ * unscoped state lives in this file only; nothing outside it ever sees
+ * cross-society data by accident.
  *
  * Write guard: every mutating action goes through guardedSetDb, which
  * checks canWrite() (src/lib/subscription.ts) before touching state. Owner
- * writes are never blocked. This is a real, working guard against the LOCAL
- * state - it is NOT a substitute for the Supabase RLS enforcement that has
- * to exist once this swaps to a real backend (see supabase/schema.sql),
- * since a browser-side check can always be bypassed by someone editing
- * their own client. Real enforcement lives in the database, always.
- *
- * Swap plan (see CLAUDE_CODE_NEXT_STEPS.md and docs/PRANGAN_ONE_ROADMAP.md):
- * keep this file's public API (useData + action names) and replace the
- * internals with Supabase calls. Pages never touch localStorage directly,
- * so the swap stays contained here. See src/lib/data/ for the adapter split
- * that makes this swap concrete rather than aspirational.
+ * writes are never blocked. This is a real, working guard for local demo
+ * state - for real sessions, the same rules are also independently
+ * enforced by Supabase's own Row Level Security (see supabase/schema.sql
+ * and supabase/tests/run-isolation-tests.sh for the automated, repeatable
+ * proof of that), since a browser-side check alone can always be bypassed
+ * by someone editing their own client. Real enforcement lives in the
+ * database, always, this guard is the local-demo-mode equivalent of it,
+ * not a substitute for it.
  */
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type {
   Adjustment, AuditLogEntry, Bill, Complaint, ComplaintStatus, DB, Doc, DocPermission, Expense,
@@ -48,6 +60,7 @@ import {
   fetchSocietyContacts,
   fetchSocietyPolls, insertPollReal, closePollReal, insertPollVoteReal,
   fetchSocietyEvents, insertEventReal, insertContributionReal, insertVolunteerReal, insertEventExpenseReal,
+  fetchSocietyExpenses, insertExpenseReal,
   fetchAllFlatsForOwner, fetchAllMembershipsForOwner,
   fetchAllPlatformBilling, insertPlatformBillingReal, updatePlatformBillingReal,
   fetchAllAuditLogs, fetchAllImpersonationLogs, insertImpersonationLogReal, exitImpersonationLogReal,
@@ -88,6 +101,7 @@ import platformBillingJson from '../../sample-data/platformBilling.json'
 import leadsJson from '../../sample-data/leads.json'
 import auditLogsJson from '../../sample-data/auditLogs.json'
 import impersonationLogsJson from '../../sample-data/impersonationLogs.json'
+import { fetchPublicLeads } from './leads'
 
 const DB_KEY = 'rt_db_v3'
 const SESSION_KEY = 'rt_session_v3'
@@ -239,6 +253,23 @@ interface Store {
    * false/null to show the person something real instead of nothing
    * happening. */
   lastBlockedReason: string | null
+  /**
+   * A real write that was permitted locally (unlike lastBlockedReason,
+   * which is about permission) but failed when actually reaching the
+   * database - previously this class of failure was invisible, the
+   * screen would show the change as if it had saved and nothing further
+   * would happen. Every real write now goes through attemptRealWrite
+   * internally (see its own comment), which populates this list on
+   * failure and clears the corresponding entry on success, including a
+   * successful retry. Keyed by the item's own id, in insertion order, so
+   * the UI can render one entry per failed thing rather than a single
+   * generic "something went wrong" message.
+   */
+  failedWrites: { id: string; label: string }[]
+  /** Re-attempts the exact same write that failed - not a generic refetch, the original operation itself, with its original data. */
+  retryFailedWrite: (id: string) => void
+  /** Removes a failed-write entry without retrying - for someone who's decided to just redo the action manually instead, or doesn't want the notice sitting there anymore. */
+  dismissFailedWrite: (id: string) => void
   /* subscription / write guard */
   canWriteNow: boolean
   subscriptionBannerFor: (audience: 'admin' | 'resident') => string | null
@@ -374,6 +405,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // warning nobody but a developer would ever see.
   const [lastBlockedReason, setLastBlockedReason] = useState<string | null>(null)
 
+  // failedWrites holds only what the UI needs to render (id + label);
+  // the actual retry closures live in a ref instead of state, since a
+  // function isn't something React state is meant to hold or compare -
+  // the ref is the source of truth for "how do I retry this exact
+  // operation," the state array is purely what triggers a re-render.
+  const failedWriteRetries = useRef<Map<string, () => void>>(new Map())
+  const [failedWrites, setFailedWrites] = useState<{ id: string; label: string }[]>([])
+
+  // The one place every real write's failure handling actually lives now,
+  // instead of 33 separate ".catch(() => { /* local state already
+  // reflects it */ })" blocks that quietly did nothing. label is what a
+  // person sees ("ફરિયાદ", "ચુકવણી") if this specific save fails - id is
+  // whatever id the local optimistic item already has, so a retry that
+  // succeeds removes exactly the right entry, not just "the most recent
+  // one." Genuinely re-attempts the original operation on retry, not a
+  // refetch or a different write - same writeFn, called again.
+  const attemptRealWrite = (id: string, label: string, writeFn: () => Promise<void>) => {
+    writeFn()
+      .then(() => {
+        failedWriteRetries.current.delete(id)
+        setFailedWrites(prev => prev.filter(f => f.id !== id))
+      })
+      .catch(() => {
+        failedWriteRetries.current.set(id, () => attemptRealWrite(id, label, writeFn))
+        setFailedWrites(prev => (prev.some(f => f.id === id) ? prev : [...prev, { id, label }]))
+      })
+  }
+
   useEffect(() => {
     try { localStorage.setItem(DB_KEY, JSON.stringify(db)) } catch { /* storage full */ }
   }, [db])
@@ -412,10 +471,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (session.role === 'owner') {
       Promise.all([
         fetchAllSocieties(), fetchAllFlatsForOwner(), fetchAllMembershipsForOwner(),
-        fetchAllPlatformBilling(), fetchAllAuditLogs(), fetchAllImpersonationLogs(),
+        fetchAllPlatformBilling(), fetchAllAuditLogs(), fetchAllImpersonationLogs(), fetchPublicLeads(),
       ])
-        .then(([societies, flats, memberships, platformBilling, auditLogs, impersonationLogs]) => {
-          if (!cancelled) setDb(d => ({ ...d, societies, flats, memberships, platformBilling, auditLogs, impersonationLogs }))
+        .then(([societies, flats, memberships, platformBilling, auditLogs, impersonationLogs, leads]) => {
+          if (!cancelled) setDb(d => ({ ...d, societies, flats, memberships, platformBilling, auditLogs, impersonationLogs, leads }))
         })
         .catch(() => { /* the person still sees whatever was already loaded */ })
         .finally(() => { if (!cancelled) setFinancialsLoading(false) })
@@ -434,8 +493,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       fetchSocietyContacts(activeSocietyId),
       fetchSocietyPolls(activeSocietyId),
       fetchSocietyEvents(activeSocietyId),
+      fetchSocietyExpenses(activeSocietyId),
     ])
-      .then(([{ flats, bills, payments, adjustments }, complaints, notices, society, documents, memberships, vendors, vehicles, contacts, polls, events]) => {
+      .then(([{ flats, bills, payments, adjustments }, complaints, notices, society, documents, memberships, vendors, vehicles, contacts, polls, events, expenses]) => {
         if (cancelled) return
         setDb(d => ({
           ...d,
@@ -453,6 +513,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           contacts: [...d.contacts.filter(c => c.societyId !== activeSocietyId), ...contacts],
           polls: [...d.polls.filter(p => p.societyId !== activeSocietyId), ...polls],
           events: [...d.events.filter(ev => ev.societyId !== activeSocietyId), ...events],
+          expenses: [...d.expenses.filter(e => e.societyId !== activeSocietyId), ...expenses],
         }))
       })
       .catch(() => { /* the person still sees whatever was already loaded; a real error-surface for this is worth adding later */ })
@@ -566,6 +627,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     return {
       db: scopedDb, rawDb: db, session, society, financialsLoading, lastBlockedReason, canWriteNow,
+      failedWrites,
+      retryFailedWrite: (id) => { failedWriteRetries.current.get(id)?.() },
+      dismissFailedWrite: (id) => {
+        failedWriteRetries.current.delete(id)
+        setFailedWrites(prev => prev.filter(f => f.id !== id))
+      },
       subscriptionBannerFor: (audience) => statusBanner(society, audience),
 
       setSubscriptionStatus: (societyId, status) => {
@@ -587,29 +654,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
           setSession({ role, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false })
         }
       },
-      // Clears the real (Supabase-fetched) financial data for whichever
-      // society this session was actually looking at, if it was a real
-      // session at all - this used to not happen, meaning a real login's
-      // bills/payments/flats/adjustments stayed cached in this browser's
-      // local storage indefinitely. On a shared device that meant the
-      // data was still readable after signing out, and a second person
-      // from a different society logging in on the same device would add
-      // their data alongside the first person's rather than replacing it,
-      // since nothing ever cleared it. Local demo data (which belongs to
-      // DEFAULT_SOCIETY_ID or another seeded id, never the real society
-      // this session was in) is untouched by this.
+      // Resets to a completely fresh baseline for any real session - not a
+      // surgical filter of "just this society's four fields," which is
+      // what this used to do and was already wrong the moment complaints,
+      // notices, documents, memberships, vendors, vehicles, contacts,
+      // polls, and events all got their own real fetches: none of those
+      // were ever cleared here, so they stayed cached in this browser
+      // indefinitely after signing out. A full reset also correctly
+      // handles the owner's own session, whose data (every society, every
+      // flat, platform billing, the audit log, leads) was never scoped to
+      // one society to begin with, so filtering by societyId could never
+      // have cleaned it up even if it had been included. On a shared
+      // device this means every trace of real data is gone the moment
+      // someone signs out - not just readable-until-overwritten, actually
+      // gone. Local demo data is unaffected by this in the sense that a
+      // fresh demo seed is what real data gets replaced with, so /demo
+      // still works normally right after a real logout, not left empty.
       logout: () => {
         const wasReal = session.isRealSession
-        const leavingSocietyId = activeSocietyId
         setSession({ role: null, flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false })
         if (wasReal) {
-          setDb(d => ({
-            ...d,
-            flats: d.flats.filter(f => f.societyId !== leavingSocietyId),
-            bills: d.bills.filter(b => b.societyId !== leavingSocietyId),
-            payments: d.payments.filter(p => p.societyId !== leavingSocietyId),
-            adjustments: d.adjustments.filter(a => a.societyId !== leavingSocietyId),
-          }))
+          setDb(DEMO_SEED_ENABLED ? buildSeed() : emptySeed())
         }
       },
       enterSociety: (societyId, role, mode = 'readonly', reason) => {
@@ -622,7 +687,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const log: ImpersonationLog = { id: wasRealOwner ? realUid() : uid('imp'), societyId, enteredAt: new Date().toISOString(), mode, reason }
         setDb(d => ({ ...d, impersonationLogs: [log, ...d.impersonationLogs] }))
         if (wasRealOwner) {
-          insertImpersonationLogReal(log).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(log.id, 'સપોર્ટ સેશન લોગ', () => insertImpersonationLogReal(log))
         }
         setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true, isRealSession: false, supportMode: mode })
       },
@@ -637,7 +702,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         // simpler than threading the owner's real-session state through
         // a second time here.
         if (current && !current.id.startsWith('imp_')) {
-          exitImpersonationLogReal(current.id).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(current.id, 'સપોર્ટ સેશન બંધ', () => exitImpersonationLogReal(current.id))
         }
         setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false })
       },
@@ -687,14 +752,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       approveMembership: (membershipId) => {
         const ok = guardedSetDb(d => ({ ...d, memberships: d.memberships.map(m => m.id === membershipId ? { ...m, status: 'active' } : m) }))
         if (ok && session.isRealSession) {
-          approveMembershipReal(membershipId).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(membershipId, 'સભ્યપદ મંજૂરી', () => approveMembershipReal(membershipId))
         }
       },
 
       rejectMembership: (membershipId) => {
         const ok = guardedSetDb(d => ({ ...d, memberships: d.memberships.filter(m => m.id !== membershipId) }))
         if (ok && session.isRealSession) {
-          rejectMembershipReal(membershipId).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(membershipId, 'સભ્યપદ નકારવું', () => rejectMembershipReal(membershipId))
         }
       },
 
@@ -760,8 +825,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (fresh.length) {
           guardedSetDb(d => ({ ...d, bills: [...d.bills, ...fresh], adjustments: [...creditAdjustments, ...d.adjustments] }))
           if (session.isRealSession) {
-            insertBillsReal(fresh).catch(() => { /* local state already reflects it; a real error-surface for this is worth adding later */ })
-            for (const adj of creditAdjustments) insertAdjustmentReal(adj).catch(() => { /* same */ })
+            attemptRealWrite(`bills-${activeSocietyId}-${month}`, `${month} બિલ`, () => insertBillsReal(fresh))
+            for (const adj of creditAdjustments) attemptRealWrite(adj.id, 'ક્રેડિટ એડજસ્ટમેન્ટ', () => insertAdjustmentReal(adj))
           }
         }
         return fresh.length
@@ -794,20 +859,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return { ...d, bills, societies, payments: [pay, ...d.payments], adjustments: overpayAdj ? [overpayAdj, ...d.adjustments] : d.adjustments }
         })
         if (ok && session.isRealSession) {
-          recordPaymentReal(pay, targetBill?.paidAmount ?? 0, targetBill?.amount ?? amount)
-            .then(async () => {
-              // Same reasoning as addComplaint's photo upload - the
-              // payment row has to exist in the real database first (the
-              // storage policy checks for it), so the proof screenshot
-              // uploads as a genuine second step, not part of the
-              // original insert.
-              if (!proofFile) return
-              const path = await uploadPrivateFile('payment-proof', pay.id, proofFile)
-              await updatePaymentReal(pay.id, { proofPath: path })
-              setDb(d => ({ ...d, payments: d.payments.map(x => x.id === pay.id ? { ...x, proofPath: path } : x) }))
-            })
-            .catch(() => { /* local state already reflects the payment itself; a proof upload failure specifically doesn't have its own retry/error surface yet */ })
-          if (overpayAdj) insertAdjustmentReal(overpayAdj).catch(() => { /* same */ })
+          attemptRealWrite(pay.id, 'ચુકવણી', () =>
+            recordPaymentReal(pay, targetBill?.paidAmount ?? 0, targetBill?.amount ?? amount)
+              .then(async () => {
+                // Same reasoning as addComplaint's photo upload - the
+                // payment row has to exist in the real database first (the
+                // storage policy checks for it), so the proof screenshot
+                // uploads as a genuine second step, not part of the
+                // original insert.
+                if (!proofFile) return
+                const path = await uploadPrivateFile('payment-proof', pay.id, proofFile)
+                await updatePaymentReal(pay.id, { proofPath: path })
+                setDb(d => ({ ...d, payments: d.payments.map(x => x.id === pay.id ? { ...x, proofPath: path } : x) }))
+              }))
+          if (overpayAdj) attemptRealWrite(overpayAdj.id, 'ક્રેડિટ એડજસ્ટમેન્ટ', () => insertAdjustmentReal(overpayAdj))
         }
         return ok ? pay : null
       },
@@ -826,10 +891,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
         })
         if (session.isRealSession) {
-          updatePaymentReal(paymentId, { status: 'success', receiptNo }).catch(() => { /* local state already reflects it */ })
-          if (p.billId && targetBill) {
-            updateBillPaidAmountReal(p.billId, Math.min(targetBill.amount, targetBill.paidAmount + p.amount)).catch(() => { /* same */ })
-          }
+          attemptRealWrite(paymentId, 'ચુકવણી પુષ્ટિ', async () => {
+            await updatePaymentReal(paymentId, { status: 'success', receiptNo })
+            if (p.billId && targetBill) {
+              await updateBillPaidAmountReal(p.billId, Math.min(targetBill.amount, targetBill.paidAmount + p.amount))
+            }
+          })
         }
       },
       cancelReceipt: (paymentId, reason) => {
@@ -848,10 +915,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
         })
         if (session.isRealSession) {
-          updatePaymentReal(paymentId, { cancelled: true, cancelReason: reason }).catch(() => { /* local state already reflects it */ })
-          if (p.billId && targetBill) {
-            updateBillPaidAmountReal(p.billId, Math.max(0, targetBill.paidAmount - p.amount)).catch(() => { /* same */ })
-          }
+          attemptRealWrite(paymentId, 'રસીદ રદ કરવી', async () => {
+            await updatePaymentReal(paymentId, { cancelled: true, cancelReason: reason })
+            if (p.billId && targetBill) {
+              await updateBillPaidAmountReal(p.billId, Math.max(0, targetBill.paidAmount - p.amount))
+            }
+          })
         }
       },
 
@@ -868,16 +937,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
           // The complaint has to exist in the real database before its
           // photo can be uploaded (the storage policy checks for that
           // row), so this is a real sequence, not a fire-and-forget
-          // write like most other real mutations - insert, then upload,
-          // then attach the resulting path back onto the same row.
-          insertComplaintReal(c)
-            .then(async () => {
+          // write - insert, then upload, then attach the resulting path
+          // back onto the same row. attemptRealWrite retries the whole
+          // sequence on failure, not just whichever step happened to fail.
+          attemptRealWrite(c.id, 'ફરિયાદ', () =>
+            insertComplaintReal(c).then(async () => {
               if (!photoFile) return
               const path = await uploadPrivateFile('complaint-photos', c.id, photoFile)
               await updateComplaintPhotoPathReal(c.id, path)
               setDb(d => ({ ...d, complaints: d.complaints.map(x => x.id === c.id ? { ...x, photoPath: path } : x) }))
-            })
-            .catch(() => { /* the complaint itself is already reflected locally; a photo upload failure specifically doesn't have its own retry/error surface yet */ })
+            }))
         }
         return ok ? c : null
       },
@@ -891,7 +960,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           } : c),
         }))
         if (ok && session.isRealSession) {
-          advanceComplaintReal(id, status, note, by, assignedTo).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(id, 'ફરિયાદ સ્થિતિ', () => advanceComplaintReal(id, status, note, by, assignedTo))
         }
       },
       addInternalNote: (id, note) => {
@@ -905,13 +974,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }),
         }))
         if (ok && session.isRealSession) {
-          updateComplaintNotesReal(id, updatedNotes).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(id, 'આંતરિક નોંધ', () => updateComplaintNotesReal(id, updatedNotes))
         }
       },
       addFeedback: (id, rating, comment) => {
         const ok = guardedSetDb(d => ({ ...d, complaints: d.complaints.map(c => c.id === id ? { ...c, feedback: { rating, comment } } : c) }))
         if (ok && session.isRealSession) {
-          updateComplaintFeedbackReal(id, { rating, comment }).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(id, 'પ્રતિભાવ', () => updateComplaintFeedbackReal(id, { rating, comment }))
         }
       },
       getComplaintPhotoUrl: async (photoPath) => {
@@ -946,7 +1015,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const notice: Notice = { id: session.isRealSession ? realUid() : uid('not'), societyId: activeSocietyId, date: todayISO(), ...n }
         const ok = guardedSetDb(d => ({ ...d, notices: [notice, ...d.notices] }))
         if (ok && session.isRealSession) {
-          insertNoticeReal(notice).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(notice.id, 'નોટિસ', () => insertNoticeReal(notice))
         }
       },
       togglePin: (id) => {
@@ -960,23 +1029,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }),
         }))
         if (ok && session.isRealSession) {
-          updateNoticePinnedReal(id, newPinned).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(id, 'નોટિસ પિન', () => updateNoticePinnedReal(id, newPinned))
         }
       },
 
-      addExpense: (e) =>
-        guardedSetDb(d => ({ ...d, expenses: [{ id: uid('exp'), societyId: activeSocietyId, ...e }, ...d.expenses] })),
+      addExpense: (e) => {
+        const expense: Expense = { id: session.isRealSession ? realUid() : uid('exp'), societyId: activeSocietyId, ...e }
+        const ok = guardedSetDb(d => ({ ...d, expenses: [expense, ...d.expenses] }))
+        if (ok && session.isRealSession) {
+          attemptRealWrite(expense.id, 'ખર્ચ', () => insertExpenseReal(expense))
+        }
+      },
       addVendor: (v) => {
         const vendor: Vendor = { id: session.isRealSession ? realUid() : uid('ven'), societyId: activeSocietyId, ...v }
         const ok = guardedSetDb(d => ({ ...d, vendors: [...d.vendors, vendor] }))
         if (ok && session.isRealSession) {
-          insertVendorReal(vendor).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(vendor.id, 'વેન્ડર', () => insertVendorReal(vendor))
         }
       },
       updateVendor: (id, patch) => {
         const ok = guardedSetDb(d => ({ ...d, vendors: d.vendors.map(v => v.id === id ? { ...v, ...patch } : v) }))
         if (ok && session.isRealSession) {
-          updateVendorReal(id, patch).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(id, 'વેન્ડર સુધારો', () => updateVendorReal(id, patch))
         }
       },
       addDocumentMeta: (doc) => {
@@ -984,14 +1058,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const d: Doc = { id: session.isRealSession ? realUid() : uid('doc'), societyId: activeSocietyId, date: todayISO(), ...meta }
         const ok = guardedSetDb(d2 => ({ ...d2, documents: [d, ...d2.documents] }))
         if (ok && session.isRealSession) {
-          insertDocumentReal(d)
-            .then(async () => {
+          attemptRealWrite(d.id, 'દસ્તાવેજ', () =>
+            insertDocumentReal(d).then(async () => {
               if (!file) return
               const path = await uploadPrivateFile('documents', d.id, file)
               await updateDocumentStoragePathReal(d.id, path)
               setDb(d2 => ({ ...d2, documents: d2.documents.map(x => x.id === d.id ? { ...x, storagePath: path } : x) }))
-            })
-            .catch(() => { /* the document record itself is already reflected locally; an upload failure specifically doesn't have its own retry/error surface yet */ })
+            }))
         }
       },
       getDocumentUrl: async (storagePath) => {
@@ -1007,13 +1080,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const poll: Poll = { id: session.isRealSession ? realUid() : uid('poll'), societyId: activeSocietyId, votes: {}, status: 'open', ...p }
         const ok = guardedSetDb(d => ({ ...d, polls: [poll, ...d.polls] }))
         if (ok && session.isRealSession) {
-          insertPollReal(poll).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(poll.id, 'મતદાન', () => insertPollReal(poll))
         }
       },
       closePoll: (id) => {
         const ok = guardedSetDb(d => ({ ...d, polls: d.polls.map(p => p.id === id ? { ...p, status: 'closed', resultVisible: true } : p) }))
         if (ok && session.isRealSession) {
-          closePollReal(id).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(id, 'મતદાન બંધ', () => closePollReal(id))
         }
       },
       vote: (pollId, flatId, optionIdx) => {
@@ -1026,7 +1099,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           polls: d.polls.map(p => p.id === pollId ? { ...p, votes: { ...p.votes, [flatId]: optionIdx } } : p),
         }))
         if (ok && session.isRealSession) {
-          insertPollVoteReal(pollId, flatId, optionIdx).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(`vote-${pollId}-${flatId}`, 'મત', () => insertPollVoteReal(pollId, flatId, optionIdx))
         }
         return ok
       },
@@ -1035,7 +1108,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const ev: SocietyEvent = { id: session.isRealSession ? realUid() : uid('evt'), societyId: activeSocietyId, contributions: [], volunteers: [], expenses: [], ...e }
         const ok = guardedSetDb(d => ({ ...d, events: [ev, ...d.events] }))
         if (ok && session.isRealSession) {
-          insertEventReal(ev).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(ev.id, 'ઇવેન્ટ', () => insertEventReal(ev))
         }
       },
       addContribution: (eventId, flatId, amount) => {
@@ -1046,19 +1119,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
             ? { ...ev, contributions: [...ev.contributions, { flatId, amount, date }] } : ev),
         }))
         if (ok && session.isRealSession) {
-          insertContributionReal(eventId, flatId, amount, date).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(`contribution-${eventId}-${flatId}`, 'ફાળો', () => insertContributionReal(eventId, flatId, amount, date))
         }
       },
       addVolunteer: (eventId, name) => {
         const ok = guardedSetDb(d => ({ ...d, events: d.events.map(ev => ev.id === eventId && !ev.volunteers.includes(name) ? { ...ev, volunteers: [...ev.volunteers, name] } : ev) }))
         if (ok && session.isRealSession) {
-          insertVolunteerReal(eventId, name).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(`volunteer-${eventId}-${name}`, 'વોલન્ટિયર', () => insertVolunteerReal(eventId, name))
         }
       },
       addEventExpense: (eventId, label, amount) => {
         const ok = guardedSetDb(d => ({ ...d, events: d.events.map(ev => ev.id === eventId ? { ...ev, expenses: [...ev.expenses, { label, amount }] } : ev) }))
         if (ok && session.isRealSession) {
-          insertEventExpenseReal(eventId, label, amount).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(`event-expense-${eventId}-${label}-${amount}`, 'ઇવેન્ટ ખર્ચ', () => insertEventExpenseReal(eventId, label, amount))
         }
       },
 
@@ -1066,20 +1139,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const vehicle: Vehicle = { id: session.isRealSession ? realUid() : uid('veh'), societyId: activeSocietyId, ...v }
         const ok = guardedSetDb(d => ({ ...d, vehicles: [...d.vehicles, vehicle] }))
         if (ok && session.isRealSession) {
-          insertVehicleReal(vehicle).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(vehicle.id, 'વાહન', () => insertVehicleReal(vehicle))
         }
       },
       addFlat: (f) => {
         const newFlat: Flat = { id: session.isRealSession ? realUid() : uid('flat'), societyId: activeSocietyId, memberSince: new Date().getFullYear(), ...f }
         const ok = guardedSetDb(d => ({ ...d, flats: [...d.flats, newFlat] }))
         if (ok && session.isRealSession) {
-          insertFlatReal(newFlat.id, activeSocietyId, newFlat).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(newFlat.id, 'ફ્લેટ', () => insertFlatReal(newFlat.id, activeSocietyId, newFlat))
         }
       },
       updateFlat: (flatId, patch) => {
         const ok = guardedSetDb(d => ({ ...d, flats: d.flats.map(f => f.id === flatId ? { ...f, ...patch } : f) }))
         if (ok && session.isRealSession) {
-          updateFlatReal(flatId, patch).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(flatId, 'ફ્લેટ સુધારો', () => updateFlatReal(flatId, patch))
         }
       },
       addFlatsBulk: (rows) => {
@@ -1093,7 +1166,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         guardedSetDb(d => ({ ...d, flats: [...d.flats, ...fresh] }))
         if (session.isRealSession) {
-          for (const f of fresh) insertFlatReal(f.id, activeSocietyId, f).catch(() => { /* local state already reflects it */ })
+          for (const f of fresh) attemptRealWrite(f.id, `ફ્લેટ ${f.number}`, () => insertFlatReal(f.id, activeSocietyId, f))
         }
         return { added: fresh.length, skippedDuplicates }
       },
@@ -1101,13 +1174,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const adj: Adjustment = { id: session.isRealSession ? realUid() : uid('adj'), societyId: activeSocietyId, ...a }
         const ok = guardedSetDb(d => ({ ...d, adjustments: [adj, ...d.adjustments] }))
         if (ok && session.isRealSession) {
-          insertAdjustmentReal(adj).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(adj.id, 'એડજસ્ટમેન્ટ', () => insertAdjustmentReal(adj))
         }
       },
       updateSociety: (patch) => {
         const ok = guardedSetDb(d => ({ ...d, societies: d.societies.map(s => s.id === activeSocietyId ? { ...s, ...patch } : s) }))
         if (ok && session.isRealSession) {
-          updateSocietyReal(activeSocietyId, patch).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(activeSocietyId, 'સોસાયટી સેટિંગ્સ', () => updateSocietyReal(activeSocietyId, patch))
         }
       },
 
@@ -1115,7 +1188,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const mem: Membership = { id: session.isRealSession ? realUid() : uid('mem'), createdAt: todayISO(), status: 'active', ...m }
         const ok = guardedSetDb(d => ({ ...d, memberships: [...d.memberships, mem] }))
         if (ok && session.isRealSession) {
-          insertMembershipReal(mem).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(mem.id, 'સભ્ય ઉમેરો', () => insertMembershipReal(mem))
         }
         return ok ? mem : null
       },
@@ -1142,7 +1215,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         setDb(d => ({ ...d, societies: [...d.societies, newSoc] }))
         if (session.isRealSession) {
-          insertSocietyReal(newSoc).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(newSoc.id, 'નવી સોસાયટી', () => insertSocietyReal(newSoc))
         }
         return newSoc
       },
@@ -1150,7 +1223,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const trialStartedAt = new Date().toISOString()
         const ok = guardedSetDb(d => ({ ...d, societies: d.societies.map(s => s.id === societyId ? { ...s, trialStartedAt } : s) }))
         if (ok && session.isRealSession) {
-          updateSocietyStatusReal(societyId, { trialStartedAt }).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(societyId, 'સોસાયટી સક્રિય કરવી', () => updateSocietyStatusReal(societyId, { trialStartedAt }))
         }
       },
       updateSocietyById: (id, patch) => {
@@ -1160,11 +1233,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
           // console, the one legitimate place both regular fields (name,
           // address) and owner-only protected ones (plan, flatsLimit,
           // subscriptionStatus) can be set together in a single save.
-          updateSocietyReal(id, patch).catch(() => { /* local state already reflects it */ })
-          if (patch.plan !== undefined || patch.flatsLimit !== undefined || patch.subscriptionStatus !== undefined || patch.graceStartedAt !== undefined) {
-            updateSocietyStatusReal(id, { plan: patch.plan, flatsLimit: patch.flatsLimit, subscriptionStatus: patch.subscriptionStatus, graceStartedAt: patch.graceStartedAt })
-              .catch(() => { /* same */ })
-          }
+          // Combined into one retryable operation since they represent
+          // one save action from the person's point of view, not two.
+          attemptRealWrite(id, 'સોસાયટી સેટિંગ્સ', async () => {
+            await updateSocietyReal(id, patch)
+            if (patch.plan !== undefined || patch.flatsLimit !== undefined || patch.subscriptionStatus !== undefined || patch.graceStartedAt !== undefined) {
+              await updateSocietyStatusReal(id, { plan: patch.plan, flatsLimit: patch.flatsLimit, subscriptionStatus: patch.subscriptionStatus, graceStartedAt: patch.graceStartedAt })
+            }
+          })
         }
       },
 
@@ -1172,13 +1248,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const rec = { id: session.isRealSession ? realUid() : uid('pb'), ...r }
         setDb(d => ({ ...d, platformBilling: [...d.platformBilling, rec] }))
         if (session.isRealSession) {
-          insertPlatformBillingReal(rec).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(rec.id, 'પ્લેટફોર્મ બિલિંગ', () => insertPlatformBillingReal(rec))
         }
       },
       updatePlatformBillingRecord: (id, patch) => {
         setDb(d => ({ ...d, platformBilling: d.platformBilling.map(r => r.id === id ? { ...r, ...patch } : r) }))
         if (session.isRealSession) {
-          updatePlatformBillingReal(id, patch).catch(() => { /* local state already reflects it */ })
+          attemptRealWrite(id, 'પ્લેટફોર્મ બિલિંગ સુધારો', () => updatePlatformBillingReal(id, patch))
         }
       },
 
@@ -1192,7 +1268,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setDb(DEMO_SEED_ENABLED ? buildSeed() : emptySeed())
       },
     }
-  }, [db, session, activeSociety, activeSocietyId, financialsLoading, lastBlockedReason])
+  }, [db, session, activeSociety, activeSocietyId, financialsLoading, lastBlockedReason, failedWrites])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

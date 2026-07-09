@@ -88,20 +88,20 @@ export default function Join() {
               <Button variant="soft" className="mt-4 w-full" onClick={() => nav('/login')}>લોગિન પર જાઓ</Button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <form className="space-y-3" onSubmit={e => { e.preventDefault(); submit() }}>
               <label htmlFor="join-code" className="sr-only">સોસાયટી કોડ</label>
-              <Input id="join-code" value={form.joinCode} onChange={e => setForm({ ...form, joinCode: e.target.value })} placeholder="સોસાયટી કોડ (દા.ત. RAJHANS24)" className={inputClass} />
+              <Input id="join-code" value={form.joinCode} onChange={e => setForm({ ...form, joinCode: e.target.value })} placeholder="સોસાયટી કોડ (દા.ત. RAJHANS24)" className={inputClass} required />
               <label htmlFor="join-flat" className="sr-only">ફ્લેટ નંબર</label>
-              <Input id="join-flat" value={form.flatNumber} onChange={e => setForm({ ...form, flatNumber: e.target.value })} placeholder="ફ્લેટ નંબર" className={inputClass} />
+              <Input id="join-flat" value={form.flatNumber} onChange={e => setForm({ ...form, flatNumber: e.target.value })} placeholder="ફ્લેટ નંબર" className={inputClass} required />
               <label htmlFor="join-name" className="sr-only">તમારું નામ</label>
-              <Input id="join-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="તમારું નામ" className={inputClass} autoComplete="name" />
+              <Input id="join-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="તમારું નામ" className={inputClass} autoComplete="name" required />
               <label htmlFor="join-phone" className="sr-only">ફોન નંબર</label>
-              <Input id="join-phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="ફોન નંબર" className={inputClass} autoComplete="tel" />
+              <Input id="join-phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="ફોન નંબર" className={inputClass} autoComplete="tel" required />
               <label htmlFor="join-email" className="sr-only">ઈમેલ</label>
-              <Input id="join-email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="ઈમેલ" className={inputClass} autoComplete="email" />
+              <Input id="join-email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="ઈમેલ" className={inputClass} autoComplete="email" required />
               {error && <p className="text-[13px] text-over flex items-start gap-1.5"><AlertCircle size={15} className="shrink-0 mt-0.5" /> {error}</p>}
-              <Button variant="primary" className="w-full" onClick={submit} disabled={!canSubmit || sending}>{sending ? 'મોકલાય છે...' : 'જોડાઓ'}</Button>
-            </div>
+              <Button type="submit" variant="primary" className="w-full" disabled={!canSubmit || sending}>{sending ? 'મોકલાય છે...' : 'જોડાઓ'}</Button>
+            </form>
           )}
         </Card>
 

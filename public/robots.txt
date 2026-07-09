@@ -4,6 +4,8 @@ Allow: /features
 Allow: /pricing
 Allow: /faq
 Allow: /contact
+Allow: /privacy
+Allow: /terms
 Disallow: /home
 Disallow: /demo
 Disallow: /app
@@ -11,3 +13,5 @@ Disallow: /admin
 Disallow: /accounts
 Disallow: /owner
 Disallow: /saas
+
+Sitemap: https://pranganone.com/sitemap.xml

@@ -70,6 +70,49 @@ describe('logout clears real session financial data (previously it never did)', 
     act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
     expect(result.current.db.flats.some(f => f.number === '888')).toBe(false)
   })
+
+  it('clears fields well beyond the original four - a real gap an external audit caught, since every module added since only ever got wired into fetching, never into logout cleanup', () => {
+    const result = setup()
+    act(() => {
+      result.current.resolveRealSession({ role: 'resident_owner', societyId: 'soc_rajhans', flatId: 'flat_101' })
+    })
+    // simulates what a real fetch would have populated - complaints,
+    // documents, and memberships were three of the several fields the
+    // original logout fix never accounted for, since they didn't exist
+    // as real-fetched fields yet when that fix was written
+    act(() => {
+      result.current.addComplaint({ flatId: 'flat_101', category: 'Leak', title: 'Audit test complaint', detail: '', priority: 'normal' })
+      result.current.addDocumentMeta({ name: 'Audit test doc', folder: 'General', permission: 'public', size: '1 KB' })
+    })
+    expect(result.current.db.complaints.some(c => c.title === 'Audit test complaint')).toBe(true)
+    expect(result.current.db.documents.some(d => d.name === 'Audit test doc')).toBe(true)
+
+    act(() => { result.current.logout() })
+    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+
+    expect(result.current.db.complaints.some(c => c.title === 'Audit test complaint')).toBe(false)
+    expect(result.current.db.documents.some(d => d.name === 'Audit test doc')).toBe(false)
+  })
+
+  it('a real owner session logging out clears platform-wide data too, not just one society\u2019s worth - societies, platform billing, and leads were never scoped to a single society in the first place, so a societyId filter could never have cleaned them up even before this fix', () => {
+    const result = setup()
+    act(() => {
+      result.current.resolveRealSession({ role: 'owner', societyId: 'soc_rajhans', flatId: null })
+    })
+    act(() => {
+      result.current.addSociety({
+        name: 'ઓડિટ ટેસ્ટ', nameEn: 'Audit Test Society', city: 'Surat', area: 'x', address: 'x',
+        maintenanceAmount: 1000, dueDay: 10, receiptPrefix: 'AT', themeKey: 'navy-saffron',
+        modules: { ownerEnabled: { billing: true, complaints: true, notices: true, documents: true, vendors: true, polls: true, events: true, parking: true, reports: true }, adminVisible: { billing: true, complaints: true, notices: true, documents: true, vendors: true, polls: true, events: true, parking: true, reports: true } },
+        tenantAccess: 'full',
+      })
+    })
+    expect(result.current.rawDb.societies.some(s => s.nameEn === 'Audit Test Society')).toBe(true)
+
+    act(() => { result.current.logout() })
+
+    expect(result.current.rawDb.societies.some(s => s.nameEn === 'Audit Test Society')).toBe(false)
+  })
 })
 
 describe('lastBlockedReason surfaces why a write was blocked (previously only a console warning, invisible to the actual user)', () => {

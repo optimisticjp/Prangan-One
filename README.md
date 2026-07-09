@@ -10,7 +10,7 @@ Most society management apps translate English screens into Gujarati as an after
 
 The core stance behind every screen: the committee is the customer and the hero, residents are upside. A society has to get full value from the committee side alone, with zero residents ever logging in, resident self-service is a second wave, never something the society depends on to run. Every society gets its own branding (a curated color theme plus optional logo), its own setup (maintenance amount, due date, receipt numbering), and its own choice of which feature areas it actually wants turned on. None of that is a free-for-all though: product structure, page layout, and the core Gujarati copy stay fixed platform-wide on purpose, so this stays one product configured per society, not a different app rebuilt for each one.
 
-Right now this is a working demo: every screen is real and functional, including the multi-society configuration layer, but the data lives in your browser, not a server yet. It's built to be shown to an actual committee for feedback, and to get the whole platform right, before the cloud backend goes live.
+This runs on a real backend now, not a browser-only demo: real Supabase authentication (email magic link, Google, or a password once someone sets one), real Postgres with Row Level Security enforcing every tenant boundary at the database itself, real file storage for photos and documents, and every core module - flats, bills, payments, complaints, notices, documents, memberships, vendors, vehicles, polls, events, expenses, adjustments - reading and writing for real. A separate, clearly-marked local demo mode still exists at `/demo` for exploring the UI without connecting anything, seeded from sample data in the browser only, but it's no longer the primary way this app runs. See section 5 for exactly what's real versus local, and `supabase/README.md` for the actual setup.
 
 ## 2. Features
 
@@ -48,49 +48,44 @@ To build for production: `npm run build` (runs the TypeScript checker, then bund
 
 Every society also has a shareable link, `pranganone.com/s/{slug}` (Rajhans Tower's is `/s/rajhans-tower`), that shows that society's own branding before handing off to login.
 
-Real login, once a Supabase project is connected (see supabase/README.md and CLAUDE_CODE_NEXT_STEPS.md for exactly what's done versus still needed): `/login` sends a real magic link, `/auth/callback` resolves who you are and lands you in the right dashboard, `/join` lets a resident self-enroll with their society's join code (shown in the owner console's society page) plus their flat number, and `/no-access` is what a verified-but-unmatched email sees instead of a dead end.
+Real login (see `supabase/README.md` for setup, `CLAUDE_CODE_NEXT_STEPS.md` for the current build history): `/login` sends a real magic link, offers Google, or a password for anyone who's set one from their own profile; `/auth/callback` resolves who you are and lands you in the right dashboard; `/join` lets a resident self-enroll with their society's join code (shown in the owner console's society page) plus their flat number; and `/no-access` is what a verified-but-unmatched email sees instead of a dead end.
 
 See `QUICK_START.md` for a specific guided path through the app if you want a tour rather than clicking around.
 
 ## 5. Data persistence
 
-Everything lives in the browser's `localStorage`, seeded from the JSON files in `sample-data/` the first time the app loads. That means:
+**Real sessions** (anyone who actually logs in via magic link, Google, or a password) read and write for real: Supabase Postgres, enforced by Row Level Security so a resident's own queries can only ever return their own society's data regardless of what the client-side code does, not just because the UI happens to hide the rest. File uploads (complaint photos, payment proof screenshots, society logos, documents) go to real, private Supabase Storage buckets with signed URLs, not just a filename saved to a database row. Logging out clears everything a real session touched from this browser, not just some of it - see `CLAUDE_CODE_NEXT_STEPS.md`'s first build entry for the specific gap that used to exist here and how it was closed.
 
-- Refreshing the page keeps your changes (record a payment, it's still there after reload).
-- Clearing your browser's site data, or opening the app in a different browser or incognito window, resets you back to the original sample data.
-- **સેટિંગ્સ → ડેમો ડેટા રીસેટ** in the committee panel does this on purpose, wiping everything back to a clean starting point for a fresh demo.
-- Nothing is sent to any server. This is entirely client-side.
+**The local demo mode** (`/demo`, gated behind `VITE_DEMO_MODE`, on by default in local dev and off in a real production build unless explicitly enabled) is a separate, deliberate thing: no login, no backend, everything in the browser's own `localStorage`, seeded from the JSON files in `sample-data/`. Useful for exploring the UI, showing someone the product without setting anything up, or local development without a Supabase project connected. Refreshing keeps demo changes, clearing site data or opening a different browser resets to the sample data, and **સેટિંગ્સ → ડેમો ડેટા રીસેટ** does this on purpose from inside the committee panel. Nothing in demo mode is ever sent anywhere, and nothing from a demo session can end up in a real one or vice versa - they're entirely separate data layers, not one falling back to the other.
 
-This is the right amount of persistence for a demo and the wrong amount for a real society; see the Limitations section below.
+## 6. Supabase, and what's actually connected
 
-## 6. Supabase hookup and going live
+The data layer is one file, `src/lib/store.tsx`, exposing one hook, `useData()`, that every page calls, including the SaaS owner actions (`addSociety`, `updateSocietyById`). That's what made connecting a real backend a matter of changing that one file's internals rather than rewriting every page, and it's why the same hook still works identically for both the real backend and the local demo mode - the pages calling it never need to know which one they're getting.
 
-The data layer is one file, `src/lib/store.tsx`, exposing one hook, `useData()`, that every page calls, including the SaaS owner actions (`addSociety`, `updateSocietyById`). That's deliberate: swapping localStorage for a real backend should mean changing that one file's internals, not rewriting every page.
+`supabase/schema.sql` is the real, currently-applied schema: every table, indexes, Row Level Security policies covering every real tenant boundary this app actually needs, storage bucket policies, and the database functions RLS depends on - not a target written in advance, the schema that's actually live. `supabase/README.md` covers project setup, environment variables, the free tier's inactivity pause and the fix for it, and deploying to Cloudflare Pages. `supabase/tests/run-isolation-tests.sh` is a repeatable, automated check of the actual tenant isolation this schema provides - two societies, every role, run against a fresh throwaway database - not something that has to be re-verified by hand after every change.
 
-`supabase/schema.sql` has the complete target schema already written: every table, indexes, and Row Level Security policies, including the multi-tenant fields (theme, modules, receipt prefix) and the email-based membership model, ready to run in a Supabase project's SQL editor. `supabase/README.md` covers project setup, environment variables, storage buckets, the Supabase free tier's 7-day inactivity pause (and the free fix for it), and deploying to Cloudflare Pages, chosen specifically because its free tier allows commercial use, unlike Vercel's. `CLAUDE_CODE_NEXT_STEPS.md` has the specific migration plan, table by table, plus ready-to-paste prompts for continuing this build in Claude Code.
-
-Nothing here is connected yet. This is the "here's exactly how to do it next" documentation, not a partially-wired integration.
+`CLAUDE_CODE_NEXT_STEPS.md` has the full build history and the current, active remediation plan responding to an external production-readiness audit - what's been fixed, what's still open, and why each decision was made.
 
 ## 7. Limitations
 
-Worth knowing before showing this to anyone as more than a prototype:
+Worth knowing, genuinely current as of this writing, not carried over from an earlier stage of the build:
 
-- **No real login yet.** The email step ends at an honest "login service is being configured" message; nothing is actually sent. A separate `/demo` page has the role/flat shortcuts with no password, gated behind `VITE_DEMO_MODE` (on by default in local dev, off in a real production build unless explicitly enabled), so a real deployment for a paying society never exposes it.
-- **No real access control.** `src/lib/permissions.ts` and `ModuleGate` shape what the UI shows and which routes render, but nothing stops a browser console from reading data outside that scope. Real enforcement needs the Supabase RLS policies in `supabase/schema.sql`, not yet connected.
-- **File uploads are metadata-only**, and logos are a data-URL living in localStorage, not a real file. Adding a document or a complaint photo saves the filename and size, not the actual file, and an uploaded logo won't survive the eventual move to a real backend as-is.
+- **A real support-session gap, not a data-layer one.** When the platform owner logs into a society to help its committee, that action itself is now genuinely logged for real (who, when, why), but the society's data during that session still comes from the local layer rather than the real one. Narrower than it sounds, and on the list to close, but real and worth knowing.
+- **Contacts (emergency and service numbers) are read-only from the real backend for now** - no add or edit UI exists yet for a committee to manage them for real, even though the underlying table and access rules already do.
 - **WhatsApp buttons open a share picker**, they don't send automatically. That needs the WhatsApp Cloud API, deferred, see below.
 - **Resident payment is fully manual, by design, not a placeholder waiting to be finished.** A resident sees UPI/bank instructions, can mark "I have paid" (which creates a pending record, not an official payment), and the committee verifies and records it before a receipt is generated. That's the real, intended flow for this build, not a stand-in for something automated.
-- **All data is invented.** Names, phone numbers (using the clearly-fake `90000 000XX` pattern), and amounts in `sample-data/` are for demonstration only.
+- **The local demo mode specifically** (not real sessions) still saves file uploads as metadata only - a complaint photo or an uploaded logo in `/demo` saves a filename, not the actual bytes. Real sessions upload real files to real storage; this limitation is scoped to the demo layer only.
+- **All data in the local demo is invented.** Names, phone numbers (using the clearly-fake `90000 000XX` pattern), and amounts in `sample-data/` are for demonstration only, and never appear in a real session.
 
-Full detail on all of this, the free-tool cost research behind the hosting and auth choices, plus a DPDP-context privacy checklist for when real resident data does get involved: `docs/SECURITY_PRIVACY.md`.
+Full detail on all of this, the free-tool cost research behind the hosting and auth choices, plus a DPDP-context privacy checklist for real resident data: `docs/SECURITY_PRIVACY.md`.
 
 ## 8. Next steps
 
-**Active, in order:** connect a real Supabase project (Mumbai region), apply `supabase/schema.sql`, wire the email magic-link login for real, build the membership-claim flow, turn on RLS, then run the hard checkpoint, create a second real society and try to break isolation, before trusting any of it. After that: deploy to Cloudflare Pages with the real environment variables, migrate uploaded logos to Supabase Storage.
+**Active, in order:** responding to a production-readiness audit, tracked build by build in `CLAUDE_CODE_NEXT_STEPS.md` - real writes now surface a genuine failure and retry instead of failing silently, every core module reads and writes for real, tenant isolation has a repeatable automated check instead of only ever being verified by hand, and the remaining owner support-session gap noted above is next.
 
 **Deferred, not part of the active build:** an online payment gateway (Razorpay or similar) and the WhatsApp Cloud API for automated messages. Neither is a launch blocker, manual payment recording and `wa.me` share links already cover the real workflow today. Native app and AI features are deferred too, further out.
 
-The detailed plan, including the reasoning behind decisions already made and exact prompts for continuing this in Claude Code, lives in `CLAUDE_CODE_NEXT_STEPS.md`. The testing plan for the flows that matter most (payments, complaints, voting, exports) is in `docs/TESTING_PLAN.md`.
+The detailed history, including the reasoning behind decisions already made and what's still genuinely open, lives in `CLAUDE_CODE_NEXT_STEPS.md`. The testing plan for the flows that matter most (payments, complaints, voting, exports) is in `docs/TESTING_PLAN.md`.
 
 ---
 

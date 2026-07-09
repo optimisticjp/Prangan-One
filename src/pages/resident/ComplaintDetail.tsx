@@ -92,16 +92,18 @@ export default function ComplaintDetail() {
         <Card className="animate-fadeUp">
           <h2 className="font-bold text-navy-800">કામ કેવું થયું?</h2>
           <p className="text-[13px] text-navy-400 mb-2">તમારો અભિપ્રાય કમિટીને મદદ કરશે.</p>
-          <div className="flex gap-1.5 mb-3">
-            {[1, 2, 3, 4, 5].map(n => (
-              <button key={n} onClick={() => setRating(n)} aria-label={`${n} સ્ટાર`}
-                className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-colors ${n <= rating ? 'bg-saffron-50 border-saffron-300 text-saffron-500' : 'bg-white border-cream-300 text-navy-300'}`}>
-                <Star size={20} fill={n <= rating ? 'currentColor' : 'none'} />
-              </button>
-            ))}
-          </div>
-          <Textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="કંઈ કહેવું હોય તો લખો (વૈકલ્પિક)" />
-          <Button full className="mt-3" onClick={submit} disabled={!rating}>ફીડબેક મોકલો</Button>
+          <form onSubmit={e => { e.preventDefault(); submit() }}>
+            <div className="flex gap-1.5 mb-3">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button key={n} type="button" onClick={() => setRating(n)} aria-label={`${n} સ્ટાર`}
+                  className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-colors ${n <= rating ? 'bg-saffron-50 border-saffron-300 text-saffron-500' : 'bg-white border-cream-300 text-navy-300'}`}>
+                  <Star size={20} fill={n <= rating ? 'currentColor' : 'none'} />
+                </button>
+              ))}
+            </div>
+            <Textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="કંઈ કહેવું હોય તો લખો (વૈકલ્પિક)" />
+            <Button type="submit" full className="mt-3" disabled={!rating}>ફીડબેક મોકલો</Button>
+          </form>
         </Card>
       )}
     </div>

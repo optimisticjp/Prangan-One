@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Adjustment, AuditLogEntry, Bill, Complaint, Contact, Doc, Flat, ImpersonationLog, Membership, Notice, Payment, PlatformBillingRecord, Poll, Society, SocietyEvent, TimelineEntry, Vehicle, Vendor } from './types'
+import type { Adjustment, AuditLogEntry, Bill, Complaint, Contact, Doc, Expense, Flat, ImpersonationLog, Membership, Notice, Payment, PlatformBillingRecord, Poll, Society, SocietyEvent, TimelineEntry, Vehicle, Vendor } from './types'
 
 /**
  * The real, Supabase-backed data layer for the core financial loop:
@@ -100,8 +100,11 @@ export async function fetchSocietyFinancials(societyId: string): Promise<{ flats
 // Mutations - each mirrors the matching function in store.tsx exactly.
 // ---------------------------------------------------------------------
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
 export async function insertFlatReal(id: string, societyId: string, f: Omit<Flat, 'id' | 'societyId'>): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('flats').select('id', { count: 'exact', head: true }).eq('id', id)
+  if (existing) return
   const { error } = await supabase.from('flats').insert({
     id, society_id: societyId, number: f.number, floor: f.floor, owner_name: f.ownerName, phone: f.phone,
     email: f.email ?? null, occupancy: f.occupancy, tenant_name: f.tenantName ?? null, tenant_email: f.tenantEmail ?? null,
@@ -127,17 +130,25 @@ export async function updateFlatReal(flatId: string, patch: Partial<Flat>): Prom
   if (error) throw error
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - filters out whichever bills in this batch already exist before inserting the rest, checked in one query rather than one per bill. Deliberately not upsert: a bill's paid_amount can have legitimately changed since the original attempt (a resident paid it in the meantime), and upsert would overwrite that back to the original generated value. */
 export async function insertBillsReal(bills: Bill[]): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
   if (bills.length === 0) return
+  const { data: existingRows } = await supabase.from('bills').select('id').in('id', bills.map(b => b.id))
+  const existingIds = new Set((existingRows ?? []).map(r => r.id))
+  const toInsert = bills.filter(b => !existingIds.has(b.id))
+  if (toInsert.length === 0) return
   const { error } = await supabase.from('bills').insert(
-    bills.map(b => ({ id: b.id, society_id: b.societyId, flat_id: b.flatId, month: b.month, amount: b.amount, paid_amount: b.paidAmount, due_date: b.dueDate, note: b.note ?? null })),
+    toInsert.map(b => ({ id: b.id, society_id: b.societyId, flat_id: b.flatId, month: b.month, amount: b.amount, paid_amount: b.paidAmount, due_date: b.dueDate, note: b.note ?? null })),
   )
   if (error) throw error
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first, rather than upsert, since upsert would need UPDATE permission on payments, which a resident recording their own payment doesn't have (only society_admin/accountant can update a payment row - see payments_update in schema.sql). */
 export async function insertPaymentReal(p: Payment): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('payments').select('id', { count: 'exact', head: true }).eq('id', p.id)
+  if (existing) return
   const { error } = await supabase.from('payments').insert({
     id: p.id, society_id: p.societyId, flat_id: p.flatId, bill_id: p.billId ?? null, date: p.date, amount: p.amount,
     mode: p.mode, ref_no: p.refNo ?? null, receipt_no: p.receiptNo ?? null, status: p.status, note: p.note ?? null,
@@ -145,7 +156,7 @@ export async function insertPaymentReal(p: Payment): Promise<void> {
   if (error) throw error
 }
 
-/** Records a payment and updates the bill's paid_amount together, mirroring recordPayment in store.tsx. */
+/** Records a payment and updates the bill's paid_amount together, mirroring recordPayment in store.tsx. Safe to retry as a whole: insertPaymentReal itself is idempotent, and the bill update sets an absolute computed value (Math.min(billAmount, currentBillPaidAmount + p.amount)) rather than incrementing one - retrying with the same captured currentBillPaidAmount recomputes the identical target, it doesn't add the payment amount a second time. */
 export async function recordPaymentReal(p: Payment, currentBillPaidAmount: number, billAmount: number): Promise<void> {
   await insertPaymentReal(p)
   if (p.status === 'success' && p.billId) {
@@ -171,8 +182,11 @@ export async function updatePaymentReal(paymentId: string, patch: { status?: Pay
   if (error) throw error
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first, same pattern as every other insert this applies to. */
 export async function insertAdjustmentReal(a: Adjustment): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('adjustments').select('id', { count: 'exact', head: true }).eq('id', a.id)
+  if (existing) return
   const { error } = await supabase.from('adjustments').insert({
     id: a.id, society_id: a.societyId, date: a.date, flat_id: a.flatId ?? null, amount: a.amount, type: a.type, reason: a.reason,
   })
@@ -224,29 +238,43 @@ export async function fetchSocietyComplaints(societyId: string): Promise<Complai
 }
 
 /** Inserts a complaint and its initial 'new' timeline entry together - mirrors addComplaint in store.tsx. */
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) without erroring or duplicating - checks whether the row already exists first, rather than using upsert, since upsert would need UPDATE permission on complaints, which a resident filing their own complaint doesn't have (only society_admin/committee_member can update a complaint's row - see complaints_update in schema.sql). A retry from the person who filed it has to work too, not just a committee member's retry. */
 export async function insertComplaintReal(c: Complaint): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
-  const { error } = await supabase.from('complaints').insert({
-    id: c.id, society_id: c.societyId, flat_id: c.flatId, category: c.category, title: c.title, detail: c.detail,
-    priority: c.priority, status: c.status, has_photo: c.hasPhoto ?? false, photo_path: c.photoPath ?? null, visibility: c.visibility,
-  })
-  if (error) throw error
+  const { count: existing } = await supabase.from('complaints').select('id', { count: 'exact', head: true }).eq('id', c.id)
+  if (!existing) {
+    const { error } = await supabase.from('complaints').insert({
+      id: c.id, society_id: c.societyId, flat_id: c.flatId, category: c.category, title: c.title, detail: c.detail,
+      priority: c.priority, status: c.status, has_photo: c.hasPhoto ?? false, photo_path: c.photoPath ?? null, visibility: c.visibility,
+    })
+    if (error) throw error
+  }
+  // complaint_timeline rows don't carry a client-provided id the way the
+  // complaint itself does, so a plain insert here would create a second
+  // "new" entry on retry rather than erroring - same reasoning, checked
+  // first rather than assumed safe to just insert again.
   const first = c.timeline[0]
   if (first) {
-    const { error: timelineError } = await supabase.from('complaint_timeline').insert({
-      complaint_id: c.id, status: first.status, note: first.note ?? null, by_name: first.by,
-    })
-    if (timelineError) throw timelineError
+    const { count: hasTimeline } = await supabase.from('complaint_timeline').select('id', { count: 'exact', head: true }).eq('complaint_id', c.id)
+    if (!hasTimeline) {
+      const { error: timelineError } = await supabase.from('complaint_timeline').insert({
+        complaint_id: c.id, status: first.status, note: first.note ?? null, by_name: first.by,
+      })
+      if (timelineError) throw timelineError
+    }
   }
 }
 
 /** Advances a complaint's status and adds the matching timeline entry - mirrors advanceComplaint in store.tsx. Requires society_admin/committee_member on the real database. */
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - the status update itself is naturally idempotent (it sets a value, it doesn't increment one), but a bare timeline insert isn't, so this checks whether the most recent timeline entry already matches this exact status before adding a new one, avoiding a duplicate "advanced to X" entry on retry. */
 export async function advanceComplaintReal(complaintId: string, status: Complaint['status'], note: string, byName: string, assignedTo?: string): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
   const row: Record<string, unknown> = { status }
   if (assignedTo !== undefined) row.assigned_to = assignedTo
   const { error } = await supabase.from('complaints').update(row).eq('id', complaintId)
   if (error) throw error
+  const { data: latest } = await supabase.from('complaint_timeline').select('status').eq('complaint_id', complaintId).order('created_at', { ascending: false }).limit(1)
+  if (latest?.[0]?.status === status) return
   const { error: timelineError } = await supabase.from('complaint_timeline').insert({
     complaint_id: complaintId, status, note: note || null, by_name: byName,
   })
@@ -281,8 +309,11 @@ export async function fetchSocietyNotices(societyId: string): Promise<Notice[]> 
   return ((data ?? []) as NoticeRow[]).map(n => ({ id: n.id, societyId: n.society_id, title: n.title, body: n.body, date: n.date, category: n.category, pinned: n.pinned }))
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first, same pattern as every other insert this applies to. */
 export async function insertNoticeReal(n: Notice): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('notices').select('id', { count: 'exact', head: true }).eq('id', n.id)
+  if (existing) return
   const { error } = await supabase.from('notices').insert({
     id: n.id, society_id: n.societyId, title: n.title, body: n.body, date: n.date, category: n.category, pinned: n.pinned,
   })
@@ -380,8 +411,11 @@ export async function fetchAllSocieties(): Promise<Society[]> {
   return ((data ?? []) as SocietyRow[]).map(societyFromRow)
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
 export async function insertSocietyReal(s: Society): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('societies').select('id', { count: 'exact', head: true }).eq('id', s.id)
+  if (existing) return
   const { error } = await supabase.from('societies').insert({
     id: s.id, name: s.name, name_en: s.nameEn, slug: s.slug, join_code: s.joinCode, address: s.address,
     city: s.city, area: s.area, maintenance_amount: s.maintenanceAmount, due_day: s.dueDay, upi_id: s.upiId,
@@ -450,8 +484,11 @@ export async function fetchSocietyDocuments(societyId: string): Promise<Doc[]> {
   return ((data ?? []) as DocRow[]).map(docFromRow)
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. documents has no update policy at all, so this is the only safe option here, not just the preferred one. */
 export async function insertDocumentReal(d: Doc): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('documents').select('id', { count: 'exact', head: true }).eq('id', d.id)
+  if (existing) return
   const { error } = await supabase.from('documents').insert({
     id: d.id, society_id: d.societyId, name: d.name, folder: d.folder, permission: d.permission, date: d.date, size_label: d.size,
   })
@@ -508,8 +545,11 @@ export async function rejectMembershipReal(membershipId: string): Promise<void> 
 }
 
 /** Used by the owner console specifically - adding a committee/accountant/resident directly by email, or creating the initial admin membership during onboarding. Matches memberships_insert RLS (society_admin/owner). */
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
 export async function insertMembershipReal(m: Membership): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('memberships').select('id', { count: 'exact', head: true }).eq('id', m.id)
+  if (existing) return
   const { error } = await supabase.from('memberships').insert({
     id: m.id, society_id: m.societyId, email: m.email, role: m.role, flat_id: m.flatId ?? null,
     phone: m.phone ?? null, whatsapp: m.whatsapp ?? null, name: m.name ?? null,
@@ -539,8 +579,11 @@ export async function fetchSocietyVendors(societyId: string): Promise<Vendor[]> 
   return ((data ?? []) as VendorRow[]).map(vendorFromRow)
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
 export async function insertVendorReal(v: Vendor): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('vendors').select('id', { count: 'exact', head: true }).eq('id', v.id)
+  if (existing) return
   const { error } = await supabase.from('vendors').insert({
     id: v.id, society_id: v.societyId, name: v.name, service: v.service, contact_person: v.contactPerson,
     phone: v.phone, amc_start: v.amcStart ?? null, amc_end: v.amcEnd ?? null, notes: v.notes ?? null,
@@ -574,8 +617,11 @@ export async function fetchSocietyVehicles(societyId: string): Promise<Vehicle[]
   return ((data ?? []) as VehicleRow[]).map(vehicleFromRow)
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
 export async function insertVehicleReal(v: Vehicle): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('vehicles').select('id', { count: 'exact', head: true }).eq('id', v.id)
+  if (existing) return
   const { error } = await supabase.from('vehicles').insert({
     id: v.id, society_id: v.societyId, flat_id: v.flatId, kind: v.kind, number: v.number, slot: v.slot, owner_type: v.ownerType,
   })
@@ -639,8 +685,11 @@ export async function fetchSocietyPolls(societyId: string): Promise<Poll[]> {
   }))
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
 export async function insertPollReal(p: Poll): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('polls').select('id', { count: 'exact', head: true }).eq('id', p.id)
+  if (existing) return
   const { error } = await supabase.from('polls').insert({
     id: p.id, society_id: p.societyId, question: p.question, type: p.type, options: p.options,
     status: p.status, result_visible: p.resultVisible, end_date: p.endDate ?? null,
@@ -654,10 +703,11 @@ export async function closePollReal(pollId: string): Promise<void> {
   if (error) throw error
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - poll_votes has a unique(poll_id, flat_id) constraint, so a genuine retry after the first attempt actually succeeded server-side (but the response never reached the client, e.g. the connection dropped) would hit a duplicate-key error here. That specific error means the vote is already recorded, which is success, not failure - so it's caught and treated as such, rather than surfacing as a retry-worthy failure for something that already happened. */
 export async function insertPollVoteReal(pollId: string, flatId: string, optionIdx: number): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
   const { error } = await supabase.from('poll_votes').insert({ poll_id: pollId, flat_id: flatId, option_idx: optionIdx })
-  if (error) throw error
+  if (error && error.code !== '23505') throw error
 }
 
 // ---------------------------------------------------------------------
@@ -714,24 +764,44 @@ export async function fetchSocietyEvents(societyId: string): Promise<SocietyEven
   }))
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
 export async function insertEventReal(e: SocietyEvent): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('events').select('id', { count: 'exact', head: true }).eq('id', e.id)
+  if (existing) return
   const { error } = await supabase.from('events').insert({ id: e.id, society_id: e.societyId, name: e.name, type: e.type, date: e.date, note: e.note ?? null })
   if (error) throw error
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - unique(event_id, flat_id) means a genuine retry after the first attempt actually succeeded (response lost, e.g. connection dropped) hits a duplicate-key error here, which means the contribution is already recorded - treated as success, same reasoning as insertPollVoteReal. */
 export async function insertContributionReal(eventId: string, flatId: string, amount: number, date: string): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
   const { error } = await supabase.from('event_contributions').insert({ event_id: eventId, flat_id: flatId, amount, date })
-  if (error) throw error
+  if (error && error.code !== '23505') throw error
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - unique(event_id, name) means the same reasoning as insertContributionReal applies: a duplicate-key error here means this volunteer is already recorded, not that something is still broken. */
 export async function insertVolunteerReal(eventId: string, name: string): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
   const { error } = await supabase.from('event_volunteers').insert({ event_id: eventId, name })
-  if (error) throw error
+  if (error && error.code !== '23505') throw error
 }
 
+/**
+ * Not fully retry-safe, and worth being honest about why: event_expenses
+ * has no client-provided id (unlike everything else this file writes)
+ * and no natural unique constraint the way contributions and volunteers
+ * do, so there's no reliable way to tell "this is a retry of the same
+ * expense" apart from "this is a second, separate expense with the same
+ * label and amount," which is a real, legitimate thing someone might
+ * enter. A retry after a lost response could in principle create a
+ * duplicate line item here. The actual stakes are low - an event's
+ * informal expense list, not a bill or a payment - and the honest fix
+ * (a client-provided id, matching the pattern everywhere else) would
+ * mean changing SocietyEvent.expenses' own shape, which is more than
+ * this build's scope. Flagged here rather than silently left as if it
+ * were as safe as everything around it.
+ */
 export async function insertEventExpenseReal(eventId: string, label: string, amount: number): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
   const { error } = await supabase.from('event_expenses').insert({ event_id: eventId, label, amount })
@@ -788,8 +858,11 @@ export async function fetchAllPlatformBilling(): Promise<PlatformBillingRecord[]
   return ((data ?? []) as PlatformBillingRow[]).map(platformBillingFromRow)
 }
 
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
 export async function insertPlatformBillingReal(r: PlatformBillingRecord): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('platform_billing').select('id', { count: 'exact', head: true }).eq('id', r.id)
+  if (existing) return
   const { error } = await supabase.from('platform_billing').insert({
     id: r.id, society_id: r.societyId, period_month: r.periodMonth, flat_count: r.flatCount, rate_per_flat: r.ratePerFlat,
     expected_amount: r.expectedAmount, received_amount: r.receivedAmount, payment_date: r.paymentDate ?? null,
@@ -827,8 +900,11 @@ export async function fetchAllImpersonationLogs(): Promise<ImpersonationLog[]> {
 }
 
 /** The owner's genuine identity is real even while the society they're viewing stays on the local data layer for now (see enterSociety in store.tsx) - the log entry itself doesn't have that same limitation, so it's written for real regardless. */
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
 export async function insertImpersonationLogReal(log: ImpersonationLog): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('impersonation_logs').select('id', { count: 'exact', head: true }).eq('id', log.id)
+  if (existing) return
   const { error } = await supabase.from('impersonation_logs').insert({
     id: log.id, society_id: log.societyId, mode: log.mode, reason: log.reason ?? null,
   })
@@ -838,5 +914,39 @@ export async function insertImpersonationLogReal(log: ImpersonationLog): Promise
 export async function exitImpersonationLogReal(logId: string): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
   const { error } = await supabase.from('impersonation_logs').update({ exited_at: new Date().toISOString() }).eq('id', logId)
+  if (error) throw error
+}
+
+// ---------------------------------------------------------------------
+// Expenses - the one module an external audit caught as never having
+// been moved to the real data layer at all, despite the table and its
+// RLS already existing correctly. Same fetch-once-and-cache shape as
+// every other society-scoped table; insert-only, matching the real
+// schema's own policies (no update/delete policy exists for this table,
+// same as the local demo never had an edit/delete path for it either).
+// ---------------------------------------------------------------------
+
+interface ExpenseRow { id: string; society_id: string; date: string; category: string; vendor_id: string | null; amount: number; mode: Expense['mode']; note: string | null; bill_file: string | null }
+const expenseFromRow = (r: ExpenseRow): Expense => ({
+  id: r.id, societyId: r.society_id, date: r.date, category: r.category, vendorId: r.vendor_id ?? undefined,
+  amount: r.amount, mode: r.mode, note: r.note ?? undefined, billFile: r.bill_file ?? undefined,
+})
+
+export async function fetchSocietyExpenses(societyId: string): Promise<Expense[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('expenses').select('id, society_id, date, category, vendor_id, amount, mode, note, bill_file').eq('society_id', societyId)
+  if (error) throw error
+  return ((data ?? []) as ExpenseRow[]).map(expenseFromRow)
+}
+
+/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
+export async function insertExpenseReal(e: Expense): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { count: existing } = await supabase.from('expenses').select('id', { count: 'exact', head: true }).eq('id', e.id)
+  if (existing) return
+  const { error } = await supabase.from('expenses').insert({
+    id: e.id, society_id: e.societyId, date: e.date, category: e.category, vendor_id: e.vendorId ?? null,
+    amount: e.amount, mode: e.mode, note: e.note ?? null, bill_file: e.billFile ?? null,
+  })
   if (error) throw error
 }

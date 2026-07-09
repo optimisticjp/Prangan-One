@@ -16,7 +16,12 @@ export default function OwnerDashboard() {
   for (const s of rawDb.societies) counts[effectiveStatus(s)] = (counts[effectiveStatus(s)] ?? 0) + 1
 
   const totalFlats = rawDb.flats.length
-  const totalMembers = rawDb.memberships.length
+  // Excludes the platform owner's own membership row(s) - societyId is
+  // null specifically for those (see the memberships_society_id_owner_check
+  // constraint in schema.sql). This stat means "how many real residents
+  // and committee members are actually using the platform," not "how
+  // many membership rows exist including my own account."
+  const totalMembers = rawDb.memberships.filter(m => m.societyId !== null).length
   const expectedMonthly = rawDb.societies.reduce((sum, s) => {
     const flatCount = rawDb.flats.filter(f => f.societyId === s.id).length
     return sum + flatCount * 10

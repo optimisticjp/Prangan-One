@@ -79,19 +79,19 @@ export default function ResetPassword() {
               <div className="text-[13px] text-navy-400">ઓછામાં ઓછા 6 અક્ષર</div>
             </div>
           </div>
-          <div className="space-y-2">
+          <form className="space-y-2" onSubmit={e => { e.preventDefault(); submit() }}>
             <div className="relative">
-              <Input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="નવો પાસવર્ડ" aria-label="નવો પાસવર્ડ" className="pr-10" />
+              <Input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="નવો પાસવર્ડ" aria-label="નવો પાસવર્ડ" className="pr-10" autoComplete="new-password" required minLength={6} />
               <button type="button" onClick={() => setShowPassword(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-300" aria-label="પાસવર્ડ બતાવો">
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            <Input type={showPassword ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="ફરી નાખો" aria-label="પાસવર્ડ ફરી નાખો" />
-            <Button variant="primary" full onClick={submit} disabled={!password || !confirm || saving}>
+            <Input type={showPassword ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="ફરી નાખો" aria-label="પાસવર્ડ ફરી નાખો" autoComplete="new-password" required minLength={6} />
+            <Button type="submit" variant="primary" full disabled={!password || !confirm || saving}>
               {saving ? 'સેવ થાય છે...' : 'પાસવર્ડ સેટ કરો'}
             </Button>
             {error && <p className="text-[12.5px] text-over flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
-          </div>
+          </form>
         </Card>
       </div>
     </div>

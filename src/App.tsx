@@ -14,25 +14,30 @@ import { PageLoading } from './components/PageLoading'
 
 // Every page is lazy-loaded, split by route, so a resident's bundle never
 // includes admin/accountant/owner code and vice versa (see
-// docs/PRANGAN_ONE_ROADMAP.md non-negotiables). Login and the public
-// marketing pages are the only things in the main bundle, since they're
-// what a first-time visitor actually needs immediately.
-import Login from './pages/Login'
-import Demo from './pages/Demo'
-import AuthCallback from './pages/AuthCallback'
-import ResetPassword from './pages/ResetPassword'
-import NoAccess from './pages/NoAccess'
-import Join from './pages/Join'
+// docs/PRANGAN_ONE_ROADMAP.md non-negotiables). Home is the one exception -
+// it's genuinely what a first-time visitor needs immediately, since it's
+// the overwhelmingly common landing page, so it stays in the main bundle
+// deliberately. Every other public/auth page - FAQ, privacy, terms,
+// pricing, login, join, demo, reset-password, and so on - doesn't share
+// that justification: a homepage visitor doesn't need any of them before
+// navigating to one specifically, so they're lazy now too.
 import Home from './pages/public/Home'
-import Features from './pages/public/Features'
-import Pricing from './pages/public/Pricing'
-import Faq from './pages/public/Faq'
-import Contact from './pages/public/Contact'
-import Privacy from './pages/public/Privacy'
-import Terms from './pages/public/Terms'
-import ShareLink from './pages/ShareLink'
-import NotFound from './pages/NotFound'
-import Forbidden from './pages/Forbidden'
+
+const Login = lazy(() => import('./pages/Login'))
+const Demo = lazy(() => import('./pages/Demo'))
+const AuthCallback = lazy(() => import('./pages/AuthCallback'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const NoAccess = lazy(() => import('./pages/NoAccess'))
+const Join = lazy(() => import('./pages/Join'))
+const Features = lazy(() => import('./pages/public/Features'))
+const Pricing = lazy(() => import('./pages/public/Pricing'))
+const Faq = lazy(() => import('./pages/public/Faq'))
+const Contact = lazy(() => import('./pages/public/Contact'))
+const Privacy = lazy(() => import('./pages/public/Privacy'))
+const Terms = lazy(() => import('./pages/public/Terms'))
+const ShareLink = lazy(() => import('./pages/ShareLink'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+const Forbidden = lazy(() => import('./pages/Forbidden'))
 
 const RDashboard = lazy(() => import('./pages/resident/Dashboard'))
 const RBill = lazy(() => import('./pages/resident/Bill'))
@@ -116,24 +121,24 @@ export default function App() {
             corrected here. /home redirects to / so no old link 404s. */}
         <Route path="/" element={<Home />} />
         <Route path="/home" element={<Navigate to="/" replace />} />
-        <Route path="/features" element={<Features />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/faq" element={<Faq />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/demo" element={<Demo />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/auth/reset-password" element={<ResetPassword />} />
-        <Route path="/no-access" element={<NoAccess />} />
-        <Route path="/join" element={<Join />} />
+        <Route path="/features" element={<Lazy><Features /></Lazy>} />
+        <Route path="/pricing" element={<Lazy><Pricing /></Lazy>} />
+        <Route path="/faq" element={<Lazy><Faq /></Lazy>} />
+        <Route path="/contact" element={<Lazy><Contact /></Lazy>} />
+        <Route path="/privacy" element={<Lazy><Privacy /></Lazy>} />
+        <Route path="/terms" element={<Lazy><Terms /></Lazy>} />
+        <Route path="/login" element={<Lazy><Login /></Lazy>} />
+        <Route path="/demo" element={<Lazy><Demo /></Lazy>} />
+        <Route path="/auth/callback" element={<Lazy><AuthCallback /></Lazy>} />
+        <Route path="/auth/reset-password" element={<Lazy><ResetPassword /></Lazy>} />
+        <Route path="/no-access" element={<Lazy><NoAccess /></Lazy>} />
+        <Route path="/join" element={<Lazy><Join /></Lazy>} />
 
         {/* Shareable, society-branded entry point: pranganone.com/s/rajhans-tower.
             Looks up the society by slug (public metadata only: name, logo,
             theme, area), shows their branding, then hands off to /login
             with that society pre-selected as context. */}
-        <Route path="/s/:slug" element={<ShareLink />} />
+        <Route path="/s/:slug" element={<Lazy><ShareLink /></Lazy>} />
 
         <Route path="/app" element={<RoleGate allow={['resident_owner', 'resident_tenant']}><ResidentLayout /></RoleGate>}>
           <Route index element={<Lazy><RDashboard /></Lazy>} />
@@ -189,8 +194,8 @@ export default function App() {
         <Route path="/saas/new" element={<Navigate to="/owner/societies/new" replace />} />
         <Route path="/saas/:id" element={<Lazy><OwnerLegacyRedirect /></Lazy>} />
 
-        <Route path="/403" element={<Forbidden />} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="/403" element={<Lazy><Forbidden /></Lazy>} />
+        <Route path="*" element={<Lazy><NotFound /></Lazy>} />
       </Routes>
     </ErrorBoundary>
   )

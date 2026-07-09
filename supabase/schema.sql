@@ -1,21 +1,26 @@
 -- =================================================================
 -- Prangan One - Supabase schema
 -- =================================================================
--- This is NOT wired up yet. The running app uses localStorage
--- (see src/lib/store.tsx). This file is the target schema for when
--- someone connects a real Supabase project - see supabase/README.md
--- for the setup steps and CLAUDE_CODE_NEXT_STEPS.md for how the
--- swap fits into the codebase.
+-- This is the real, currently-applied schema - not a target written in
+-- advance. A local demo mode also exists in the app (see
+-- src/lib/store.tsx) for exploring the UI without a Supabase project
+-- connected, entirely separate from this, but every real session reads
+-- and writes through what's defined here. See supabase/README.md for
+-- setup and re-applying this after a change, and
+-- supabase/tests/run-isolation-tests.sh for an automated, repeatable
+-- check of the tenant isolation this schema actually provides.
 --
 -- Design notes:
 --   - Every society-owned table carries society_id, so one Supabase
 --     project serves every society on the platform, and RLS scopes
 --     every query to "societies I belong to."
---   - IDs are uuid, generated server-side. The demo's client-side
---     prefixed string IDs (e.g. "bill_101_2026-04") go away; nothing
---     in the frontend depends on their format, only on equality.
---   - Two places where the demo used a JSON blob get proper tables
---     here instead, because the DB can enforce a real constraint:
+--   - IDs are uuid, generated server-side for real sessions. The local
+--     demo mode's own client-side prefixed string IDs (e.g.
+--     "bill_101_2026-04") are unrelated to this and never touch this
+--     database; nothing in the frontend depends on ID format, only on
+--     equality within whichever mode it's actually in.
+--   - Two places where the local demo mode used a JSON blob get proper
+--     tables here instead, because the DB can enforce a real constraint:
 --       * poll votes -> poll_votes, with UNIQUE(poll_id, flat_id)
 --         so "one vote per flat" is impossible to violate, not just
 --         app logic that happens to check it.
@@ -507,6 +512,7 @@ create or replace function is_society_member(target_society uuid)
 returns boolean
 language sql
 security definer
+set search_path = public
 stable
 as $$
   select exists (
@@ -521,6 +527,7 @@ create or replace function has_role(target_society uuid, roles text[])
 returns boolean
 language sql
 security definer
+set search_path = public
 stable
 as $$
   select exists (
@@ -542,6 +549,7 @@ create or replace function my_flat_id(target_society uuid)
 returns uuid
 language sql
 security definer
+set search_path = public
 stable
 as $$
   select m.flat_id from memberships m
@@ -555,6 +563,7 @@ create or replace function is_tenant(target_society uuid)
 returns boolean
 language sql
 security definer
+set search_path = public
 stable
 as $$
   select exists (
@@ -578,6 +587,7 @@ create or replace function can_write(target_society uuid)
 returns boolean
 language plpgsql
 security definer
+set search_path = public
 stable
 as $$
 declare
@@ -657,6 +667,7 @@ create or replace function find_society_public_profile(target_slug text)
 returns table (society_id uuid, name text, name_en text, address text, city text, area text, theme_key text, logo_url text)
 language sql
 security definer
+set search_path = public
 stable
 as $$
   select id, name, name_en, address, city, area, theme_key, logo_url
@@ -674,6 +685,7 @@ create or replace function find_society_id_by_join_code(target_code text)
 returns uuid
 language sql
 security definer
+set search_path = public
 stable
 as $$
   select id from societies where join_code = target_code limit 1;
@@ -692,6 +704,7 @@ create or replace function find_flat_for_join(target_society uuid, target_flat_n
 returns uuid
 language sql
 security definer
+set search_path = public
 stable
 as $$
   select id from flats
@@ -722,6 +735,7 @@ create or replace function check_rate_limit(p_bucket text, p_max_attempts int, p
 returns boolean
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   recent_count int;
@@ -744,6 +758,7 @@ create or replace function enforce_public_leads_rate_limit()
 returns trigger
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
   if session_user in ('postgres', 'service_role', 'supabase_admin') then
@@ -780,6 +795,7 @@ create or replace function poll_results(target_poll uuid)
 returns table(option_idx int, vote_count bigint)
 language plpgsql
 security definer
+set search_path = public
 stable
 as $$
 declare
@@ -803,6 +819,7 @@ create or replace function audit_payment_cancellation()
 returns trigger
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
   if new.cancelled = true and (old.cancelled is distinct from true) then
@@ -822,6 +839,7 @@ create or replace function enforce_societies_update()
 returns trigger
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
   if session_user in ('postgres', 'service_role', 'supabase_admin') or has_role(new.id, array['owner']) then
@@ -844,6 +862,7 @@ create or replace function enforce_membership_insert()
 returns trigger
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   flat_row flats;
@@ -924,6 +943,7 @@ create or replace function submit_join_request(target_join_code text, target_fla
 returns text
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   resolved_society uuid;

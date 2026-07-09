@@ -172,32 +172,32 @@ export default function Login() {
                 </div>
 
                 {usePassword ? (
-                  <div className="space-y-2">
-                    <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="તમારો ઈમેલ" aria-label="ઈમેલ" />
+                  <form className="space-y-2" onSubmit={e => { e.preventDefault(); submitPassword() }}>
+                    <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="તમારો ઈમેલ" aria-label="ઈમેલ" autoComplete="email" required />
                     <div className="relative">
-                      <Input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="પાસવર્ડ" aria-label="પાસવર્ડ" className="pr-10" />
+                      <Input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="પાસવર્ડ" aria-label="પાસવર્ડ" className="pr-10" autoComplete="current-password" required />
                       <button type="button" onClick={() => setShowPassword(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-300" aria-label="પાસવર્ડ બતાવો">
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
-                    <Button variant="primary" full onClick={submitPassword} disabled={!email.trim() || !password || sending}>
+                    <Button type="submit" variant="primary" full disabled={!email.trim() || !password || sending}>
                       {sending ? 'લોગિન થાય છે...' : 'લોગિન કરો'}
                     </Button>
                     <div className="flex items-center justify-between pt-0.5">
-                      <button onClick={() => setUsePassword(false)} className="text-[12.5px] font-semibold text-navy-400">ઈમેલ લિંકથી લોગિન કરો</button>
-                      <button onClick={forgotPassword} disabled={sending} className="text-[12.5px] font-semibold text-saffron-600">પાસવર્ડ ભૂલી ગયા?</button>
+                      <button type="button" onClick={() => setUsePassword(false)} className="text-[12.5px] font-semibold text-navy-400">ઈમેલ લિંકથી લોગિન કરો</button>
+                      <button type="button" onClick={forgotPassword} disabled={sending} className="text-[12.5px] font-semibold text-saffron-600">પાસવર્ડ ભૂલી ગયા?</button>
                     </div>
-                  </div>
+                  </form>
                 ) : (
-                  <div>
+                  <form onSubmit={e => { e.preventDefault(); submitEmail() }}>
                     <div className="flex gap-2">
-                      <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="તમારો ઈમેલ" className="flex-1" aria-label="ઈમેલ" />
-                      <Button variant="primary" onClick={submitEmail} disabled={!email.trim() || sending}>
+                      <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="તમારો ઈમેલ" className="flex-1" aria-label="ઈમેલ" autoComplete="email" required />
+                      <Button type="submit" variant="primary" disabled={!email.trim() || sending}>
                         {sending ? 'મોકલાય છે...' : 'લિંક મોકલો'}
                       </Button>
                     </div>
-                    <button onClick={() => setUsePassword(true)} className="text-[12.5px] font-semibold text-navy-400 mt-2.5">પાસવર્ડથી લોગિન કરો</button>
-                  </div>
+                    <button type="button" onClick={() => setUsePassword(true)} className="text-[12.5px] font-semibold text-navy-400 mt-2.5">પાસવર્ડથી લોગિન કરો</button>
+                  </form>
                 )}
                 {sendError && <p className="text-[12.5px] text-over mt-2 flex items-center gap-1.5"><AlertCircle size={13} /> {sendError}</p>}
               </div>

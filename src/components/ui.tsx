@@ -5,8 +5,9 @@
  * Semantic: green = paid/done, amber = pending, red = overdue/urgent.
  */
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
-import { useEffect, useId, useRef } from 'react'
+import { useId, useRef } from 'react'
 import { X } from 'lucide-react'
+import { useDialogA11y } from '../lib/useDialogA11y'
 
 /* ---------------- Button ---------------- */
 type BtnVariant = 'primary' | 'accent' | 'soft' | 'ghost' | 'danger'
@@ -99,39 +100,7 @@ export function Modal({ open, onClose, title, children, wide }: {
 }) {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
-  const previouslyFocused = useRef<HTMLElement | null>(null)
-
-  // Escape closes, Tab/Shift+Tab stay trapped inside the dialog while open.
-  useEffect(() => {
-    if (!open) return
-    previouslyFocused.current = document.activeElement as HTMLElement | null
-
-    const focusables = () => Array.from(
-      dialogRef.current?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [],
-    ).filter(el => !el.hasAttribute('disabled'))
-
-    // Move focus into the dialog on open, so keyboard/screen-reader users
-    // land somewhere sensible instead of staying on whatever triggered it.
-    const first = focusables()[0]
-    first?.focus()
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return }
-      if (e.key !== 'Tab') return
-      const els = focusables()
-      if (els.length === 0) return
-      const firstEl = els[0], lastEl = els[els.length - 1]
-      if (e.shiftKey && document.activeElement === firstEl) { e.preventDefault(); lastEl.focus() }
-      else if (!e.shiftKey && document.activeElement === lastEl) { e.preventDefault(); firstEl.focus() }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      // Restore focus to whatever opened the modal, so keyboard users don't
-      // lose their place in the page underneath.
-      previouslyFocused.current?.focus()
-    }
-  }, [open, onClose])
+  useDialogA11y(open, onClose, dialogRef)
 
   if (!open) return null
   return (

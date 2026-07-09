@@ -90,35 +90,37 @@ export default function Payments() {
       )}
 
       <Card className="animate-fadeUp">
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="ફ્લેટ">
-            <Select value={flatId} onChange={e => pickFlat(e.target.value)}>
-              {flats.map(f => <option key={f.id} value={f.id}>{f.number} · {f.ownerName}</option>)}
-            </Select>
-          </Field>
-          <Field label="કયા બિલ સામે?" hint={pendingBills.length === 0 ? 'આ ફ્લેટનું કોઈ બિલ બાકી નથી' : undefined}>
-            <Select value={billId} onChange={e => pickBill(e.target.value)}>
-              <option value="">બિલ વગર (એડવાન્સ / અન્ય)</option>
-              {pendingBills.map(b => <option key={b.id} value={b.id}>{fmtMonth(b.month)} · બાકી {inr(b.amount - b.paidAmount)}</option>)}
-            </Select>
-          </Field>
-          <Field label="રકમ (₹)" hint="આંશિક ચુકવણી પણ ચાલશે">
-            <Input type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} placeholder="1200" />
-          </Field>
-          <Field label="ચુકવણી પ્રકાર">
-            <Select value={mode} onChange={e => setMode(e.target.value as PayMode)}>
-              {(Object.keys(payModeLabel) as PayMode[]).map(m => <option key={m} value={m}>{payModeLabel[m]}</option>)}
-            </Select>
-          </Field>
-          <Field label="રેફરન્સ નં (UPI/ચેક)"><Input value={refNo} onChange={e => setRefNo(e.target.value)} placeholder="UPI123456" /></Field>
-          <Field label="એડજસ્ટમેન્ટ / નોંધ"><Input value={note} onChange={e => setNote(e.target.value)} placeholder="દા.ત. ₹200 ગયા મહિનાનું એડજસ્ટ" /></Field>
-        </div>
-        <label className="mt-3 flex items-center gap-2.5 text-[14px] text-navy-600 cursor-pointer">
-          <input type="checkbox" checked={failed} onChange={e => setFailed(e.target.checked)} className="h-4.5 w-4.5 accent-saffron-500" style={{ width: 18, height: 18 }} />
-          ફેલ થયેલી ચુકવણી તરીકે નોંધો (ડેમો: પેમેન્ટ ફેલ થાય તો કેવું દેખાય)
-        </label>
-        {failMsg && <div className="mt-2 text-[13.5px] text-over bg-red-50 border border-red-100 rounded-lg px-3 py-2 flex items-center gap-2"><XCircle size={15} /> {failMsg}</div>}
-        <Button className="mt-4" variant="accent" onClick={submit} disabled={!Number(amount)}>ચુકવણી નોંધો</Button>
+        <form onSubmit={e => { e.preventDefault(); submit() }}>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="ફ્લેટ">
+              <Select value={flatId} onChange={e => pickFlat(e.target.value)}>
+                {flats.map(f => <option key={f.id} value={f.id}>{f.number} · {f.ownerName}</option>)}
+              </Select>
+            </Field>
+            <Field label="કયા બિલ સામે?" hint={pendingBills.length === 0 ? 'આ ફ્લેટનું કોઈ બિલ બાકી નથી' : undefined}>
+              <Select value={billId} onChange={e => pickBill(e.target.value)}>
+                <option value="">બિલ વગર (એડવાન્સ / અન્ય)</option>
+                {pendingBills.map(b => <option key={b.id} value={b.id}>{fmtMonth(b.month)} · બાકી {inr(b.amount - b.paidAmount)}</option>)}
+              </Select>
+            </Field>
+            <Field label="રકમ (₹)" hint="આંશિક ચુકવણી પણ ચાલશે">
+              <Input type="number" inputMode="numeric" min="1" value={amount} onChange={e => setAmount(e.target.value)} placeholder="1200" required />
+            </Field>
+            <Field label="ચુકવણી પ્રકાર">
+              <Select value={mode} onChange={e => setMode(e.target.value as PayMode)}>
+                {(Object.keys(payModeLabel) as PayMode[]).map(m => <option key={m} value={m}>{payModeLabel[m]}</option>)}
+              </Select>
+            </Field>
+            <Field label="રેફરન્સ નં (UPI/ચેક)"><Input value={refNo} onChange={e => setRefNo(e.target.value)} placeholder="UPI123456" /></Field>
+            <Field label="એડજસ્ટમેન્ટ / નોંધ"><Input value={note} onChange={e => setNote(e.target.value)} placeholder="દા.ત. ₹200 ગયા મહિનાનું એડજસ્ટ" /></Field>
+          </div>
+          <label className="mt-3 flex items-center gap-2.5 text-[14px] text-navy-600 cursor-pointer">
+            <input type="checkbox" checked={failed} onChange={e => setFailed(e.target.checked)} className="h-4.5 w-4.5 accent-saffron-500" style={{ width: 18, height: 18 }} />
+            ફેલ થયેલી ચુકવણી તરીકે નોંધો (ડેમો: પેમેન્ટ ફેલ થાય તો કેવું દેખાય)
+          </label>
+          {failMsg && <div className="mt-2 text-[13.5px] text-over bg-red-50 border border-red-100 rounded-lg px-3 py-2 flex items-center gap-2"><XCircle size={15} /> {failMsg}</div>}
+          <Button type="submit" className="mt-4" variant="accent" disabled={!Number(amount)}>ચુકવણી નોંધો</Button>
+        </form>
       </Card>
 
       <div className="mt-4">

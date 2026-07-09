@@ -98,24 +98,24 @@ export default function Contact() {
             <p className="text-[15px] text-navy-700 font-semibold">{t.thanks}</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <form className="space-y-3" onSubmit={e => { e.preventDefault(); submit() }}>
             <label htmlFor="contact-name" className="sr-only">{t.name}</label>
-            <input id="contact-name" className={inputClass} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder={t.name} autoComplete="name" />
-            <div className="grid grid-cols-2 gap-3">
+            <input id="contact-name" className={inputClass} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder={t.name} autoComplete="name" required />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label htmlFor="contact-phone" className="sr-only">{t.phone}</label>
-              <input id="contact-phone" className={inputClass} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder={t.phone} autoComplete="tel" />
+              <input id="contact-phone" className={inputClass} type="tel" pattern="[0-9+ ()-]{7,15}" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder={t.phone} autoComplete="tel" required />
               <label htmlFor="contact-email" className="sr-only">{t.email}</label>
-              <input id="contact-email" className={inputClass} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder={t.email} autoComplete="email" />
+              <input id="contact-email" className={inputClass} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder={t.email} autoComplete="email" required />
             </div>
             <label htmlFor="contact-society" className="sr-only">{t.societyName}</label>
-            <input id="contact-society" className={inputClass} value={form.societyName} onChange={e => setForm({ ...form, societyName: e.target.value })} placeholder={t.societyName} />
-            <div className="grid grid-cols-2 gap-3">
+            <input id="contact-society" className={inputClass} value={form.societyName} onChange={e => setForm({ ...form, societyName: e.target.value })} placeholder={t.societyName} required />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label htmlFor="contact-city" className="sr-only">{t.city}</label>
               <input id="contact-city" className={inputClass} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder={t.city} autoComplete="address-level2" />
               <label htmlFor="contact-flatcount" className="sr-only">{t.flatCount}</label>
-              <input id="contact-flatcount" className={inputClass} type="number" value={form.flatCount} onChange={e => setForm({ ...form, flatCount: e.target.value })} placeholder={t.flatCount} />
+              <input id="contact-flatcount" className={inputClass} type="number" min="1" value={form.flatCount} onChange={e => setForm({ ...form, flatCount: e.target.value })} placeholder={t.flatCount} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label htmlFor="contact-role" className="sr-only">{t.roleOptions[0]}</label>
               <select id="contact-role" className={inputClass} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                 {t.roleOptions.map(r => <option key={r}>{r}</option>)}
@@ -128,11 +128,11 @@ export default function Contact() {
             <label htmlFor="contact-message" className="sr-only">{t.message}</label>
             <textarea id="contact-message" className={inputClass + ' min-h-[80px] py-2.5'} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder={t.message} />
             {error && <p className="text-[13px] text-over flex items-start gap-1.5"><AlertCircle size={15} className="shrink-0 mt-0.5" /> {t.error}</p>}
-            <button onClick={submit} disabled={!form.name.trim() || !form.phone.trim() || !form.email.trim() || !form.societyName.trim() || sending}
+            <button type="submit" disabled={!form.name.trim() || !form.phone.trim() || !form.email.trim() || !form.societyName.trim() || sending}
               className="w-full rounded-xl bg-navy-900 text-cream-50 py-3.5 text-[15px] font-bold hover:bg-navy-800 disabled:opacity-40">
               {sending ? t.sending : t.submit}
             </button>
-          </div>
+          </form>
         )}
 
         {/* WhatsApp button intentionally removed until a real number exists -

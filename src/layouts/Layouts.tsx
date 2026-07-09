@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, Link } from 'react-router-dom'
 import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, LogOut, ShieldAlert, Loader2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useData } from '../lib/store'
 import { roleLabel } from '../lib/permissions'
+import { useDialogA11y } from '../lib/useDialogA11y'
 import { SocietyLogo } from '../components/SocietyLogo'
 import { PranganBrand, PoweredByPrangan } from '../components/PranganBrand'
 import { useAppLang } from '../lib/useAppLang'
 import { SubscriptionBanner } from '../components/SubscriptionBanner'
+import { SyncFailureBanner } from '../components/SyncFailureBanner'
 import type { Role, SocietyModules } from '../lib/types'
 
 /* ---------------- Resident: mobile-first ---------------- */
@@ -37,10 +39,11 @@ export function ResidentLayout() {
   return (
     <div className="min-h-screen max-w-2xl mx-auto flex flex-col">
       {blockedToast && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] bg-navy-900 text-cream-50 text-[13px] font-semibold px-4 py-2.5 rounded-xl shadow-lift animate-fadeUp">
+        <div role="status" className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] bg-navy-900 text-cream-50 text-[13px] font-semibold px-4 py-2.5 rounded-xl shadow-lift animate-fadeUp">
           {blockedToast}
         </div>
       )}
+      <SyncFailureBanner />
       {/* Society identity is primary here, this strip keeps Prangan One
           genuinely visible (name included, not just the mark) on every
           resident screen without competing with the society's own branding
@@ -109,6 +112,8 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
   useAppLang()
   const { society, session, logout, moduleEnabled, exitImpersonation, financialsLoading, lastBlockedReason } = useData()
   const [open, setOpen] = useState(false)
+  const drawerRef = useRef<HTMLElement>(null)
+  useDialogA11y(open, () => setOpen(false), drawerRef)
   const [blockedToast, setBlockedToast] = useState<string | null>(null)
   useEffect(() => {
     if (!lastBlockedReason) return
@@ -166,10 +171,11 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
   return (
     <div className="min-h-screen md:flex">
       {blockedToast && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] bg-navy-900 text-cream-50 text-[13px] font-semibold px-4 py-2.5 rounded-xl shadow-lift animate-fadeUp">
+        <div role="status" className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] bg-navy-900 text-cream-50 text-[13px] font-semibold px-4 py-2.5 rounded-xl shadow-lift animate-fadeUp">
           {blockedToast}
         </div>
       )}
+      <SyncFailureBanner />
       {/* desktop sidebar */}
       <aside className="hidden md:flex md:flex-col w-64 shrink-0 bg-navy-900 min-h-screen sticky top-0 max-h-screen">
         {sidebarInner}
@@ -179,7 +185,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
       {open && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-navy-950/50" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-navy-900 flex flex-col animate-fadeUp">
+          <aside ref={drawerRef} role="dialog" aria-modal="true" aria-label="મેનુ" className="absolute inset-y-0 left-0 w-72 bg-navy-900 flex flex-col animate-fadeUp">
             <button onClick={() => setOpen(false)} aria-label="બંધ કરો" className="absolute top-3 right-3 text-cream-100 h-9 w-9 flex items-center justify-center rounded-full hover:bg-navy-800"><X size={19} /></button>
             {sidebarInner}
           </aside>
