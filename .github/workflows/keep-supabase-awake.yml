@@ -9,6 +9,19 @@ name: Keep Supabase project awake
 # Requires two repository secrets, set under Settings -> Secrets and
 # variables -> Actions: SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY, the
 # same values used in the app's own .env.
+#
+# Pings the Auth service's own health endpoint specifically, not a
+# table through the REST API - confirmed live, not assumed, that every
+# app table in this schema routes its RLS through helper functions
+# deliberately restricted to authenticated, logged-in requests only, so
+# an anonymous ping against any of them fails with a real permission
+# error before RLS even gets a chance to run, regardless of which table
+# is picked. The bare REST API root (/rest/v1/) fails for a different,
+# equally real reason - Supabase treats that specific path as a schema-
+# introspection endpoint requiring an admin-level secret key, not the
+# publishable key used here. /auth/v1/health has neither restriction,
+# and is the endpoint real, working tools built specifically to solve
+# this exact problem actually use.
 
 on:
   schedule:
@@ -19,9 +32,9 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping the Supabase REST endpoint
+      - name: Ping the Supabase Auth health endpoint
         run: |
-          curl -w "\nHTTP status: %{http_code}\n" "$SUPABASE_URL/auth/v1/health" -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
+          curl -sf "$SUPABASE_URL/auth/v1/health" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -o /dev/null
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}

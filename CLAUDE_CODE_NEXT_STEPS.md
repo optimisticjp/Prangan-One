@@ -58,6 +58,18 @@ The two real findings this build exists for: a receipt number was computed from 
 
 Needs the schema reapplied - this build is centered on real database functions.
 
+## Fifth plan, build 2: the keep-alive workflow's own ping target was wrong from the start, found only by actually running it for real
+
+The previous build fixed CI's own connection method and said plainly that a real GitHub Actions run was the only genuine proof either way. That push worked. Running the keep-alive workflow manually, for the first time ever, for the same honest reason, turned up a second, separate, real problem in the other workflow this same project added - not a coincidence, the actual first real execution of anything in this file, ever.
+
+**What actually happened, in two real steps, not one:** the ping target (`$SUPABASE_URL/rest/v1/`, the bare REST API root) returned a genuine, live 401 - "Secret API key required. Only secret API keys can be used for this endpoint." Confirmed directly against Supabase's own current documentation rather than guessed: that specific path is treated as a schema-introspection endpoint requiring an admin-level secret key, a real, deliberate Supabase platform restriction, not a misconfigured key. Pointed at an actual table instead (`societies`), expecting Row Level Security to just return an empty, still-successful result for an anonymous request - and hit a second, different, equally real error instead: `permission denied for function is_society_member`, a genuine PostgreSQL permission error, not an RLS filter. Traced directly to this project's own schema: every single RLS policy in this database routes through helper functions in the `private` schema, and those were deliberately restricted, in earlier work on this project, to the `authenticated` role only - a real, intentional security boundary, not an oversight, that also means no anonymous key can query any app table here at all, regardless of which one gets picked.
+
+**The actual fix: stop trying to ping an app table at all.** `/auth/v1/health`, Supabase's own Auth service health check, has neither restriction - it isn't a table query, so this project's own RLS design doesn't apply to it, and it isn't the OpenAPI root, so the secret-key requirement doesn't apply either. Confirmed as the real, established approach for exactly this problem, not invented for this one, before ever suggesting it - it's the specific endpoint other tools built for this exact purpose already use. Confirmed live, for real, with a genuine 200 and a real response from Supabase's own Auth service, not merely reasoned into place.
+
+Restored to the same quiet, production-appropriate style the workflow always had (silent, fails loudly only on a real error, discards output on success) once the correct endpoint was actually confirmed working - the verbose, diagnostic version used to debug this was deliberately temporary.
+
+No app code changed in this build, and no further database changes - the one workflow file, its second real fix in as many pushes, both only found by actually running the thing for real.
+
 ## Fifth plan, build 1: the first real CI run found a real bug, exactly the kind this repository could never have caught on its own
 
 Flagged plainly when CI was first built (fourth plan, build 2): this repository has no way to actually execute a GitHub Actions run from inside it, only check that the logic and YAML are sound. The first real push after that build was the actual first proof, and it found a real, genuine bug, not in the app, not in any database policy, in the CI workflow itself.
