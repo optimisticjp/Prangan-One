@@ -1,10 +1,30 @@
-// CSV export with UTF-8 BOM so Gujarati opens correctly in Excel.
-export function exportCsv(filename: string, headers: string[], rows: (string | number | undefined)[][]) {
+/**
+ * The actual escaping and formula-injection guard, pulled out from
+ * exportCsv below so it's directly testable - exportCsv itself is DOM
+ * side effects (document.createElement, Blob, URL.createObjectURL),
+ * not logic worth re-testing, and used to be the only place this logic
+ * lived at all, meaning it was never actually tested.
+ */
+export function buildCsvBody(headers: string[], rows: (string | number | undefined)[][]): string {
   const esc = (v: string | number | undefined) => {
-    const s = v === undefined || v === null ? '' : String(v)
+    let s = v === undefined || v === null ? '' : String(v)
+    // Formula-injection guard: a cell whose text starts with one of these
+    // could execute as a formula the moment a committee member opens
+    // this file in Excel - and they will, that's what the BOM in
+    // exportCsv below is for. Resident-entered text (a complaint title,
+    // a name) is exactly the kind of thing that could start with one of
+    // these by accident or on purpose. A leading apostrophe is the
+    // standard fix: both Excel and Google Sheets treat it as "this is
+    // text," not part of the value itself.
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s
     return /["\,\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
   }
-  const body = [headers, ...rows].map(r => r.map(esc).join(',')).join('\n')
+  return [headers, ...rows].map(r => r.map(esc).join(',')).join('\n')
+}
+
+// CSV export with UTF-8 BOM so Gujarati opens correctly in Excel.
+export function exportCsv(filename: string, headers: string[], rows: (string | number | undefined)[][]) {
+  const body = buildCsvBody(headers, rows)
   const blob = new Blob(['\uFEFF' + body], { type: 'text/csv;charset=utf-8;' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)

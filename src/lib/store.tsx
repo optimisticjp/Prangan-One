@@ -49,7 +49,7 @@ import type {
 import { uid, realUid } from './id'
 import { supabase, supabaseConfigured } from './supabase'
 import {
-  fetchSocietyFinancials, insertFlatReal, updateFlatReal, insertBillsReal, recordPaymentReal, insertPaymentReal, updateBillPaidAmountReal, updatePaymentReal, insertAdjustmentReal,
+  fetchSocietyFinancials, insertFlatReal, updateFlatReal, insertBillsReal, recordPaymentReal, confirmPendingPaymentReal, cancelReceiptAtomicReal, updatePaymentReal, insertAdjustmentReal,
   fetchSocietyComplaints, insertComplaintReal, advanceComplaintReal, updateComplaintNotesReal, updateComplaintFeedbackReal, updateComplaintPhotoPathReal,
   fetchSocietyNotices, insertNoticeReal, updateNoticePinnedReal,
   uploadSocietyLogo, uploadPrivateFile, getSignedFileUrl,
@@ -250,6 +250,13 @@ interface Store {
    * rendering "nothing owed"/"no bills yet" so a real fetch in progress
    * doesn't briefly look like an empty, all-paid-up account. */
   financialsLoading: boolean
+  /** True when the initial real-session data fetch most recently failed -
+   * the actual fix for a real, previously silent gap: before this,
+   * nothing told anyone the fetch had failed at all, they'd just see
+   * whatever was already there. retryFetch forces the fetch effect to
+   * run again. */
+  fetchError: boolean
+  retryFetch: () => void
   /** Why the most recent write attempt was blocked, if it was - null
    * means either nothing's been blocked yet, or the last attempt
    * succeeded. Set by guardedSetDb; check this after a mutation returns
@@ -417,6 +424,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>(loadDB)
   const [session, setSession] = useState<Session>(loadSession)
   const [financialsLoading, setFinancialsLoading] = useState(false)
+  // The actual fix for a real, previously silent gap: before this, if the
+  // initial real-session fetch failed for any reason, the person was left
+  // looking at whatever was already there - possibly stale, possibly
+  // completely empty on a first load - with nothing telling them anything
+  // had gone wrong at all. fetchError is set true on that failure and
+  // cleared the moment a fetch actually succeeds; retryFetch (exposed
+  // further down) just increments refetchTrigger, which is in the fetch
+  // effect's own dependency array below, to force it to run again.
+  const [fetchError, setFetchError] = useState(false)
+  const [refetchTrigger, setRefetchTrigger] = useState(0)
   // Surfaces WHY a write was just blocked, so a page can show something
   // like "you're in read-only mode" instead of the write just silently
   // doing nothing - before this, guardedSetDb only ever logged a console
@@ -524,9 +541,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fetchAllPlatformBilling(), fetchAllAuditLogs(), fetchAllImpersonationLogs(), fetchPublicLeads(),
       ])
         .then(([societies, flats, memberships, platformBilling, auditLogs, impersonationLogs, leads]) => {
-          if (!cancelled) setDb(d => ({ ...d, societies, flats, memberships, platformBilling, auditLogs, impersonationLogs, leads }))
+          if (!cancelled) { setDb(d => ({ ...d, societies, flats, memberships, platformBilling, auditLogs, impersonationLogs, leads })); setFetchError(false) }
         })
-        .catch(() => { /* the person still sees whatever was already loaded */ })
+        .catch(() => { if (!cancelled) setFetchError(true) })
         .finally(() => { if (!cancelled) setFinancialsLoading(false) })
       return () => { cancelled = true }
     }
@@ -565,11 +582,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
           events: [...d.events.filter(ev => ev.societyId !== activeSocietyId), ...events],
           expenses: [...d.expenses.filter(e => e.societyId !== activeSocietyId), ...expenses],
         }))
+        setFetchError(false)
       })
-      .catch(() => { /* the person still sees whatever was already loaded; a real error-surface for this is worth adding later */ })
+      .catch(() => { if (!cancelled) setFetchError(true) })
       .finally(() => { if (!cancelled) setFinancialsLoading(false) })
     return () => { cancelled = true }
-  }, [activeSocietyId, session.isRealSession, session.role])
+  }, [activeSocietyId, session.isRealSession, session.role, refetchTrigger])
 
   useEffect(() => {
     applyTheme(activeSociety?.themeKey ?? defaultThemeKey)
@@ -710,17 +728,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
           retry(rows.length ? () => insertBillsReal(rows) : null)
           return
         }
-        case 'payment': case 'payment-confirm': case 'receipt-cancel': {
+        case 'payment': {
           const r = db.payments.find(x => x.id === id)
-          if (!r) { retry(null); return }
-          const bill = r.billId ? db.bills.find(x => x.id === r.billId) : undefined
-          retry(async () => {
-            await insertPaymentReal(r)
-            if (r.status === 'success' && r.billId && bill) {
-              await updateBillPaidAmountReal(r.billId, bill.paidAmount)
-            }
-            if (r.cancelled) await updatePaymentReal(id, { cancelled: true, cancelReason: r.cancelReason })
-          })
+          retry(r ? () => recordPaymentReal(r).then(() => {}) : null)
+          return
+        }
+        case 'payment-confirm': {
+          const r = db.payments.find(x => x.id === id)
+          retry(r ? () => confirmPendingPaymentReal(id).then(() => {}) : null)
+          return
+        }
+        case 'receipt-cancel': {
+          const r = db.payments.find(x => x.id === id)
+          retry(r ? () => cancelReceiptAtomicReal(id, r.cancelReason ?? '') : null)
           return
         }
         case 'adjustment': { const r = db.adjustments.find(x => x.id === id); retry(r ? () => insertAdjustmentReal(r) : null); return }
@@ -779,7 +799,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     return {
-      db: scopedDb, rawDb: db, session, society, financialsLoading, lastBlockedReason, canWriteNow,
+      db: scopedDb, rawDb: db, session, society, financialsLoading, fetchError, retryFetch: () => setRefetchTrigger(n => n + 1), lastBlockedReason, canWriteNow,
       failedWrites: db.pendingSync.map(p => ({ id: p.id, label: p.label })),
       retryFailedWrite: (id) => {
         const closure = failedWriteRetries.current.get(id)
@@ -794,13 +814,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       subscriptionBannerFor: (audience) => statusBanner(society, audience),
 
       setSubscriptionStatus: (societyId, status) => {
+        const graceStartedAt = status === 'grace' ? todayISO() : (status === 'active' || status === 'trial' ? null : undefined)
         setDb(d => ({
           ...d,
           societies: d.societies.map(s => s.id === societyId
-            ? { ...s, subscriptionStatus: status, graceStartedAt: status === 'grace' ? todayISO() : (status === 'active' || status === 'trial' ? undefined : s.graceStartedAt) }
+            ? { ...s, subscriptionStatus: status, graceStartedAt: graceStartedAt === null ? undefined : (graceStartedAt ?? s.graceStartedAt) }
             : s),
           auditLogs: [{ id: uid('aud'), societyId, at: new Date().toISOString(), actor: 'Prangan One ઓનર', action: 'subscription_status_changed', detail: `સ્થિતિ બદલાઈ: ${status}` }, ...d.auditLogs],
         }))
+        if (session.isRealSession) {
+          attemptRealWrite(societyId, 'સબ્સ્ક્રિપ્શન સ્થિતિ', () => updateSocietyStatusReal(societyId, { subscriptionStatus: status, graceStartedAt }), 'society-status')
+        }
       },
 
       login: (role, flatId) => {
@@ -1010,6 +1034,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       recordPayment: ({ flatId, billId, amount, mode, refNo, note, failed, date, pending, proofFile }) => {
         const year = (date ?? todayISO()).slice(0, 4)
         const status: Payment['status'] = failed ? 'failed' : pending ? 'pending_confirmation' : 'success'
+        // Optimistic only - for a real session, the actual receipt number
+        // is whatever record_payment_atomic (schema.sql) allocates under
+        // a real lock, reconciled in below once that call returns. Shown
+        // immediately anyway for instant feedback; it's very rarely
+        // different, but when it is (two people recording payments for
+        // the same society at the same instant), the real one always
+        // wins.
         const receiptNo = status === 'success' ? `${society.receiptPrefix}-${year}-${String(society.receiptSeq).padStart(4, '0')}` : undefined
         const pay: Payment = {
           id: session.isRealSession ? realUid() : uid('pay'), societyId: activeSocietyId, flatId, billId,
@@ -1035,19 +1066,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
         })
         if (ok && session.isRealSession) {
           attemptRealWrite(pay.id, 'ચુકવણી', () =>
-            recordPaymentReal(pay, targetBill?.paidAmount ?? 0, targetBill?.amount ?? amount)
-              .then(async () => {
-                // Same reasoning as addComplaint's photo upload - the
-                // payment row has to exist in the real database first (the
-                // storage policy checks for it), so the proof screenshot
-                // uploads as a genuine second step, not part of the
-                // original insert.
-                if (!proofFile) return
-                const path = await uploadPrivateFile('payment-proof', pay.id, proofFile)
-                await updatePaymentReal(pay.id, { proofPath: path })
-                setDb(d => ({ ...d, payments: d.payments.map(x => x.id === pay.id ? { ...x, proofPath: path } : x) }))
-              }), 'payment')
-          if (overpayAdj) attemptRealWrite(overpayAdj.id, 'ક્રેડિટ એડજસ્ટમેન્ટ', () => insertAdjustmentReal(overpayAdj), 'adjustment')
+            recordPaymentReal(pay).then(async result => {
+              // Reconcile the optimistic guess with what the database
+              // actually, atomically allocated - almost always identical,
+              // but the server's own number is what's authoritative, not
+              // the client's.
+              setDb(d => ({
+                ...d,
+                payments: d.payments.map(x => x.id === pay.id ? { ...x, receiptNo: result.receiptNo ?? x.receiptNo } : x),
+                adjustments: overpayAdj && result.adjustmentId
+                  ? d.adjustments.map(a => a.id === overpayAdj.id ? { ...a, id: result.adjustmentId! } : a)
+                  : d.adjustments,
+              }))
+              // Same reasoning as addComplaint's photo upload - the
+              // payment row has to exist in the real database first (the
+              // storage policy checks for it), so the proof screenshot
+              // uploads as a genuine second step, not part of the
+              // original insert.
+              if (!proofFile) return
+              const path = await uploadPrivateFile('payment-proof', pay.id, proofFile)
+              await updatePaymentReal(pay.id, { proofPath: path })
+              setDb(d => ({ ...d, payments: d.payments.map(x => x.id === pay.id ? { ...x, proofPath: path } : x) }))
+            }), 'payment')
         }
         return ok ? pay : null
       },
@@ -1055,8 +1095,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const p = scopedDb.payments.find(x => x.id === paymentId)
         if (!p || p.status !== 'pending_confirmation') return
         const year = p.date.slice(0, 4)
+        // Optimistic only - see the matching comment in recordPayment
+        // above. The real number is whatever confirm_pending_payment_atomic
+        // (schema.sql) allocates under a real lock.
         const receiptNo = `${society.receiptPrefix}-${year}-${String(society.receiptSeq).padStart(4, '0')}`
-        const targetBill = p.billId ? scopedDb.bills.find(b => b.id === p.billId) : undefined
         guardedSetDb(d => {
           const bills = p.billId ? d.bills.map(b => b.id === p.billId ? { ...b, paidAmount: Math.min(b.amount, b.paidAmount + p.amount) } : b) : d.bills
           return {
@@ -1066,18 +1108,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
         })
         if (session.isRealSession) {
-          attemptRealWrite(paymentId, 'ચુકવણી પુષ્ટિ', async () => {
-            await updatePaymentReal(paymentId, { status: 'success', receiptNo })
-            if (p.billId && targetBill) {
-              await updateBillPaidAmountReal(p.billId, Math.min(targetBill.amount, targetBill.paidAmount + p.amount))
-            }
-          }, 'payment-confirm')
+          attemptRealWrite(paymentId, 'ચુકવણી પુષ્ટિ', () =>
+            confirmPendingPaymentReal(paymentId).then(result => {
+              setDb(d => ({ ...d, payments: d.payments.map(x => x.id === paymentId ? { ...x, receiptNo: result.receiptNo ?? x.receiptNo } : x) }))
+            }), 'payment-confirm')
         }
       },
       cancelReceipt: (paymentId, reason) => {
         const p = scopedDb.payments.find(x => x.id === paymentId)
         if (!p) return
-        const targetBill = p.billId ? scopedDb.bills.find(b => b.id === p.billId) : undefined
         guardedSetDb(d => {
           // Reverse the bill credit so dues stay correct, but never delete
           // the payment row - it stays visible, marked cancelled, with the
@@ -1090,12 +1129,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
         })
         if (session.isRealSession) {
-          attemptRealWrite(paymentId, 'રસીદ રદ કરવી', async () => {
-            await updatePaymentReal(paymentId, { cancelled: true, cancelReason: reason })
-            if (p.billId && targetBill) {
-              await updateBillPaidAmountReal(p.billId, Math.max(0, targetBill.paidAmount - p.amount))
-            }
-          }, 'receipt-cancel')
+          attemptRealWrite(paymentId, 'રસીદ રદ કરવી', () => cancelReceiptAtomicReal(paymentId, reason), 'receipt-cancel')
         }
       },
 

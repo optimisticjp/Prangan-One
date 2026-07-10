@@ -156,12 +156,47 @@ export async function insertPaymentReal(p: Payment): Promise<void> {
   if (error) throw error
 }
 
-/** Records a payment and updates the bill's paid_amount together, mirroring recordPayment in store.tsx. Safe to retry as a whole: insertPaymentReal itself is idempotent, and the bill update sets an absolute computed value (Math.min(billAmount, currentBillPaidAmount + p.amount)) rather than incrementing one - retrying with the same captured currentBillPaidAmount recomputes the identical target, it doesn't add the payment amount a second time. */
-export async function recordPaymentReal(p: Payment, currentBillPaidAmount: number, billAmount: number): Promise<void> {
-  await insertPaymentReal(p)
-  if (p.status === 'success' && p.billId) {
-    await updateBillPaidAmountReal(p.billId, Math.min(billAmount, currentBillPaidAmount + p.amount))
-  }
+/**
+ * Records a payment, allocates its receipt number, updates the bill's
+ * paid amount, and creates a credit adjustment for any overpayment - all
+ * inside one real database transaction (record_payment_atomic in
+ * schema.sql), not three or four separate client requests that could
+ * leave things half-done on a bad connection. The receipt number
+ * returned here is the actual, server-allocated one - genuinely safe
+ * under concurrency (two people recording payments for the same society
+ * at the same instant can never receive the same number), unlike the
+ * client-computed-and-hoped-for number this used to be. Safe to retry:
+ * the function itself checks whether this exact payment id was already
+ * recorded and returns the existing result rather than doing any of
+ * this a second time.
+ */
+export async function recordPaymentReal(p: Payment): Promise<{ receiptNo: string | null; overpayAmount: number; adjustmentId: string | null }> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { data, error } = await supabase.rpc('record_payment_atomic', {
+    p_id: p.id, p_society_id: p.societyId, p_flat_id: p.flatId, p_bill_id: p.billId ?? null,
+    p_date: p.date, p_amount: p.amount, p_mode: p.mode, p_ref_no: p.refNo ?? null, p_note: p.note ?? null,
+    p_status: p.status,
+  })
+  if (error) throw error
+  return { receiptNo: data.receipt_no ?? null, overpayAmount: Number(data.overpay_amount ?? 0), adjustmentId: data.adjustment_id ?? null }
+}
+
+/**
+ * The other two atomic payment operations, same reasoning as above -
+ * confirming a resident's "I have paid" into a real, receipted payment,
+ * and cancelling one, each fully atomic and fully retry-safe now.
+ */
+export async function confirmPendingPaymentReal(paymentId: string): Promise<{ receiptNo: string | null }> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { data, error } = await supabase.rpc('confirm_pending_payment_atomic', { p_payment_id: paymentId })
+  if (error) throw error
+  return { receiptNo: data.receipt_no ?? null }
+}
+
+export async function cancelReceiptAtomicReal(paymentId: string, reason: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured')
+  const { error } = await supabase.rpc('cancel_receipt_atomic', { p_payment_id: paymentId, p_reason: reason })
+  if (error) throw error
 }
 
 export async function updateBillPaidAmountReal(billId: string, paidAmount: number): Promise<void> {

@@ -113,47 +113,58 @@ describe('insertBillsReal', () => {
 })
 
 describe('recordPaymentReal', () => {
-  it('inserts the payment and updates the bill paid_amount together, capped at the bill amount', async () => {
-    const calls: { table: string; payload: unknown }[] = []
+  it('calls the atomic record_payment_atomic RPC with the payment\u2019s real fields, and returns what the database actually allocated', async () => {
+    const rpcCalls: { fn: string; args: unknown }[] = []
     vi.doMock('../supabase', () => ({
       supabase: {
-        from: (table: string) => ({
-          select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }),
-          insert: (payload: unknown) => { calls.push({ table, payload }); return Promise.resolve({ error: null }) },
-          update: (payload: unknown) => { calls.push({ table, payload }); return { eq: () => Promise.resolve({ error: null }) } },
-        }),
+        rpc: (fn: string, args: unknown) => {
+          rpcCalls.push({ fn, args })
+          return Promise.resolve({ data: { receipt_no: 'RJH-2027-0042', overpay_amount: 0, adjustment_id: null }, error: null })
+        },
       },
     }))
     const { recordPaymentReal } = await import('../realData')
 
-    await recordPaymentReal(
+    const result = await recordPaymentReal(
       { id: 'p1', societyId: 'soc1', flatId: 'f1', billId: 'b1', date: '2027-01-05', amount: 500, mode: 'upi', status: 'success' },
-      700, // already paid
-      1000, // bill total
     )
 
-    const billUpdate = calls.find(c => c.table === 'bills')
-    expect(billUpdate?.payload).toEqual({ paid_amount: 1000 }) // capped at the bill's total, not 700+500=1200
+    expect(rpcCalls).toHaveLength(1)
+    expect(rpcCalls[0].fn).toBe('record_payment_atomic')
+    expect(rpcCalls[0].args).toMatchObject({ p_id: 'p1', p_society_id: 'soc1', p_bill_id: 'b1', p_amount: 500, p_status: 'success' })
+    // The receipt number is whatever the database actually allocated,
+    // not something this function computed or guessed itself - that's
+    // the entire point of moving this server-side in the first place.
+    expect(result.receiptNo).toBe('RJH-2027-0042')
   })
 
-  it('skips the insert entirely on a retry where the payment row already exists, and still does not touch the bill for a pending or failed payment either way', async () => {
-    const calls: string[] = []
+  it('surfaces the real overpay amount and adjustment id the database computed, not a client-side guess', async () => {
     vi.doMock('../supabase', () => ({
       supabase: {
-        from: (table: string) => ({
-          select: () => ({ eq: () => Promise.resolve({ count: 1, error: null }) }), // simulates the row already existing, e.g. a retry
-          insert: () => { calls.push(`${table}:insert`); return Promise.resolve({ error: null }) },
-          update: () => { calls.push(`${table}:update`); return { eq: () => Promise.resolve({ error: null }) } },
-        }),
+        rpc: () => Promise.resolve({ data: { receipt_no: 'RJH-2027-0043', overpay_amount: 250, adjustment_id: 'adj-real-1' }, error: null }),
       },
     }))
     const { recordPaymentReal } = await import('../realData')
-    await recordPaymentReal(
-      { id: 'p1', societyId: 'soc1', flatId: 'f1', billId: 'b1', date: '2027-01-05', amount: 500, mode: 'upi', status: 'pending_confirmation' },
-      0, 1000,
+
+    const result = await recordPaymentReal(
+      { id: 'p2', societyId: 'soc1', flatId: 'f1', billId: 'b1', date: '2027-01-05', amount: 1250, mode: 'cash', status: 'success' },
     )
-    expect(calls).not.toContain('payments:insert') // the row already existed, so no duplicate insert
-    expect(calls).not.toContain('bills:update') // pending status still doesn't touch the bill
+
+    expect(result.overpayAmount).toBe(250)
+    expect(result.adjustmentId).toBe('adj-real-1')
+  })
+
+  it('propagates a real database error rather than swallowing it - a failed call here needs to surface to attemptRealWrite, not disappear', async () => {
+    vi.doMock('../supabase', () => ({
+      supabase: {
+        rpc: () => Promise.resolve({ data: null, error: new Error('simulated failure') }),
+      },
+    }))
+    const { recordPaymentReal } = await import('../realData')
+
+    await expect(recordPaymentReal(
+      { id: 'p3', societyId: 'soc1', flatId: 'f1', billId: 'b1', date: '2027-01-05', amount: 500, mode: 'upi', status: 'success' },
+    )).rejects.toThrow('simulated failure')
   })
 })
 

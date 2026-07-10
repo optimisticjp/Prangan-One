@@ -10,6 +10,7 @@ import { PranganBrand, PoweredByPrangan } from '../components/PranganBrand'
 import { useAppLang } from '../lib/useAppLang'
 import { SubscriptionBanner } from '../components/SubscriptionBanner'
 import { SyncFailureBanner } from '../components/SyncFailureBanner'
+import { FetchErrorBanner } from '../components/FetchErrorBanner'
 import type { Role, SocietyModules } from '../lib/types'
 
 /* ---------------- Resident: mobile-first ---------------- */
@@ -43,6 +44,7 @@ export function ResidentLayout() {
           {blockedToast}
         </div>
       )}
+      <FetchErrorBanner />
       <SyncFailureBanner />
       {/* Society identity is primary here, this strip keeps Prangan One
           genuinely visible (name included, not just the mark) on every
@@ -175,6 +177,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
           {blockedToast}
         </div>
       )}
+      <FetchErrorBanner />
       <SyncFailureBanner />
       {/* desktop sidebar */}
       <aside className="hidden md:flex md:flex-col w-64 shrink-0 bg-navy-900 min-h-screen sticky top-0 max-h-screen">

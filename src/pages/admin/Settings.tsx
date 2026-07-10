@@ -83,15 +83,21 @@ export default function Settings() {
 
           <Card className="mt-4">
             <h2 className="font-bold text-navy-800 mb-1">ડેટા બેકઅપ</h2>
-            <p className="text-[13px] text-navy-400 mb-3">બધો ડેટા JSON ફાઈલમાં ઉતારો. Supabase સાથે જોડ્યા પછી આ ક્લાઉડમાં આપોઆપ સચવાશે.</p>
+            <p className="text-[13px] text-navy-400 mb-3">
+              {session.isRealSession
+                ? 'બધો ડેટા JSON ફાઈલમાં ઉતારો. તમારો ડેટા પહેલેથી જ Supabase માં સુરક્ષિત રીતે સચવાયેલો છે.'
+                : 'બધો ડેટા JSON ફાઈલમાં ઉતારો. Supabase સાથે જોડ્યા પછી આ ક્લાઉડમાં આપોઆપ સચવાશે.'}
+            </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="soft" onClick={backup}><Download size={16} /> બેકઅપ ડાઉનલોડ</Button>
-              {!confirmReset
-                ? <Button variant="danger" onClick={() => setConfirmReset(true)}><RotateCcw size={16} /> ડેમો ડેટા રીસેટ</Button>
-                : <span className="inline-flex items-center gap-2">
-                    <Button variant="danger" onClick={() => { resetAll(); setConfirmReset(false) }}>ખરેખર રીસેટ કરો</Button>
-                    <Button variant="ghost" onClick={() => setConfirmReset(false)}>રહેવા દો</Button>
-                  </span>}
+              {!session.isRealSession && (
+                !confirmReset
+                  ? <Button variant="danger" onClick={() => setConfirmReset(true)}><RotateCcw size={16} /> ડેમો ડેટા રીસેટ</Button>
+                  : <span className="inline-flex items-center gap-2">
+                      <Button variant="danger" onClick={() => { resetAll(); setConfirmReset(false) }}>ખરેખર રીસેટ કરો</Button>
+                      <Button variant="ghost" onClick={() => setConfirmReset(false)}>રહેવા દો</Button>
+                    </span>
+              )}
             </div>
           </Card>
         </div>

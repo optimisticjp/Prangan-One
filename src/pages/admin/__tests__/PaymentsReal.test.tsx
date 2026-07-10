@@ -14,7 +14,7 @@ vi.mock('../../../lib/realData', async () => {
   const actual = await vi.importActual<typeof import('../../../lib/realData')>('../../../lib/realData')
   return {
     ...actual,
-    recordPaymentReal: vi.fn(async () => {}),
+    recordPaymentReal: vi.fn(async () => ({ receiptNo: 'RJH-2026-0001', overpayAmount: 0, adjustmentId: null })),
   }
 })
 

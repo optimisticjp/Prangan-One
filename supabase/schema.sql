@@ -472,6 +472,18 @@ create table rate_limit_attempts (
   attempted_at timestamptz not null default now()
 );
 create index rate_limit_attempts_bucket_idx on rate_limit_attempts (bucket, attempted_at);
+-- Deliberately no policies at all - RLS enabled with zero grants means
+-- deny-by-default for every client role, authenticated or anon. Nobody
+-- should ever read or write this table directly; it exists purely as
+-- private.check_rate_limit's own bookkeeping. That function still works
+-- normally despite this, since a security-definer function runs as its
+-- own owner (the table's owner), and RLS doesn't apply to a table's
+-- owner unless FORCE ROW LEVEL SECURITY is also set, which this
+-- deliberately isn't. Was found missing entirely across two independent
+-- reviews before being caught here - every other table in this schema
+-- already had this, this one alone didn't, and it was the one whose
+-- whole job is stopping abuse.
+alter table rate_limit_attempts enable row level security;
 
 -- An email that was typed at /login, verified via a real magic-link click,
 -- and matched no membership anywhere on the platform - see
@@ -954,6 +966,46 @@ begin
 end;
 $$;
 
+-- The actual fix for the receipt-collision risk two independent reviews
+-- both found real: this used to be computed client-side from a cached
+-- number and never written back at all, so a refresh or two people
+-- issuing receipts around the same time could genuinely produce the
+-- same number. "select ... for update" locks the society row for the
+-- rest of this transaction - if two calls for the same society arrive
+-- at the same instant, the second one genuinely waits for the first to
+-- finish and commit before it can even read the counter, so it always
+-- sees the already-incremented value, never the same one the first call
+-- saw. Security definer specifically so an accountant (who can record
+-- payments per payments_insert/payments_update below, but isn't allowed
+-- to update societies directly per societies_update above) can still
+-- safely increment this one specific counter - the actual "who can
+-- record a payment" decision still happens entirely in the ordinary,
+-- unchanged RLS policies on payments and bills, this function only ever
+-- touches receipt_seq, nothing else on the society row.
+create or replace function private.allocate_receipt_no(target_society uuid, p_year text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_prefix text;
+  v_seq int;
+begin
+  select receipt_prefix, receipt_seq into v_prefix, v_seq
+  from societies where id = target_society
+  for update;
+
+  if v_prefix is null then
+    raise exception 'society % not found', target_society;
+  end if;
+
+  update societies set receipt_seq = receipt_seq + 1 where id = target_society;
+
+  return v_prefix || '-' || p_year || '-' || lpad(v_seq::text, 4, '0');
+end;
+$$;
+
 -- Every function above still has Postgres's own default EXECUTE-to-PUBLIC
 -- privilege at this point, same as any newly created function - moving
 -- them into their own schema only stops PostgREST from exposing them as
@@ -965,7 +1017,7 @@ $$;
 revoke execute on all functions in schema private from public;
 grant execute on function
   private.is_society_member(uuid), private.has_role(uuid, text[]), private.my_flat_id(uuid),
-  private.is_tenant(uuid), private.can_write(uuid)
+  private.is_tenant(uuid), private.can_write(uuid), private.allocate_receipt_no(uuid, text)
   to authenticated;
 
 -- The real, callable entry point for /join (src/lib/auth.ts's
@@ -1249,6 +1301,143 @@ create policy payments_insert on payments for insert
   );
 create policy payments_update on payments for update
   using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+
+-- Three atomic payment operations, replacing what used to be two or
+-- three separate client requests each - the actual fix for both the
+-- receipt-collision risk and the non-atomic payment recording two
+-- independent reviews found real. Security invoker, deliberately: the
+-- ordinary insert/update statements inside each of these are still
+-- checked against the exact same payments_insert/payments_update/
+-- bills_update policies above, unchanged, so "who can actually do this"
+-- is never duplicated or re-implemented here - only receipt-number
+-- allocation itself (which genuinely needs to touch a society-level
+-- counter an accountant otherwise can't) reaches into the security
+-- definer helper above for that one specific step.
+--
+-- All three are check-then-act idempotent, the same discipline every
+-- other real write in this app already follows: retrying an already-
+-- completed call with the same payment id is always a safe no-op, never
+-- a duplicate receipt or a doubled bill update.
+create or replace function record_payment_atomic(
+  p_id uuid, p_society_id uuid, p_flat_id uuid, p_bill_id uuid, p_date date,
+  p_amount numeric, p_mode text, p_ref_no text, p_note text, p_status text
+) returns jsonb
+language plpgsql
+as $$
+declare
+  v_bill_amount numeric;
+  v_bill_paid numeric;
+  v_receipt_no text;
+  v_overpay numeric := 0;
+  v_adjustment_id uuid;
+  v_existing record;
+begin
+  select receipt_no, id into v_existing from payments where id = p_id;
+  if found then
+    -- Already recorded, most likely a retry after the first attempt's
+    -- response never made it back - report what's already there rather
+    -- than doing any of this a second time.
+    return jsonb_build_object('receipt_no', v_existing.receipt_no, 'overpay_amount', 0, 'already_recorded', true);
+  end if;
+
+  if p_status = 'success' and p_bill_id is not null then
+    select amount, paid_amount into v_bill_amount, v_bill_paid from bills where id = p_bill_id for update;
+  end if;
+
+  if p_status = 'success' then
+    v_receipt_no := private.allocate_receipt_no(p_society_id, to_char(p_date, 'YYYY'));
+  end if;
+
+  insert into payments (id, society_id, flat_id, bill_id, date, amount, mode, ref_no, receipt_no, status, note)
+  values (p_id, p_society_id, p_flat_id, p_bill_id, p_date, p_amount, p_mode, p_ref_no, v_receipt_no, p_status, p_note);
+
+  if p_status = 'success' and p_bill_id is not null then
+    -- Same "already what was owed, plus the credit, still capped at the
+    -- bill's own amount" shape as recordPayment in store.tsx - v_bill_paid
+    -- was read under lock above, so this is the real, current figure,
+    -- not a value the client happened to have cached when it built the
+    -- request.
+    v_overpay := greatest(0, p_amount - greatest(0, v_bill_amount - v_bill_paid));
+    update bills set paid_amount = least(v_bill_amount, v_bill_paid + p_amount) where id = p_bill_id;
+    if v_overpay > 0 then
+      v_adjustment_id := gen_random_uuid();
+      insert into adjustments (id, society_id, flat_id, date, amount, type, reason)
+      values (v_adjustment_id, p_society_id, p_flat_id, p_date, v_overpay, 'credit',
+        'વધારે ચૂકવણી, ' || coalesce(v_receipt_no, 'રસીદ') || ' માંથી ક્રેડિટ તરીકે રાખેલ');
+    end if;
+  end if;
+
+  return jsonb_build_object('receipt_no', v_receipt_no, 'overpay_amount', v_overpay, 'adjustment_id', v_adjustment_id, 'already_recorded', false);
+end;
+$$;
+
+create or replace function confirm_pending_payment_atomic(p_payment_id uuid)
+returns jsonb
+language plpgsql
+as $$
+declare
+  v_payment record;
+  v_bill_amount numeric;
+  v_bill_paid numeric;
+  v_receipt_no text;
+begin
+  select * into v_payment from payments where id = p_payment_id for update;
+  if not found then
+    raise exception 'payment % not found', p_payment_id;
+  end if;
+  if v_payment.status != 'pending_confirmation' then
+    -- Already confirmed (or cancelled, or never pending) - most likely a
+    -- retry, report the current state rather than allocating a second,
+    -- wasted receipt number and double-applying the bill update.
+    return jsonb_build_object('receipt_no', v_payment.receipt_no, 'already_confirmed', true);
+  end if;
+
+  if v_payment.bill_id is not null then
+    select amount, paid_amount into v_bill_amount, v_bill_paid from bills where id = v_payment.bill_id for update;
+  end if;
+
+  v_receipt_no := private.allocate_receipt_no(v_payment.society_id, to_char(v_payment.date, 'YYYY'));
+  update payments set status = 'success', receipt_no = v_receipt_no where id = p_payment_id;
+
+  if v_payment.bill_id is not null then
+    update bills set paid_amount = least(v_bill_amount, v_bill_paid + v_payment.amount) where id = v_payment.bill_id;
+  end if;
+
+  return jsonb_build_object('receipt_no', v_receipt_no, 'already_confirmed', false);
+end;
+$$;
+
+create or replace function cancel_receipt_atomic(p_payment_id uuid, p_reason text)
+returns jsonb
+language plpgsql
+as $$
+declare
+  v_payment record;
+  v_bill_paid numeric;
+begin
+  select * into v_payment from payments where id = p_payment_id for update;
+  if not found then
+    raise exception 'payment % not found', p_payment_id;
+  end if;
+  if v_payment.cancelled then
+    -- Already cancelled - a retry, report success without reversing the
+    -- bill a second time.
+    return jsonb_build_object('already_cancelled', true);
+  end if;
+
+  if v_payment.bill_id is not null then
+    select paid_amount into v_bill_paid from bills where id = v_payment.bill_id for update;
+    update bills set paid_amount = greatest(0, v_bill_paid - v_payment.amount) where id = v_payment.bill_id;
+  end if;
+
+  -- payments_audit_cancellation (trigger, defined further below) fires
+  -- on this update automatically and writes the real audit log entry -
+  -- not duplicated here.
+  update payments set cancelled = true, cancel_reason = p_reason where id = p_payment_id;
+
+  return jsonb_build_object('already_cancelled', false);
+end;
+$$;
 
 -- expenses: members read; accountant+society_admin write
 create policy expenses_select on expenses for select

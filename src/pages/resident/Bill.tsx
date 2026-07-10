@@ -59,8 +59,9 @@ export default function Bill() {
           {billStatus(cur) !== 'paid' && (
             <div className="flex gap-2 mt-4">
               <Button full variant="accent" onClick={() => setPayOpen(true)}><CreditCard size={17} /> મેન્ટેનન્સ ભરો</Button>
-              <a href={waShare(`નમસ્તે 🙏 ફ્લેટ ${flat.number} નું ${fmtMonth(cur.month)} મેન્ટેનન્સ ${inr(cur.amount - cur.paidAmount)} ભરવા માંગું છું. UPI વિગત મોકલશો?`)} target="_blank" rel="noreferrer">
-                <Button variant="soft"><MessageCircle size={17} /></Button>
+              <a href={waShare(`નમસ્તે 🙏 ફ્લેટ ${flat.number} નું ${fmtMonth(cur.month)} મેન્ટેનન્સ ${inr(cur.amount - cur.paidAmount)} ભરવા માંગું છું. UPI વિગત મોકલશો?`)} target="_blank" rel="noreferrer" aria-label="WhatsApp પર મેન્ટેનન્સ વિગત મોકલો"
+                className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold px-4 min-h-[44px] text-[15px] transition-all duration-150 active:scale-[0.98] bg-navy-50 text-navy-800 hover:bg-navy-100 border border-navy-100">
+                <MessageCircle size={17} />
               </a>
             </div>
           )}
@@ -143,8 +144,9 @@ export default function Bill() {
             <div className="text-[13.5px] text-navy-500">ખજાનચીને ચૂકવો, રસીદ તરત મળશે.</div>
           </div>
         </div>
-        <a href={waShare(waTemplates.maintenanceReminder(society.name, name, flat.number, cur ? cur.amount - cur.paidAmount : society.maintenanceAmount, cur?.month ?? thisMonth()))} target="_blank" rel="noreferrer">
-          <Button full variant="soft"><MessageCircle size={17} /> ખજાનચીને WhatsApp કરો</Button>
+        <a href={waShare(waTemplates.maintenanceReminder(society.name, name, flat.number, cur ? cur.amount - cur.paidAmount : society.maintenanceAmount, cur?.month ?? thisMonth()))} target="_blank" rel="noreferrer"
+          className="w-full inline-flex items-center justify-center gap-2 rounded-xl font-semibold px-4 min-h-[44px] text-[15px] transition-all duration-150 active:scale-[0.98] bg-navy-50 text-navy-800 hover:bg-navy-100 border border-navy-100">
+          <MessageCircle size={17} /> ખજાનચીને WhatsApp કરો
         </a>
 
         {!markingPaid ? (

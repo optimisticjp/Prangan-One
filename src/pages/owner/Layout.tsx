@@ -12,6 +12,7 @@ import { useData } from '../../lib/store'
 import { PranganBrand } from '../../components/PranganBrand'
 import { useAppLang } from '../../lib/useAppLang'
 import { SyncFailureBanner } from '../../components/SyncFailureBanner'
+import { FetchErrorBanner } from '../../components/FetchErrorBanner'
 
 const nav = [
   { to: '/owner', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true },
@@ -58,6 +59,7 @@ export default function OwnerLayout() {
 
   return (
     <div className="min-h-screen bg-cream-100 flex">
+      <FetchErrorBanner />
       <SyncFailureBanner />
       <aside className="hidden md:flex md:w-64 md:flex-col bg-brand-navy shrink-0">{sidebar}</aside>
 

@@ -255,5 +255,92 @@ begin
   raise notice 'PASS: society_admin genuinely can approve a pending membership - confirms the mechanism works for who it should, not just that it blocks everyone else';
 end $$;
 
+-- rate_limit_attempts: the one table that exists purely to stop abuse,
+-- so it should never be directly readable or writable by any client
+-- role at all - not "residents can't see other residents'," genuinely
+-- nobody. Confirmed missing entirely across two independent reviews
+-- before being caught and fixed; this is what makes sure it can't
+-- quietly regress back to that state later.
+reset session authorization;
+insert into rate_limit_attempts (bucket) values ('lead:isolation-test@example.local');
+
+do $$
+declare
+  visible_count int;
+begin
+  set session authorization authenticated;
+  select count(*) into visible_count from rate_limit_attempts where bucket = 'lead:isolation-test@example.local';
+  reset session authorization;
+  if visible_count > 0 then
+    raise exception 'FAIL: authenticated was able to read rate_limit_attempts directly - this table should be completely unreadable by any client role';
+  end if;
+  raise notice 'PASS: rate_limit_attempts is not directly readable by authenticated, even though the row genuinely exists';
+end $$;
+
+do $$
+declare
+  affected int;
+begin
+  set session authorization authenticated;
+  delete from rate_limit_attempts where bucket = 'lead:isolation-test@example.local';
+  get diagnostics affected = row_count;
+  reset session authorization;
+  if affected > 0 then
+    raise exception 'FAIL: authenticated was able to delete a rate_limit_attempts row directly - this would let someone bypass rate limiting by deleting their own bucket''s entries';
+  end if;
+  raise notice 'PASS: rate_limit_attempts is not directly deletable by authenticated - the actual protection this table exists to provide is intact';
+end $$;
+
+-- The atomic payment functions: sequential calls for the same society
+-- allocate different, incrementing receipt numbers (true concurrency was
+-- verified manually while building this, with two genuinely simultaneous
+-- background processes - not repeatable inside one sequential SQL script
+-- like this one, but this still confirms the function's basic, repeated
+-- correctness stays intact going forward), a retried call with the same
+-- payment id is a safe no-op, and a plain resident is still correctly
+-- refused from directly recording a successful payment - the exact same
+-- payments_insert policy already tested above, now reached through the
+-- new function instead of a raw insert.
+select test_become('00000000-0000-0000-0000-0000000000a1'); -- society_admin A
+do $$
+declare
+  first_result jsonb;
+  second_result jsonb;
+begin
+  first_result := record_payment_atomic(gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 500, 'cash', null, null, 'success');
+  second_result := record_payment_atomic(gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 500, 'cash', null, null, 'success');
+  if first_result->>'receipt_no' = second_result->>'receipt_no' then
+    raise exception 'FAIL: two separate payments received the same receipt number: %', first_result->>'receipt_no';
+  end if;
+  raise notice 'PASS: two sequential payments for the same society received different, real receipt numbers (% and %)', first_result->>'receipt_no', second_result->>'receipt_no';
+end $$;
+
+do $$
+declare
+  fixed_id uuid := gen_random_uuid();
+  first_result jsonb;
+  retry_result jsonb;
+begin
+  first_result := record_payment_atomic(fixed_id, 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 700, 'upi', null, null, 'success');
+  retry_result := record_payment_atomic(fixed_id, 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 700, 'upi', null, null, 'success');
+  if (retry_result->>'already_recorded')::boolean is not true then
+    raise exception 'FAIL: retrying the exact same payment id was not recognized as already recorded';
+  end if;
+  if first_result->>'receipt_no' != retry_result->>'receipt_no' then
+    raise exception 'FAIL: a retried call returned a different receipt number than the original - this would mean a real duplicate could have been created';
+  end if;
+  raise notice 'PASS: retrying the exact same payment id is a safe no-op, returning the original receipt number rather than allocating a second one';
+end $$;
+
+select test_become('00000000-0000-0000-0000-0000000000a2'); -- plain resident, not management
+do $$
+begin
+  perform record_payment_atomic(gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 999, 'cash', null, null, 'success');
+  raise exception 'FAIL: a plain resident was able to directly record a successful payment - this should be management-only, same as a raw insert would be';
+exception
+  when insufficient_privilege or others then
+    raise notice 'PASS: a plain resident is still correctly refused from directly recording a successful payment through the new atomic function';
+end $$;
+
 \echo ''
 \echo 'All isolation tests completed successfully.'

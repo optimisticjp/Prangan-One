@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseCsv, validateFlatImport } from '../csv'
+import { parseCsv, validateFlatImport, buildCsvBody } from '../csv'
 
 describe('parseCsv', () => {
   it('parses a simple comma-separated file', () => {
@@ -81,5 +81,34 @@ describe('validateFlatImport', () => {
     const result = validateFlatImport(rows)
     expect(result.valid).toHaveLength(2)
     expect(result.errors).toHaveLength(1)
+  })
+})
+
+describe('buildCsvBody - formula-injection guard', () => {
+  it('a value starting with = gets a leading apostrophe, so Excel treats it as text, not a formula', () => {
+    const body = buildCsvBody(['title'], [['=SUM(A1:A10)']])
+    expect(body).toBe("title\n'=SUM(A1:A10)")
+  })
+
+  it('same guard applies to +, -, @, and a leading tab or carriage return - all of them trigger formula execution in Excel', () => {
+    expect(buildCsvBody(['x'], [['+1+1']])).toBe("x\n'+1+1")
+    expect(buildCsvBody(['x'], [['-1+1']])).toBe("x\n'-1+1")
+    expect(buildCsvBody(['x'], [['@SUM(1)']])).toBe("x\n'@SUM(1)")
+    expect(buildCsvBody(['x'], [['\t=cmd']])).toBe("x\n'\t=cmd")
+  })
+
+  it('an ordinary value that merely contains one of these characters, not starting with one, is left completely alone', () => {
+    const body = buildCsvBody(['note'], [['budget - overdue by 2 months']])
+    expect(body).toBe('note\nbudget - overdue by 2 months')
+  })
+
+  it('a guarded value that also needs comma/quote escaping gets both, in the right order - the apostrophe becomes part of the quoted text, not a separate unescaped prefix', () => {
+    const body = buildCsvBody(['note'], [['=A1, "urgent"']])
+    expect(body).toBe('note\n"\'=A1, ""urgent"""')
+  })
+
+  it('a real complaint title that happens to start with a plain minus, an actual, ordinary case this app sees, gets the same protection', () => {
+    const body = buildCsvBody(['title'], [['-5% ડિસ્કાઉન્ટ માંગ']])
+    expect(body).toBe("title\n'-5% ડિસ્કાઉન્ટ માંગ")
   })
 })
