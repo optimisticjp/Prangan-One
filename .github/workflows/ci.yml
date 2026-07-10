@@ -49,3 +49,16 @@ jobs:
       - name: Run the isolation test suite
         working-directory: supabase/tests
         run: ./run-isolation-tests.sh
+        env:
+          # The script's own psql calls never specify a host, which is
+          # correct and necessary everywhere else this script runs
+          # (including this whole project's own sandbox verification
+          # process) - psql defaults to a local Unix socket connection
+          # when no host is given, which only exists when Postgres is a
+          # local process on the same filesystem. GitHub Actions' own
+          # postgres service runs as a separate, sibling container,
+          # reachable only over TCP - PGHOST here is what makes psql
+          # actually connect that way, specifically for this one step,
+          # without needing to change the script at all.
+          PGHOST: localhost
+          PGPASSWORD: postgres

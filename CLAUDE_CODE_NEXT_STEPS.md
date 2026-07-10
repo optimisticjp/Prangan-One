@@ -58,6 +58,20 @@ The two real findings this build exists for: a receipt number was computed from 
 
 Needs the schema reapplied - this build is centered on real database functions.
 
+## Fifth plan, build 1: the first real CI run found a real bug, exactly the kind this repository could never have caught on its own
+
+Flagged plainly when CI was first built (fourth plan, build 2): this repository has no way to actually execute a GitHub Actions run from inside it, only check that the logic and YAML are sound. The first real push after that build was the actual first proof, and it found a real, genuine bug, not in the app, not in any database policy, in the CI workflow itself.
+
+**What actually happened:** the "type check, tests, build" job passed cleanly. The "database isolation suite" job failed, and the actual error was `connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: No such file or directory` - psql trying to connect over a local Unix socket, one that doesn't exist on that runner at all.
+
+**Traced precisely, not guessed at:** the workflow's own "wait for Postgres" step already explicitly used `-h localhost` and passed cleanly, proving the actual database was up and reachable over TCP the entire time. What failed was the isolation script's own four `psql` calls, which have never specified a host anywhere, correctly, since that's what makes them work against a locally-running Postgres process - true in this project's own sandbox, true on a real developer's own machine, but not true in GitHub Actions' own `services:` feature, which runs Postgres in a separate, sibling container, reachable only over TCP, never through a shared filesystem socket.
+
+**The actual fix, and why it's shaped the way it is:** `PGHOST: localhost` set for that one CI step specifically, in the workflow file alone. The shared script itself (`run-isolation-tests.sh`) was deliberately left completely untouched - it's correct everywhere else it runs, including this project's own sandbox verification process, and hard-coding a host into the script itself would have risked breaking that in order to fix something that's actually specific to how GitHub Actions' service containers work.
+
+**Verified as thoroughly as this repository is able to, given it still cannot execute a real GitHub Actions run directly:** confirmed the underlying mechanism directly, not just the YAML syntax - added a genuine trust rule for TCP connections to this sandbox's own Postgres configuration, matching exactly what `POSTGRES_HOST_AUTH_METHOD: trust` does in the real Postgres Docker image CI actually uses, then ran the complete, entirely unchanged isolation script over a real TCP connection with `PGHOST` set, the exact same way the fixed workflow now does. All 40-plus scenarios passed. This is the most faithful proof available without GitHub's own infrastructure - genuine confidence, not certainty, and this next push is what actually confirms it.
+
+No app code changed in this build, and no further database changes - purely the one CI workflow file.
+
 ## Fourth plan, build 7 of 7 (final): nothing about this demo could be mistaken for something real anymore, and the plan this closes
 
 The job for this build, and the reason it's the last one: go back over everything already built with one specific question - could any of this be mistaken for something real - and close every real gap that question actually turns up, not add anything new.
