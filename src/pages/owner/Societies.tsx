@@ -62,7 +62,7 @@ export default function OwnerSocieties() {
                     {status === 'paused' && (
                       <Button variant="accent" onClick={() => quickAction(s.id, 'active')} disabled={busy === s.id}>ફરી શરૂ કરો</Button>
                     )}
-                    <button onClick={() => { enterSociety(s.id, 'society_admin', 'readonly'); nav('/admin') }}
+                    <button onClick={() => { enterSociety(s.id, 'society_admin'); nav('/admin') }}
                       title="કમિટી તરીકે જુઓ" className="h-9 w-9 rounded-lg bg-navy-50 border border-navy-100 text-navy-600 inline-flex items-center justify-center hover:bg-navy-100">
                       <ArrowLeftRight size={15} />
                     </button>

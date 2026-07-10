@@ -74,7 +74,7 @@ describe('a failed initial data fetch is now genuinely visible, not silently swa
     const { useData } = await import('../store')
     const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
 
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+    act(() => { result.current.login('society_admin') })
 
     expect(result.current.fetchError).toBe(false)
   })

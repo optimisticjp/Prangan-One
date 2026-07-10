@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 
 afterEach(() => {
   cleanup()
-  localStorage.clear()
+  sessionStorage.clear()
   vi.doUnmock('../../lib/demoMode')
   vi.resetModules()
 })
@@ -12,15 +12,24 @@ afterEach(() => {
 async function renderDemoWith(demoMode: boolean) {
   vi.doMock('../../lib/demoMode', () => ({ isDemoModeEnabled: () => demoMode }))
   const { default: Demo } = await import('../Demo')
-  const { DataProvider } = await import('../../lib/store')
-  return render(<MemoryRouter><DataProvider><Demo /></DataProvider></MemoryRouter>)
+  // Demo.tsx deliberately no longer needs DataProvider at all - it reads
+  // the demo's own seed data directly and never calls useData().
+  return render(<MemoryRouter><Demo /></MemoryRouter>)
 }
 
 describe('/demo page', () => {
   it('shows the role shortcuts when demo mode is enabled', async () => {
     await renderDemoWith(true)
     expect(await screen.findByText('હું રહેવાસી છું')).toBeInTheDocument()
-    expect(screen.getByText('Prangan One ઓનર કન્સોલ')).toBeInTheDocument()
+    expect(screen.getByText('હું કમિટી મેમ્બર છું')).toBeInTheDocument()
+    expect(screen.getByText('હું એકાઉન્ટન્ટ છું')).toBeInTheDocument()
+  })
+
+  it('never offers the owner console role at all - the public sales demo should never expose it', async () => {
+    await renderDemoWith(true)
+    await screen.findByText('હું રહેવાસી છું')
+    expect(screen.queryByText('Prangan One ઓનર કન્સોલ')).not.toBeInTheDocument()
+    expect(screen.queryByText(/ઓનર/)).not.toBeInTheDocument()
   })
 
   it('shows an honest not-available message instead when demo mode is disabled', async () => {

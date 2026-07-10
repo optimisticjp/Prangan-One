@@ -103,15 +103,7 @@ export default function SocietyDetail() {
     setTimeout(() => setSaved(false), 2500)
   }
 
-  const enterAsAdmin = (mode: 'readonly' | 'write') => { enterSociety(soc.id, 'society_admin', mode); nav('/admin') }
-  const [reasonPrompt, setReasonPrompt] = useState(false)
-  const [reason, setReason] = useState('')
-  const confirmWriteSupport = () => {
-    if (!reason.trim()) return
-    enterSociety(soc.id, 'society_admin', 'write', reason.trim())
-    setReasonPrompt(false)
-    nav('/admin')
-  }
+  const enterAsAdmin = () => { enterSociety(soc.id, 'society_admin'); nav('/admin') }
   const addMember = () => {
     if (!newMemberEmail.trim()) return
     addMembership({ societyId: soc.id, email: newMemberEmail.trim(), role: newMemberRole })
@@ -125,10 +117,7 @@ export default function SocietyDetail() {
       </button>
 
       <PageHeader title={soc.name} sub={soc.nameEn}
-        actions={<>
-          <Button variant="soft" onClick={() => enterAsAdmin('readonly')}><ArrowLeftRight size={16} /> Read-only જુઓ</Button>
-          <Button variant="danger" onClick={() => setReasonPrompt(true)}>Write-capable સપોર્ટ</Button>
-        </>} />
+        actions={<Button variant="soft" onClick={enterAsAdmin}><ArrowLeftRight size={16} /> Read-only સપોર્ટ વ્યુ</Button>} />
 
       {/* subscription lifecycle */}
       <Card className="mb-4">
@@ -273,12 +262,6 @@ export default function SocietyDetail() {
           </div>
         </Card>
       </div>
-
-      <Modal open={reasonPrompt} onClose={() => setReasonPrompt(false)} title="સપોર્ટ કારણ જણાવો">
-        <p className="text-[13px] text-navy-500 mb-3">Write-capable સપોર્ટ મોડમાં તમે આ સોસાયટી માટે ખરેખર ફેરફાર કરી શકશો. કારણ લખો, જેથી પછી એક્ટિવિટી લોગમાં દેખાય.</p>
-        <Input value={reason} onChange={e => setReason(e.target.value)} placeholder="દા.ત. સેક્રેટરીએ ફોન કર્યો, એપ્રિલ બિલ બનાવવામાં તકલીફ છે" className="mb-3" />
-        <Button variant="danger" className="w-full" onClick={confirmWriteSupport} disabled={!reason.trim()}>સપોર્ટ મોડમાં જાઓ</Button>
-      </Modal>
     </div>
   )
 }

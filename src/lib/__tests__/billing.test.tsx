@@ -5,7 +5,7 @@ import { TestDataProvider } from './testUtils'
 
 function setup() {
   const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
-  act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+  act(() => { result.current.login('society_admin') })
   return result
 }
 

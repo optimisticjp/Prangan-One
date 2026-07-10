@@ -1,3 +1,5 @@
+> **Archived, historical document, not current.** This was the planning document for converting an earlier, local-only demo into the real production product - that conversion has long since happened. Kept here for history, not as a current reference. For the current, accurate state of the product, see `PRODUCTION-RUNBOOK.md` at the repository root and `CLAUDE_CODE_NEXT_STEPS.md` for the detailed build history.
+
 # Prangan One — Build-Ready Roadmap and Locked Spec
 
 *The Society OS. One platform for every society workflow. Built for committees. Simple for residents.*

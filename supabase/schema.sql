@@ -1006,6 +1006,39 @@ begin
 end;
 $$;
 
+-- The actual database-level enforcement behind read-only support mode -
+-- without this, the owner's own existing blanket write access (needed
+-- for real, legitimate owner actions like onboarding a new society)
+-- would still let a write through to any society at the database level
+-- regardless of what the client app enforces, since RLS has no inherent
+-- concept of "the UI is currently showing a support-mode banner." Reuses
+-- impersonation_logs - the same real, already-audited table every
+-- support session already writes a row to - as the actual source of
+-- truth: this specific owner, this specific society, entered_at set,
+-- exited_at still null. A currently-active support session blocks even
+-- the owner's own blanket write access for that one society, at the
+-- database level, not just in what buttons the UI happens to show.
+-- Also time-bound, not just exit-bound: a session nobody ever explicitly
+-- exits (a closed browser tab, a forgotten "exit" click) shouldn't leave
+-- the owner's own write access blocked for that society forever - four
+-- hours is generous for a genuine support session, without leaving
+-- things stuck indefinitely if it's simply forgotten.
+create or replace function private.owner_in_readonly_support(target_society uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from impersonation_logs
+    where society_id = target_society
+      and owner_user_id = auth.uid()
+      and exited_at is null
+      and entered_at > now() - interval '4 hours'
+  );
+$$;
+
 -- Every function above still has Postgres's own default EXECUTE-to-PUBLIC
 -- privilege at this point, same as any newly created function - moving
 -- them into their own schema only stops PostgREST from exposing them as
@@ -1017,7 +1050,8 @@ $$;
 revoke execute on all functions in schema private from public;
 grant execute on function
   private.is_society_member(uuid), private.has_role(uuid, text[]), private.my_flat_id(uuid),
-  private.is_tenant(uuid), private.can_write(uuid), private.allocate_receipt_no(uuid, text)
+  private.is_tenant(uuid), private.can_write(uuid), private.allocate_receipt_no(uuid, text),
+  private.owner_in_readonly_support(uuid)
   to authenticated;
 
 -- The real, callable entry point for /join (src/lib/auth.ts's
@@ -1260,9 +1294,9 @@ create policy flats_select on flats for select
     or id = private.my_flat_id(society_id)
   );
 create policy flats_insert on flats for insert
-  with check ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 create policy flats_update on flats for update
-  using ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  using ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 -- bills: members read their society's bills; only society_admin generates them
 -- bills: management roles see every bill in their society; a resident
@@ -1274,9 +1308,9 @@ create policy bills_select on bills for select
     or flat_id = private.my_flat_id(society_id)
   );
 create policy bills_insert on bills for insert
-  with check ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 create policy bills_update on bills for update
-  using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));  -- paid_amount updates on payment
+  using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));  -- paid_amount updates on payment
 
 -- payments: members read their society's payments; accountant+society_admin
 -- record them; residents can insert their OWN pending_confirmation "I have
@@ -1297,10 +1331,10 @@ create policy payments_insert on payments for insert
         or (flat_id = private.my_flat_id(society_id) and status = 'pending_confirmation')
       )
     )
-    or private.has_role(society_id, array['owner'])
+    or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id))
   );
 create policy payments_update on payments for update
-  using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 -- Three atomic payment operations, replacing what used to be two or
 -- three separate client requests each - the actual fix for both the
@@ -1443,15 +1477,15 @@ $$;
 create policy expenses_select on expenses for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy expenses_insert on expenses for insert
-  with check ((private.has_role(society_id, array['society_admin', 'accountant', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin', 'accountant', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 -- vendors: members read; society_admin and committee_member write
 create policy vendors_select on vendors for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy vendors_insert on vendors for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 create policy vendors_update on vendors for update
-  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 -- complaints: members read their society's complaints; residents can
 -- only file a complaint against their OWN flat_id (tenants only if
@@ -1480,10 +1514,10 @@ create policy complaints_insert on complaints for insert
         )
       )
     )
-    or private.has_role(society_id, array['owner'])
+    or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id))
   );
 create policy complaints_update on complaints for update
-  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 create policy complaint_timeline_select on complaint_timeline for select
   using (exists (
@@ -1518,9 +1552,9 @@ create policy complaint_timeline_insert on complaint_timeline for insert
 create policy notices_select on notices for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy notices_insert on notices for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 create policy notices_update on notices for update
-  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 -- documents: readable only if the member's role satisfies the document's
 -- own permission column, not just society membership, and only if a
@@ -1540,15 +1574,15 @@ create policy documents_select on documents for select
     )
   );
 create policy documents_insert on documents for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 -- polls: members read; society_admin/committee_member create/close
 create policy polls_select on polls for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy polls_insert on polls for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 create policy polls_update on polls for update
-  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 -- poll_votes: a resident can insert exactly one row for their own flat
 -- (the UNIQUE constraint above blocks a second one); a tenant can only
@@ -1591,7 +1625,7 @@ create policy poll_votes_insert on poll_votes for insert
 create policy events_select on events for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy events_insert on events for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 create policy event_contributions_select on event_contributions for select
   using (exists (select 1 from events e where e.id = event_id and (private.is_society_member(e.society_id) or private.has_role(e.society_id, array['owner']))));
@@ -1622,13 +1656,13 @@ create policy vehicles_select on vehicles for select
     or (private.is_society_member(society_id) and (not private.is_tenant(society_id) or (select tenant_access from societies where id = vehicles.society_id) = 'full'))
   );
 create policy vehicles_insert on vehicles for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 -- contacts: members read; society_admin manages
 create policy contacts_select on contacts for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy contacts_insert on contacts for insert
-  with check ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 -- adjustments: members read; accountant+society_admin write
 -- adjustments: management sees everything in their society (including
@@ -1640,7 +1674,7 @@ create policy adjustments_select on adjustments for select
     or flat_id = private.my_flat_id(society_id)
   );
 create policy adjustments_insert on adjustments for insert
-  with check ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
+  with check ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
 
 -- platform_billing, public_leads, audit_logs, impersonation_logs: owner-only,
 -- always, in every direction. These are the platform's own operational

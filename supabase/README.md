@@ -1,6 +1,6 @@
-# Connecting Supabase and going live (when you're ready)
+# Connecting Supabase and going live
 
-The app runs entirely on localStorage right now, and nothing here is required for `npm run dev`. This is the guide for when you're ready to move a real society onto a real, live backend.
+This is the real, current setup this app runs on in production - not a future guide. Written as a step-by-step walkthrough so it's still useful for setting up a second project or redoing this from scratch, but everything described here is already true of the live app, not something still pending.
 
 ## 1. Create the project
 
@@ -67,11 +67,11 @@ Set this up before go-live, not after the first time someone finds the app offli
 
 ## 5. Auth: email magic link
 
-The demo's login screen leads with a real email input today, but it ends at a "check your email" screen since there's no live backend to send from yet. Once connected:
+Real, live email magic-link login is what's actually running today - `src/pages/Login.tsx` calls `supabase.auth.signInWithOtp({ email })` for real, not a simulated "sent" state. A few things worth knowing about how it's wired:
 
 1. In Supabase Dashboard → Authentication → Providers, **Email** is enabled by default with magic-link (passwordless) sign-in, no separate provider or extra setup needed, unlike phone.
-2. In `src/pages/Login.tsx`, replace the local "sent" state with a real `supabase.auth.signInWithOtp({ email })` call, and handle the redirect back into the app once the emailed link is clicked.
-3. Because a resident's `memberships` row is created by the committee first (via the Members page, using the email captured there), not by the resident signing up cold, the first successful login needs a claim step: match the newly authenticated `auth.users.email` against a pending `memberships` row for that email, and attach the real `user_id`. A Supabase Edge Function triggered on new `auth.users` rows is the cleanest place for this.
+2. `src/pages/Login.tsx` sends the real magic link; `src/pages/AuthCallback.tsx` handles the redirect back once the emailed link is clicked.
+3. Because a resident's `memberships` row is created by the committee first (via the Members page, using the email captured there), not by the resident signing up cold, the first successful login needs a claim step: `claimMemberships` (`src/lib/auth.ts`), called from `AuthCallback.tsx`, matches the newly authenticated `auth.users.email` against any pending `memberships` rows for that email and attaches the real `user_id` - done client-side, on that first callback, not via a separate Edge Function.
 
 This was a deliberate choice over phone OTP: real SMS OTP in India needs TRAI DLT sender registration (about ₹5,900 + GST, 3 to 7 working days to clear) plus a per-message cost, none of which is free. Email magic link costs nothing extra. The real tradeoff is that not every resident has or checks an email regularly; the Members page collects an optional email per flat for exactly this reason, and the committee can always act on a resident's behalf if that resident never gets a working login of their own.
 
@@ -94,9 +94,9 @@ Worth being specific about this: Vercel's free Hobby plan is restricted by its o
 4. Under **Settings → Environment variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the same values from your `.env`, entered directly in the Cloudflare dashboard, not committed to the repo).
 5. Deploy. Cloudflare gives a `*.pages.dev` URL immediately; a custom domain can be attached afterward under **Custom domains**.
 
-## 8. What changes in the code
+## 8. What changed in the code
 
-The whole point of `src/lib/store.tsx` is that it's the only file that should need to change. Every page calls `useData()` and gets back the same shaped object (`db`, `session`, `recordPayment`, `addComplaint`, `addSociety`, etc.). See `CLAUDE_CODE_NEXT_STEPS.md` for the specific table-by-table plan, including the exact prompts to run this migration in a Claude Code session.
+`src/lib/store.tsx` was the only file that needed to change when this migration actually happened - every page calls `useData()` and gets back the same shaped object (`db`, `session`, `recordPayment`, `addComplaint`, `addSociety`, etc.) whether it's backed by Supabase or the local demo layer. See `CLAUDE_CODE_NEXT_STEPS.md` for the real, detailed history of how this migration was actually done, table by table, including real bugs found along the way.
 
 ## 9. Sanity-check after connecting
 

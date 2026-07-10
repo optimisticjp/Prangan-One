@@ -1,3 +1,5 @@
+> **Archived, historical document, not current.** This describes a state with no test runner wired up at all, from before real tests existed. The app now has 251 real, passing tests (`npm test`), run automatically in CI on every push. Kept here for history, not as a current reference.
+
 # Testing plan
 
 No test runner is wired into `package.json` on purpose, this ships as a working app first. This document is the plan for when you add one: what to test, why it matters for a society app specifically, and scaffolds ready to drop in.

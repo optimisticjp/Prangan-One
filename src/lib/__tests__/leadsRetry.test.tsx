@@ -78,7 +78,7 @@ describe('updateLeadStatus is genuinely wired into the same real-write and retry
   it('the local demo session never touches the real function at all', async () => {
     const { DataProvider, useData } = await import('../store')
     const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+    act(() => { result.current.login('society_admin') })
 
     act(() => {
       result.current.updateLeadStatus('lead_test_3', 'closed')

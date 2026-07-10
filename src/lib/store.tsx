@@ -1,13 +1,22 @@
 /**
- * The data layer, serving two genuinely different modes from one shared
- * API - a real Supabase-backed session and a local-only demo session both
- * call the exact same useData() hook and get back the same shape, so no
- * page ever needs to know or care which one it's actually talking to.
+ * The real, Supabase-backed data layer - genuinely separate now from the
+ * public sales demo, which lives entirely in demoStore.tsx and never
+ * imports anything from this file at all (see the comment at the top of
+ * demoStore.tsx for why that separation is structural, not just a
+ * convention). Both implement the exact same Store interface
+ * (storeContext.ts) and both are reached through the same useData()
+ * hook, so no page ever needs to know or care which provider it's
+ * actually talking to - but which one is actually mounted is decided
+ * once, at the root (see main.tsx), not by a runtime branch inside a
+ * single shared provider the way it used to work.
  *
- * Local demo mode: everything lives in one DB object persisted to
- * localStorage. First run seeds from /sample-data/*.json. "ડેમો ડેટા
- * રીસેટ" in Settings clears the key and re-seeds. Entirely browser-only,
- * nothing here is ever sent anywhere.
+ * This file still has its own local-only fallback mode too, for when
+ * Supabase isn't configured at all (no VITE_SUPABASE_URL set) - that's
+ * what makes `npm run dev` work instantly with no setup, and it's also
+ * what the whole existing test suite runs against. Genuinely different
+ * purpose from the public demo now, even though the underlying
+ * mechanism (login(), resetAll(), the seed data below) is the same code
+ * that used to also serve /demo directly, before this build.
  *
  * Real sessions: every core module (societies, flats, bills, payments,
  * adjustments, complaints, notices, documents, memberships, vendors,
@@ -15,9 +24,7 @@
  * impersonation logs, leads) reads and writes through Supabase for real -
  * see realData.ts for the actual fetch/insert/update functions, and
  * attemptRealWrite below for how a failed real write surfaces and retries
- * rather than failing silently. One known, deliberate exception: an owner
- * support session's own log entry is real, but the society being viewed
- * during that session still comes from the local layer for now.
+ * rather than failing silently.
  *
  * Multi-tenancy: db.societies is always the FULL list for a real owner (the
  * owner console needs to see every society on the platform - RLS itself is
@@ -47,7 +54,16 @@ import type {
   Role, Session, Society, SocietyEvent, SocietyModules, SubscriptionStatus, TenantAccessMode, Vehicle, Vendor,
 } from './types'
 import { uid, realUid } from './id'
+import { Ctx, useData, type Store, type NewSocietyInput } from './storeContext'
+export { useData }
+export type { Store }
 import { supabase, supabaseConfigured } from './supabase'
+import {
+  billStatus, flatAdjustmentNet,
+  flatPending as sharedFlatPending, totalPending as sharedTotalPending,
+  monthIncome as sharedMonthIncome, monthExpense as sharedMonthExpense,
+  moduleEnabled as sharedModuleEnabled, adminCanToggle as sharedAdminCanToggle,
+} from './storeHelpers'
 import {
   fetchSocietyFinancials, insertFlatReal, updateFlatReal, insertBillsReal, recordPaymentReal, confirmPendingPaymentReal, cancelReceiptAtomicReal, updatePaymentReal, insertAdjustmentReal,
   fetchSocietyComplaints, insertComplaintReal, advanceComplaintReal, updateComplaintNotesReal, updateComplaintFeedbackReal, updateComplaintPhotoPathReal,
@@ -227,197 +243,6 @@ function loadSession(): Session {
 
 /* ------------------------------------------------------------------ */
 
-interface NewSocietyInput {
-  name: string; nameEn: string; address: string; city: string; area: string
-  maintenanceAmount: number; dueDay: number; receiptPrefix: string
-  themeKey: string; logoDataUrl?: string; supportPhone?: string
-  modules: ModuleLayer; tenantAccess: TenantAccessMode
-}
-
-interface Store {
-  db: DB
-  /** Unscoped, every society's data. Owner-console pages only - RoleGate
-   * already restricts /owner/* to the owner role, so this is safe there.
-   * Never read this from a resident/admin/accountant-facing page, that
-   * would defeat the entire point of scoping db above. */
-  rawDb: DB
-  session: Session
-  society: Society
-  /** True while flats/bills/payments/adjustments are being fetched from
-   * the real database for a real (Supabase-backed) session - false for
-   * the local demo layer, which never needs it since everything's
-   * already in memory. Pages showing money should check this before
-   * rendering "nothing owed"/"no bills yet" so a real fetch in progress
-   * doesn't briefly look like an empty, all-paid-up account. */
-  financialsLoading: boolean
-  /** True when the initial real-session data fetch most recently failed -
-   * the actual fix for a real, previously silent gap: before this,
-   * nothing told anyone the fetch had failed at all, they'd just see
-   * whatever was already there. retryFetch forces the fetch effect to
-   * run again. */
-  fetchError: boolean
-  retryFetch: () => void
-  /** Why the most recent write attempt was blocked, if it was - null
-   * means either nothing's been blocked yet, or the last attempt
-   * succeeded. Set by guardedSetDb; check this after a mutation returns
-   * false/null to show the person something real instead of nothing
-   * happening. */
-  lastBlockedReason: string | null
-  /**
-   * A real write that was permitted locally (unlike lastBlockedReason,
-   * which is about permission) but failed when actually reaching the
-   * database - previously this class of failure was invisible, the
-   * screen would show the change as if it had saved and nothing further
-   * would happen. Every real write now goes through attemptRealWrite
-   * internally (see its own comment), which populates this list on
-   * failure and clears the corresponding entry on success, including a
-   * successful retry. Keyed by the item's own id, in insertion order, so
-   * the UI can render one entry per failed thing rather than a single
-   * generic "something went wrong" message.
-   */
-  failedWrites: { id: string; label: string }[]
-  /** Re-attempts the exact same write that failed - not a generic refetch, the original operation itself, with its original data. */
-  retryFailedWrite: (id: string) => void
-  /** Removes a failed-write entry without retrying - for someone who's decided to just redo the action manually instead, or doesn't want the notice sitting there anymore. */
-  dismissFailedWrite: (id: string) => void
-  /* subscription / write guard */
-  canWriteNow: boolean
-  subscriptionBannerFor: (audience: 'admin' | 'resident') => string | null
-  setSubscriptionStatus: (societyId: string, status: SubscriptionStatus) => void
-  /* session */
-  login: (role: Role, flatId?: string) => void
-  logout: () => void
-  enterSociety: (societyId: string, role: Role, mode?: 'readonly' | 'write', reason?: string) => void
-  exitImpersonation: () => void
-  /** Public lookup by slug (pranganone.com/s/rajhans-tower) - only exposes
-   * non-sensitive metadata the caller already gets: name, logo, theme,
-   * area. Works with no session/role at all, since a visitor hasn't
-   * logged in yet. */
-  findSocietyBySlug: (slug: string) => Society | undefined
-  /** Sets which society's branding/theme shows on the login screen, without
-   * granting any role or access - the actual login step still happens
-   * separately. Used by the share-link handoff. */
-  setActiveSocietyContext: (societyId: string) => void
-  /**
-   * Points a real owner's own session at a specific society, without
-   * touching role or isRealSession - unlike enterSociety, which is for
-   * temporarily impersonating a different role for support purposes and
-   * deliberately switches to the local data layer while doing that. This
-   * is for the owner's own onboarding wizard: the owner is still the
-   * owner, their session is still exactly as real as it was, only which
-   * society their own real writes are scoped to changes. Using
-   * enterSociety here instead was the actual root cause of a real bug -
-   * every onboarding step past society creation silently wrote to the
-   * local layer only, since enterSociety's whole purpose is flipping
-   * isRealSession off.
-   */
-  setOwnerWorkingSociety: (societyId: string) => void
-  /** Public lookup by join code (Google Classroom-style, entered at
-   * /join) - only exposes non-sensitive metadata, same spirit as
-   * findSocietyBySlug. */
-  findSocietyByJoinCode: (code: string) => Society | undefined
-  /** A resident self-enrolling via /join: society join code + their flat
-   * number + name/phone/email. Auto-confirms (status 'active') when the
-   * email matches what's already on file for that flat; otherwise creates
-   * a 'pending' membership a committee member has to approve. Matches on
-   * email, not phone - a phone number isn't a secret, so matching on it
-   * would let anyone who knew a resident's number claim their flat with
-   * their own email. Never lets a tenant in when the society's
-   * tenantAccess is 'disabled'. */
-  selfEnrollResident: (input: { joinCode: string; flatNumber: string; name: string; phone: string; email: string }) =>
-    { ok: true; status: 'active' | 'pending' } | { ok: false; error: 'society_not_found' | 'flat_not_found' | 'tenant_access_disabled' | 'already_enrolled' }
-  /** Committee approves a resident's pending self-enrollment (see
-   * selfEnrollResident above). Flips status to 'active', nothing else. */
-  approveMembership: (membershipId: string) => void
-  /** Committee rejects a pending self-enrollment - removes it outright,
-   * rather than leaving a rejected row around; they can just try again
-   * with the committee's help if it was a genuine mistake. */
-  rejectMembership: (membershipId: string) => void
-  /** Logs an email that was typed at /login but matched no membership
-   * anywhere - see NoAccess.tsx. Deliberately just the email, no other
-   * PII, and separate from the full lead-capture flow on /contact. */
-  logUnmatchedLoginAttempt: (email: string) => void
-  /** Sets the session directly from a real, claimed Supabase membership
-   * (see claimMemberships in auth.ts) - used only by AuthCallback.tsx,
-   * once real login has resolved to exactly one membership. Distinct from
-   * login()/enterSociety(), which are demo and owner-support-mode paths
-   * with their own logging semantics. */
-  resolveRealSession: (membership: { role: Role; societyId: string; flatId: string | null }) => void
-  /* derived helpers */
-  flatById: (id: string) => Flat | undefined
-  billStatus: (b: Bill) => 'paid' | 'pending' | 'overdue'
-  flatPending: (flatId: string) => number
-  totalPending: () => number
-  monthIncome: (month: string) => number
-  monthExpense: (month: string) => number
-  moduleEnabled: (key: keyof SocietyModules) => boolean
-  adminCanToggle: (key: keyof SocietyModules) => boolean
-  /* billing + payments */
-  /** What generateBills(month) would actually do, without doing it - lets the admin see the total, any per-flat overrides, and any existing credit that would auto-apply, before confirming. */
-  previewBillGeneration: (month: string) => { flatId: string; flatNumber: string; amount: number; alreadyExists: boolean; creditApplied: number }[]
-  generateBills: (month: string) => number
-  /** proofFile is only actually uploaded during a real session, same reasoning as addComplaint's photoFile. */
-  recordPayment: (p: {
-    flatId: string; billId?: string; amount: number; mode: PayMode
-    refNo?: string; note?: string; failed?: boolean; date?: string
-    pending?: boolean; proofFile?: File
-  }) => Payment | null
-  confirmPendingPayment: (paymentId: string) => void
-  cancelReceipt: (paymentId: string, reason: string) => void
-  /* complaints */
-  /** photoFile is only actually uploaded during a real session (see realData.ts's uploadPrivateFile) - during the local demo, photoName alone is stored, matching how the demo has always worked. */
-  addComplaint: (c: { flatId: string; category: string; title: string; detail: string; priority: 'normal' | 'urgent'; photoName?: string; photoFile?: File; visibility?: 'personal' | 'community' }) => Complaint | null
-  advanceComplaint: (id: string, status: ComplaintStatus, note: string, by: string, assignedTo?: string) => void
-  addInternalNote: (id: string, note: string) => void
-  addFeedback: (id: string, rating: number, comment: string) => void
-  /** A temporary, authenticated URL for a real, uploaded complaint photo - regenerated fresh each call, since a signed URL expires and isn't meant to be cached or stored. Only works during a real session; returns null otherwise (the local demo never had real photo bytes to show in the first place). */
-  getComplaintPhotoUrl: (photoPath: string) => Promise<string | null>
-  /** Same reasoning as getComplaintPhotoUrl - a temporary signed URL for a payment's uploaded proof screenshot, real sessions only. */
-  getPaymentProofUrl: (proofPath: string) => Promise<string | null>
-  /** Uploads a society's logo and saves the resulting URL onto that society's own record, real sessions only. Returns the URL on success, null otherwise (including during the local demo, which still uses logoDataUrl set directly on the society object instead). */
-  uploadSocietyLogoAndSave: (societyId: string, file: File) => Promise<string | null>
-  /* content */
-  addNotice: (n: { title: string; body: string; category: string; pinned: boolean }) => void
-  togglePin: (id: string) => void
-  addExpense: (e: { date: string; category: string; vendorId?: string; amount: number; mode: PayMode; note?: string; billFile?: string }) => void
-  addVendor: (v: { name: string; service: string; contactPerson: string; phone: string; amcStart?: string; amcEnd?: string; notes?: string }) => void
-  updateVendor: (id: string, patch: Partial<Omit<import('./types').Vendor, 'id' | 'societyId'>>) => void
-  /** file is only actually uploaded during a real session, same reasoning as addComplaint's photoFile. */
-  addDocumentMeta: (d: { name: string; folder: string; permission: DocPermission; size: string; file?: File }) => void
-  /** A temporary, authenticated URL for a real, uploaded document - real sessions only, same shape as getComplaintPhotoUrl. */
-  getDocumentUrl: (storagePath: string) => Promise<string | null>
-  /* polls */
-  addPoll: (p: { question: string; type: 'yesno' | 'multi'; options: string[]; resultVisible: boolean; endDate?: string }) => void
-  closePoll: (id: string) => void
-  vote: (pollId: string, flatId: string, optionIdx: number) => boolean
-  /* events */
-  addEvent: (e: { name: string; type: string; date: string; note?: string }) => void
-  addContribution: (eventId: string, flatId: string, amount: number) => void
-  addVolunteer: (eventId: string, name: string) => void
-  addEventExpense: (eventId: string, label: string, amount: number) => void
-  /* misc */
-  addVehicle: (v: { flatId: string; kind: '2W' | '4W'; number: string; slot: string; ownerType: string }) => void
-  addFlat: (f: { number: string; floor: number; ownerName: string; phone: string; email?: string; occupancy: 'owner' | 'tenant'; tenantName?: string; tenantEmail?: string; sqft: number }) => void
-  /** Currently used for setting/clearing a flat's maintenanceOverride - kept generic (any Flat field) since a fuller edit form is real future work, not built yet. */
-  updateFlat: (flatId: string, patch: Partial<Flat>) => void
-  addFlatsBulk: (rows: { number: string; floor: number; ownerName: string; phone: string; email?: string; occupancy: 'owner' | 'tenant'; tenantName?: string; tenantEmail?: string; sqft: number }[]) => { added: number; skippedDuplicates: string[] }
-  addAdjustment: (a: { date: string; flatId?: string; amount: number; type: 'credit' | 'debit'; reason: string }) => void
-  updateSociety: (patch: Partial<Society>) => void
-  /* membership */
-  addMembership: (m: { societyId: string; email: string; role: Role; flatId?: string; phone?: string; whatsapp?: string; canManageBilling?: boolean; name?: string }) => Membership | null
-  /* owner backend */
-  addSociety: (s: NewSocietyInput) => Society
-  /** Sets trialStartedAt for real - the moment a society is actually ready to use, not the moment its record was created. See the comment on Society.trialStartedAt in types.ts and subscription.ts for why this distinction is a real requirement, not just tidiness: a society with no trialStartedAt yet never has its trial read as expired, since effectiveStatus only checks expiry once a start date actually exists. */
-  activateSociety: (societyId: string) => void
-  updateSocietyById: (id: string, patch: Partial<Society>) => void
-  addPlatformBillingRecord: (r: Omit<import('./types').PlatformBillingRecord, 'id'>) => void
-  updatePlatformBillingRecord: (id: string, patch: Partial<import('./types').PlatformBillingRecord>) => void
-  addLead: (l: Omit<PublicLead, 'id' | 'status' | 'createdAt'>) => void
-  updateLeadStatus: (id: string, status: PublicLead['status'], internalNote?: string) => void
-  resetAll: () => void
-}
-
-const Ctx = createContext<Store | null>(null)
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
@@ -533,7 +358,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // their fetch is platform-wide - every flat, every membership, every
     // platform billing record, the full audit log, and impersonation
     // history, across every society at once - not the per-society
-    // financial bundle scoped to whatever activeSocietyId happens to
+    // financial bundle scoped to whatever session.societyId happens to
     // currently be (which for an owner session is essentially arbitrary).
     if (session.role === 'owner') {
       Promise.all([
@@ -549,45 +374,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     Promise.all([
-      fetchSocietyFinancials(activeSocietyId),
-      fetchSocietyComplaints(activeSocietyId),
-      fetchSocietyNotices(activeSocietyId),
-      fetchSociety(activeSocietyId),
-      fetchSocietyDocuments(activeSocietyId),
-      fetchSocietyMemberships(activeSocietyId),
-      fetchSocietyVendors(activeSocietyId),
-      fetchSocietyVehicles(activeSocietyId),
-      fetchSocietyContacts(activeSocietyId),
-      fetchSocietyPolls(activeSocietyId),
-      fetchSocietyEvents(activeSocietyId),
-      fetchSocietyExpenses(activeSocietyId),
+      fetchSocietyFinancials(session.societyId),
+      fetchSocietyComplaints(session.societyId),
+      fetchSocietyNotices(session.societyId),
+      fetchSociety(session.societyId),
+      fetchSocietyDocuments(session.societyId),
+      fetchSocietyMemberships(session.societyId),
+      fetchSocietyVendors(session.societyId),
+      fetchSocietyVehicles(session.societyId),
+      fetchSocietyContacts(session.societyId),
+      fetchSocietyPolls(session.societyId),
+      fetchSocietyEvents(session.societyId),
+      fetchSocietyExpenses(session.societyId),
     ])
       .then(([{ flats, bills, payments, adjustments }, complaints, notices, society, documents, memberships, vendors, vehicles, contacts, polls, events, expenses]) => {
         if (cancelled) return
         setDb(d => ({
           ...d,
-          flats: [...d.flats.filter(f => f.societyId !== activeSocietyId), ...flats],
-          bills: [...d.bills.filter(b => b.societyId !== activeSocietyId), ...bills],
-          payments: [...d.payments.filter(p => p.societyId !== activeSocietyId), ...payments],
-          adjustments: [...d.adjustments.filter(a => a.societyId !== activeSocietyId), ...adjustments],
-          complaints: [...d.complaints.filter(c => c.societyId !== activeSocietyId), ...complaints],
-          notices: [...d.notices.filter(n => n.societyId !== activeSocietyId), ...notices],
-          societies: society ? [...d.societies.filter(s => s.id !== activeSocietyId), society] : d.societies,
-          documents: [...d.documents.filter(doc => doc.societyId !== activeSocietyId), ...documents],
-          memberships: [...d.memberships.filter(m => m.societyId !== activeSocietyId), ...memberships],
-          vendors: [...d.vendors.filter(v => v.societyId !== activeSocietyId), ...vendors],
-          vehicles: [...d.vehicles.filter(v => v.societyId !== activeSocietyId), ...vehicles],
-          contacts: [...d.contacts.filter(c => c.societyId !== activeSocietyId), ...contacts],
-          polls: [...d.polls.filter(p => p.societyId !== activeSocietyId), ...polls],
-          events: [...d.events.filter(ev => ev.societyId !== activeSocietyId), ...events],
-          expenses: [...d.expenses.filter(e => e.societyId !== activeSocietyId), ...expenses],
+          flats: [...d.flats.filter(f => f.societyId !== session.societyId), ...flats],
+          bills: [...d.bills.filter(b => b.societyId !== session.societyId), ...bills],
+          payments: [...d.payments.filter(p => p.societyId !== session.societyId), ...payments],
+          adjustments: [...d.adjustments.filter(a => a.societyId !== session.societyId), ...adjustments],
+          complaints: [...d.complaints.filter(c => c.societyId !== session.societyId), ...complaints],
+          notices: [...d.notices.filter(n => n.societyId !== session.societyId), ...notices],
+          societies: society ? [...d.societies.filter(s => s.id !== session.societyId), society] : d.societies,
+          documents: [...d.documents.filter(doc => doc.societyId !== session.societyId), ...documents],
+          memberships: [...d.memberships.filter(m => m.societyId !== session.societyId), ...memberships],
+          vendors: [...d.vendors.filter(v => v.societyId !== session.societyId), ...vendors],
+          vehicles: [...d.vehicles.filter(v => v.societyId !== session.societyId), ...vehicles],
+          contacts: [...d.contacts.filter(c => c.societyId !== session.societyId), ...contacts],
+          polls: [...d.polls.filter(p => p.societyId !== session.societyId), ...polls],
+          events: [...d.events.filter(ev => ev.societyId !== session.societyId), ...events],
+          expenses: [...d.expenses.filter(e => e.societyId !== session.societyId), ...expenses],
         }))
         setFetchError(false)
       })
       .catch(() => { if (!cancelled) setFetchError(true) })
       .finally(() => { if (!cancelled) setFinancialsLoading(false) })
     return () => { cancelled = true }
-  }, [activeSocietyId, session.isRealSession, session.role, refetchTrigger])
+  }, [session.societyId, session.isRealSession, session.role, refetchTrigger])
 
   useEffect(() => {
     applyTheme(activeSociety?.themeKey ?? defaultThemeKey)
@@ -655,44 +480,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     const flatById = (id: string) => scopedDb.flats.find(f => f.id === id)
-    const billStatus = (b: Bill): 'paid' | 'pending' | 'overdue' => {
-      if (b.paidAmount >= b.amount) return 'paid'
-      return b.dueDate < todayISO() ? 'overdue' : 'pending'
-    }
-    // A debit adjustment (a one-time charge, a correction that increases
-    // what's owed) adds to pending. A credit adjustment (a discount, a
-    // refund, an advance payment credited forward) reduces it, and can
-    // take a flat's pending balance negative - that's a real credit
-    // balance, not a bug, see billStatus() in Bill.tsx for how the
-    // resident-facing UI shows that distinctly rather than as "₹-500 due".
-    // Only adjustments tied to a specific flat count here; a society-wide
-    // adjustment (flatId undefined) doesn't belong to any one flat's
-    // balance and only shows up in totalPending.
-    const flatAdjustmentNet = (flatId: string) =>
-      scopedDb.adjustments.filter(a => a.flatId === flatId).reduce((s, a) => s + (a.type === 'debit' ? a.amount : -a.amount), 0)
-    const allAdjustmentNet = () =>
-      scopedDb.adjustments.reduce((s, a) => s + (a.type === 'debit' ? a.amount : -a.amount), 0)
-    const flatPending = (flatId: string) =>
-      scopedDb.bills.filter(b => b.flatId === flatId).reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0) + flatAdjustmentNet(flatId)
-    const totalPending = () =>
-      scopedDb.bills.reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0) + allAdjustmentNet()
-    // A cancelled receipt keeps status: 'success' (cancelReceipt reverses
-    // the bill credit but never rewrites status, since 'status' means "did
-    // this payment succeed at the time", not "is it still valid now" -
-    // those are different questions). Income specifically needs the
-    // second one: money that was later reversed was never really
-    // collected, so it must not count here even though it once did.
-    const monthIncome = (month: string) =>
-      scopedDb.payments.filter(p => p.status === 'success' && !p.cancelled && p.date.startsWith(month)).reduce((s, p) => s + p.amount, 0)
-    const monthExpense = (month: string) =>
-      scopedDb.expenses.filter(e => e.date.startsWith(month)).reduce((s, e) => s + e.amount, 0)
-    // A module is usable if the OWNER has enabled it AND the society's own
-    // admin hasn't hidden it. Both layers must say yes - see ModuleLayer.
-    const moduleEnabled = (key: keyof SocietyModules) =>
-      society?.modules?.ownerEnabled?.[key] !== false && society?.modules?.adminVisible?.[key] !== false
-    // Whether a society_admin is even allowed to toggle this module
-    // themselves (only if the owner enabled it in the first place).
-    const adminCanToggle = (key: keyof SocietyModules) => society?.modules?.ownerEnabled?.[key] !== false
+    const flatPending = (flatId: string) => sharedFlatPending(scopedDb, flatId)
+    const totalPending = () => sharedTotalPending(scopedDb)
+    const monthIncome = (month: string) => sharedMonthIncome(scopedDb, month)
+    const monthExpense = (month: string) => sharedMonthExpense(scopedDb, month)
+    const moduleEnabled = (key: keyof SocietyModules) => sharedModuleEnabled(society, key)
+    const adminCanToggle = (key: keyof SocietyModules) => sharedAdminCanToggle(society, key)
 
     // Rebuilds a real retry from a pending entry's CURRENT data in db,
     // not the original closure (which can't survive being saved to and
@@ -866,19 +659,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
           if (supabase) supabase.auth.signOut().catch(() => { /* local state is already cleared either way */ })
         }
       },
-      enterSociety: (societyId, role, mode = 'readonly', reason) => {
+      enterSociety: (societyId, role, reason) => {
         // session.isRealSession here reflects the owner's own genuine
         // identity, captured before setSession below overwrites it with
-        // the impersonated view's local session - the log entry itself
-        // isn't limited by the impersonated society staying on the local
-        // data layer for now, so it's written for real regardless.
+        // the impersonated view's session - the log entry itself isn't
+        // limited by anything below, so it's written for real regardless
+        // whenever the owner genuinely is.
         const wasRealOwner = session.isRealSession
-        const log: ImpersonationLog = { id: wasRealOwner ? realUid() : uid('imp'), societyId, enteredAt: new Date().toISOString(), mode, reason }
+        const log: ImpersonationLog = { id: wasRealOwner ? realUid() : uid('imp'), societyId, enteredAt: new Date().toISOString(), mode: 'readonly', reason }
         setDb(d => ({ ...d, impersonationLogs: [log, ...d.impersonationLogs] }))
         if (wasRealOwner) {
           attemptRealWrite(log.id, 'સપોર્ટ સેશન લોગ', () => insertImpersonationLogReal(log), 'impersonation-log')
         }
-        setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true, isRealSession: false, supportMode: mode })
+        setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true, isRealSession: wasRealOwner, supportMode: 'readonly' })
       },
       exitImpersonation: () => {
         const current = db.impersonationLogs.find((l, i) => i === 0 && l.societyId === session.societyId && !l.exitedAt)
@@ -974,7 +767,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const existing = new Set(scopedDb.bills.filter(b => b.month === month).map(b => b.flatId))
         return scopedDb.flats.map(f => {
           const amount = f.maintenanceOverride ?? society.maintenanceAmount
-          const availableCredit = Math.max(0, -flatAdjustmentNet(f.id))
+          const availableCredit = Math.max(0, -flatAdjustmentNet(scopedDb, f.id))
           return {
             flatId: f.id, flatNumber: f.number, amount,
             alreadyExists: existing.has(f.id),
@@ -1007,7 +800,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         for (const f of scopedDb.flats) {
           if (existing.has(f.id)) continue
           const amount = f.maintenanceOverride ?? society.maintenanceAmount
-          const availableCredit = Math.max(0, -flatAdjustmentNet(f.id))
+          const availableCredit = Math.max(0, -flatAdjustmentNet(scopedDb, f.id))
           const applied = Math.min(amount, availableCredit)
           const billId = session.isRealSession ? realUid() : uid('bill')
           fresh.push({
@@ -1484,10 +1277,4 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [db, session, activeSociety, activeSocietyId, financialsLoading, lastBlockedReason])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
-}
-
-export function useData() {
-  const ctx = useContext(Ctx)
-  if (!ctx) throw new Error('useData must be used inside <DataProvider>')
-  return ctx
 }

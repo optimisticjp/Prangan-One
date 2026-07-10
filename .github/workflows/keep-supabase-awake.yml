@@ -1,0 +1,27 @@
+name: Keep Supabase project awake
+
+# A Supabase free-tier project with no traffic for seven straight days
+# gets automatically paused until someone manually resumes it from the
+# dashboard. This was documented in supabase/README.md as a required
+# step before go-live, but never actually existed as a real workflow
+# file - this closes that gap.
+#
+# Requires two repository secrets, set under Settings -> Secrets and
+# variables -> Actions: SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY, the
+# same values used in the app's own .env.
+
+on:
+  schedule:
+    - cron: '0 6 */3 * *' # every 3 days
+  workflow_dispatch: # allows a manual run from the Actions tab, to verify this is actually wired up correctly
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the Supabase REST endpoint
+        run: |
+          curl -sf "$SUPABASE_URL/rest/v1/" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -o /dev/null
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}

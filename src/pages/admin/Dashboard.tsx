@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom'
-import { IndianRupee, Wallet, AlertTriangle, Wrench, MessageCircle, ChevronRight, ReceiptText, Bell } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { IndianRupee, Wallet, AlertTriangle, Wrench, MessageCircle, ChevronRight, ReceiptText, Bell, UserRound } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { fmtDate, fmtMonth, inr, thisMonth, todayISO } from '../../lib/format'
 import { complaintStatusLabel, complaintStatusTone } from '../../lib/copy'
@@ -7,7 +7,8 @@ import { waShare, waTemplates } from '../../lib/whatsapp'
 import { Badge, Button, Card, PageHeader, SectionTitle, StatCard } from '../../components/ui'
 
 export default function Dashboard() {
-  const { db, society, flatById, flatPending, totalPending, monthIncome, monthExpense } = useData()
+  const { db, society, session, login, flatById, flatPending, totalPending, monthIncome, monthExpense } = useData()
+  const nav = useNavigate()
   const month = thisMonth()
 
   const openComplaints = db.complaints.filter(c => c.status !== 'closed' && c.status !== 'done')
@@ -55,6 +56,12 @@ export default function Dashboard() {
                   className="h-9 w-9 rounded-xl bg-green-50 border border-green-200 text-paid flex items-center justify-center hover:bg-green-100">
                   <MessageCircle size={17} />
                 </a>
+                {!session.isRealSession && (
+                  <button title="આ રહેવાસી તરીકે જુઓ" onClick={() => { login('resident_owner', flat.id); nav('/app') }}
+                    className="h-9 w-9 rounded-xl bg-saffron-50 border border-saffron-200 text-saffron-600 flex items-center justify-center hover:bg-saffron-100">
+                    <UserRound size={17} />
+                  </button>
+                )}
               </div>
             ))}
           </Card>

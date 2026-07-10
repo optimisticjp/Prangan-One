@@ -77,7 +77,7 @@ Worth knowing, genuinely current as of this writing, not carried over from an ea
 - **The local demo mode specifically** (not real sessions) still saves file uploads as metadata only - a complaint photo or an uploaded logo in `/demo` saves a filename, not the actual bytes. Real sessions upload real files to real storage; this limitation is scoped to the demo layer only.
 - **All data in the local demo is invented.** Names, phone numbers (using the clearly-fake `90000 000XX` pattern), and amounts in `sample-data/` are for demonstration only, and never appear in a real session.
 
-Full detail on all of this, the free-tool cost research behind the hosting and auth choices, plus a DPDP-context privacy checklist for real resident data: `docs/SECURITY_PRIVACY.md`.
+Full detail on all of this, the free-tool cost research behind the hosting and auth choices, plus the current backup/restore and operations checklist: `PRODUCTION-RUNBOOK.md`.
 
 ## 8. Next steps
 

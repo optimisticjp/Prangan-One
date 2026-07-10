@@ -90,7 +90,7 @@ describe('a real session actually reacts when Supabase itself says the session i
   it('logging out of the local demo never calls Supabase\u2019s signOut at all - there was never a real session to end', async () => {
     const { result } = renderHook(() => useData(), { wrapper: Wrapper })
 
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+    act(() => { result.current.login('society_admin') })
     act(() => { result.current.logout() })
 
     expect(signOutMock).not.toHaveBeenCalled()

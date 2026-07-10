@@ -5,7 +5,7 @@ import { TestDataProvider } from './testUtils'
 
 function setup() {
   const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
-  act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+  act(() => { result.current.login('society_admin') })
   return result
 }
 
@@ -52,7 +52,7 @@ describe('logout clears real session financial data (previously it never did)', 
     const before = result.current.db.flats.length
     act(() => { result.current.logout() })
     // after logout, session resets to DEFAULT_SOCIETY_ID - re-enter to check
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+    act(() => { result.current.login('society_admin') })
     expect(result.current.db.flats.length).toBe(before)
   })
 
@@ -68,7 +68,7 @@ describe('logout clears real session financial data (previously it never did)', 
 
     // re-enter the same society locally afterward and confirm the flat
     // added during the real session is gone, not still sitting there
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+    act(() => { result.current.login('society_admin') })
     expect(result.current.db.flats.some(f => f.number === '888')).toBe(false)
   })
 
@@ -89,7 +89,7 @@ describe('logout clears real session financial data (previously it never did)', 
     expect(result.current.db.documents.some(d => d.name === 'Audit test doc')).toBe(true)
 
     act(() => { result.current.logout() })
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+    act(() => { result.current.login('society_admin') })
 
     expect(result.current.db.complaints.some(c => c.title === 'Audit test complaint')).toBe(false)
     expect(result.current.db.documents.some(d => d.name === 'Audit test doc')).toBe(false)
@@ -131,7 +131,7 @@ describe('lastBlockedReason surfaces why a write was blocked (previously only a 
 
   it('gives a specific reason for read-only support mode', () => {
     const result = setup()
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'readonly', 'checking something') })
+    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'checking something') })
     act(() => { result.current.recordPayment({ flatId: 'flat_101', amount: 1200, mode: 'upi' }) })
     expect(result.current.lastBlockedReason).toContain('Read-only')
   })
@@ -142,7 +142,7 @@ describe('lastBlockedReason surfaces why a write was blocked (previously only a 
     act(() => { result.current.addFlat({ number: '774', floor: 7, ownerName: 'X', phone: '1', occupancy: 'owner', sqft: 500 }) })
     expect(result.current.lastBlockedReason).not.toBeNull()
 
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+    act(() => { result.current.login('society_admin') })
     act(() => { result.current.addFlat({ number: '773', floor: 7, ownerName: 'X', phone: '1', occupancy: 'owner', sqft: 500 }) })
     expect(result.current.lastBlockedReason).toBeNull()
   })
@@ -194,18 +194,10 @@ describe('auditor is genuinely read-only, not just missing UI buttons', () => {
 describe('owner read-only support mode actually blocks writes now (previously it was label-only)', () => {
   it('cannot record a payment while in read-only support mode', () => {
     const result = setup()
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'readonly', 'checking a resident complaint') })
+    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'checking a resident complaint') })
     let pay: unknown
     act(() => { pay = result.current.recordPayment({ flatId: 'flat_101', amount: 1200, mode: 'upi' }) })
     expect(pay).toBeNull()
-  })
-
-  it('can record a payment when explicitly in write-capable support mode', () => {
-    const result = setup()
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write', 'fixing a mis-entered receipt') })
-    let pay: unknown
-    act(() => { pay = result.current.recordPayment({ flatId: 'flat_101', amount: 1200, mode: 'upi' }) })
-    expect(pay).not.toBeNull()
   })
 
   it('the genuine owner (not acting as anyone) can still write normally, with no support mode set at all', () => {

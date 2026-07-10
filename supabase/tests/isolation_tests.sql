@@ -342,5 +342,93 @@ exception
     raise notice 'PASS: a plain resident is still correctly refused from directly recording a successful payment through the new atomic function';
 end $$;
 
+-- The owner support-mode database-level safeguard: even the owner's own
+-- blanket write access, needed for real, legitimate owner actions, is
+-- refused for a specific society while there's a currently-active
+-- (not yet exited) support session for that owner and that society -
+-- enforced by the database itself, not only by what the client app
+-- happens to show. Mirrors exactly what was manually verified while
+-- building this: a real write blocked during an active session, reads
+-- completely unaffected throughout, and write access genuinely restored
+-- the moment the session is exited.
+select test_become('00000000-0000-0000-0000-00000000000f'); -- the owner
+do $$
+declare
+  affected int;
+begin
+  insert into complaints (id, society_id, flat_id, category, title, status, priority)
+  values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', 'General', 'Owner write before any support session', 'new', 'normal');
+  get diagnostics affected = row_count;
+  if affected != 1 then
+    raise exception 'FAIL: the owner could not write normally before any support session existed at all';
+  end if;
+  raise notice 'PASS: the owner can write normally with no active support session, confirming this is not a general regression';
+end $$;
+
+reset session authorization;
+insert into impersonation_logs (id, society_id, owner_user_id, mode, entered_at)
+values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000f', 'readonly', now());
+
+select test_become('00000000-0000-0000-0000-00000000000f');
+do $$
+begin
+  insert into complaints (id, society_id, flat_id, category, title, status, priority)
+  values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', 'General', 'Owner write during an active support session', 'new', 'normal');
+  raise exception 'FAIL: the owner was able to write to a society while a real, active support session for that exact society exists - the database-level safeguard is not working';
+exception
+  when insufficient_privilege or others then
+    raise notice 'PASS: the owner is genuinely refused from writing during an active support session, at the database level, not just by what the client app happens to show';
+end $$;
+
+do $$
+declare
+  visible_count int;
+begin
+  select count(*) into visible_count from complaints where society_id = 'a0000000-0000-0000-0000-000000000001';
+  if visible_count = 0 then
+    raise exception 'FAIL: the owner could not read at all during an active support session - reads should be completely unaffected by this safeguard';
+  end if;
+  raise notice 'PASS: reads remain completely unaffected during an active support session - only writes are refused';
+end $$;
+
+reset session authorization;
+update impersonation_logs set exited_at = now()
+where society_id = 'a0000000-0000-0000-0000-000000000001' and owner_user_id = '00000000-0000-0000-0000-00000000000f';
+
+select test_become('00000000-0000-0000-0000-00000000000f');
+do $$
+declare
+  affected int;
+begin
+  insert into complaints (id, society_id, flat_id, category, title, status, priority)
+  values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', 'General', 'Owner write after exiting the support session', 'new', 'normal');
+  get diagnostics affected = row_count;
+  if affected != 1 then
+    raise exception 'FAIL: the owner could not write again after genuinely exiting the support session - the safeguard should only apply while a session is actually active';
+  end if;
+  raise notice 'PASS: write access is genuinely restored the moment the support session is actually exited, not left permanently blocked';
+end $$;
+
+-- Time-bound, not just exit-bound: a session that was never explicitly
+-- exited (a closed browser tab, a forgotten "exit" click) shouldn't
+-- leave the owner's own write access blocked for that society forever.
+reset session authorization;
+insert into impersonation_logs (id, society_id, owner_user_id, mode, entered_at)
+values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000f', 'readonly', now() - interval '5 hours');
+
+select test_become('00000000-0000-0000-0000-00000000000f');
+do $$
+declare
+  affected int;
+begin
+  insert into complaints (id, society_id, flat_id, category, title, status, priority)
+  values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', 'General', 'Owner write after an old, never-exited session aged out', 'new', 'normal');
+  get diagnostics affected = row_count;
+  if affected != 1 then
+    raise exception 'FAIL: an old session that was never explicitly exited, but is well past the time-bound window, was still blocking the owner\''s writes - a forgotten exit should not lock things indefinitely';
+  end if;
+  raise notice 'PASS: a session past the time-bound window no longer blocks writes, even though it was never explicitly exited';
+end $$;
+
 \echo ''
 \echo 'All isolation tests completed successfully.'

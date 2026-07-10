@@ -1,3 +1,5 @@
+> **Archived, historical document, not current.** This describes a pre-Supabase, local-only version of this app, from before the real backend existed. It's kept here for history, not as a reference for anything about the app as it actually works today. For the current, accurate state of production security, privacy, and operations, see `PRODUCTION-RUNBOOK.md` at the repository root.
+
 # Security and privacy notes
 
 This document is honest about what this demo does and does not protect. Read it before showing the app to a real society or putting any real resident data into it.

@@ -110,7 +110,7 @@ describe('attemptRealWrite: the core mechanism behind failedWrites, retryFailedW
   it('the local demo (not a real session) never touches failedWrites at all - this mechanism is exclusively for real writes', async () => {
     const { DataProvider, useData } = await import('../store')
     const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') }) // local demo, not real
+    act(() => { result.current.login('society_admin') }) // local demo, not real
 
     act(() => {
       result.current.addComplaint({ flatId: 'flat_101', category: 'Leak', title: 'Demo mode complaint', detail: '', priority: 'normal' })

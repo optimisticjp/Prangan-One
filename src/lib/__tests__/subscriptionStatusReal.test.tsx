@@ -68,7 +68,7 @@ describe('a real owner changing a society\u2019s subscription status actually re
     const { useData } = await import('../store')
     const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
 
-    act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
+    act(() => { result.current.login('society_admin') })
     act(() => { result.current.setSubscriptionStatus('soc_rajhans', 'paused') })
 
     expect(realData.updateSocietyStatusReal).not.toHaveBeenCalled()

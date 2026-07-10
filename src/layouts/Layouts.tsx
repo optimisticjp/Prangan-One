@@ -3,7 +3,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom'
 import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, LogOut, ShieldAlert, Loader2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useData } from '../lib/store'
-import { roleLabel } from '../lib/permissions'
+import { DemoRoleSwitcher } from '../components/DemoRoleSwitcher'
 import { useDialogA11y } from '../lib/useDialogA11y'
 import { SocietyLogo } from '../components/SocietyLogo'
 import { PranganBrand, PoweredByPrangan } from '../components/PranganBrand'
@@ -11,6 +11,8 @@ import { useAppLang } from '../lib/useAppLang'
 import { SubscriptionBanner } from '../components/SubscriptionBanner'
 import { SyncFailureBanner } from '../components/SyncFailureBanner'
 import { FetchErrorBanner } from '../components/FetchErrorBanner'
+import { DemoGuideBanner } from '../components/DemoGuideBanner'
+import { DemoIdentityBanner } from '../components/DemoIdentityBanner'
 import type { Role, SocietyModules } from '../lib/types'
 
 /* ---------------- Resident: mobile-first ---------------- */
@@ -44,15 +46,22 @@ export function ResidentLayout() {
           {blockedToast}
         </div>
       )}
+      <DemoIdentityBanner />
       <FetchErrorBanner />
+      <DemoGuideBanner />
       <SyncFailureBanner />
       {/* Society identity is primary here, this strip keeps Prangan One
           genuinely visible (name included, not just the mark) on every
           resident screen without competing with the society's own branding
           just below it. */}
-      <div className="bg-navy-900 px-4 py-1 flex items-center justify-center gap-1.5">
+      <div className="bg-navy-900 px-4 py-1 flex items-center justify-center gap-1.5 relative">
         <span className="text-[10.5px] text-cream-100/60">Powered by</span>
         <PranganBrand variant="wordmark-white" height={12} decorative />
+        {!session.isRealSession && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            <DemoRoleSwitcher />
+          </div>
+        )}
       </div>
       <SubscriptionBanner audience="resident" />
       <header className="glass sticky top-0 z-40 px-4 py-3 flex items-center gap-3">
@@ -159,11 +168,15 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
       </div>
       {nav}
       <div className="p-3 border-t border-navy-800">
-        <Link to="/login" onClick={logout}
+        {!session.isRealSession && (
+          <div className="px-3.5 pb-2">
+            <DemoRoleSwitcher />
+          </div>
+        )}
+        <Link to={session.isRealSession ? '/login' : '/demo'} onClick={logout}
           className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
           {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
-          {session.isRealSession ? 'લોગ આઉટ' : 'રોલ બદલો'}
-          {!session.isRealSession && <span className="ml-auto text-[11.5px] bg-navy-800 rounded-full px-2 py-0.5">{session.role ? roleLabel[session.role] : ''}</span>}
+          {session.isRealSession ? 'લોગ આઉટ' : 'ડેમો છોડો'}
         </Link>
         <p className="text-center mt-3 flex items-center justify-center"><PoweredByPrangan dark /></p>
       </div>
@@ -178,6 +191,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
         </div>
       )}
       <FetchErrorBanner />
+      <DemoGuideBanner />
       <SyncFailureBanner />
       {/* desktop sidebar */}
       <aside className="hidden md:flex md:flex-col w-64 shrink-0 bg-navy-900 min-h-screen sticky top-0 max-h-screen">
@@ -196,13 +210,12 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
       )}
 
       <div className="flex-1 min-w-0">
+        <DemoIdentityBanner />
         {session.actingAsOwner && (
           <div className="bg-saffron-500 text-navy-900 px-4 py-2 flex items-center justify-between gap-3 text-[13.5px] font-semibold sticky top-0 z-40">
             <span className="inline-flex items-center gap-1.5">
               <ShieldAlert size={16} />
-              {session.supportMode === 'readonly'
-                ? 'તમે Prangan One સપોર્ટ તરીકે Read-only જુઓ છો - કંઈ સેવ નહીં થાય'
-                : 'તમે Prangan One સપોર્ટ તરીકે કામ કરી રહ્યા છો'}
+              Read-only સપોર્ટ વ્યુ · {society?.name ?? 'સોસાયટી'} - કંઈ સેવ નહીં થાય
             </span>
             <button onClick={exitImpersonation} className="underline shrink-0">બહાર જાઓ</button>
           </div>

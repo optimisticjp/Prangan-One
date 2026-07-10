@@ -50,7 +50,7 @@ export default function Profile() {
         <div className="text-[13.5px] text-navy-400 mt-1">{society.address} · મેન્ટેનન્સ દર મહિને ₹{society.maintenanceAmount}, તા. {society.dueDay} સુધીમાં</div>
       </Card>
 
-      <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav('/login') }}>
+      <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav(session.isRealSession ? '/login' : '/demo') }}>
         {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
         {session.isRealSession ? 'લોગ આઉટ' : 'રોલ બદલો / બહાર નીકળો'}
       </Button>

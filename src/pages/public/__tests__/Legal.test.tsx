@@ -12,7 +12,12 @@ afterEach(() => {
 describe('Privacy page', () => {
   it('states the actual current state of owner access, not vague boilerplate', () => {
     render(<MemoryRouter><Privacy /></MemoryRouter>)
-    expect(screen.getByText(/દરેક સોસાયટીના ડેટાની સ્ટેન્ડિંગ એક્સેસ/)).toBeInTheDocument()
+    expect(screen.getByText(/દરેક સોસાયટીના ડેટાની સ્ટેન્ડિંગ read એક્સેસ/)).toBeInTheDocument()
+  })
+
+  it('also states the real, current write-blocking safeguard during an active support session, not just standing read access', () => {
+    render(<MemoryRouter><Privacy /></MemoryRouter>)
+    expect(screen.getByText(/તમારી સોસાયટીના ડેટામાં કંઈ લખવાની મંજૂરી નથી ધરાવતું/)).toBeInTheDocument()
   })
 
   it('gives a real contact address for privacy questions', () => {
