@@ -92,9 +92,11 @@ insert into poll_votes (poll_id, flat_id, option_idx) values
 -- Grants: one authenticated role, matching what every real Supabase
 -- project already grants by default - not narrowed per test, since the
 -- real thing enforcing every result below is RLS itself, not table grants.
+-- Created by the setup script itself now, before the schema is applied -
+-- schema.sql grants directly to authenticated/anon (for the private
+-- helper-function schema), so they need to exist first.
 -- ----------------------------------------------------------------------
 
-create role authenticated nologin;
 grant usage on schema public, auth, storage to authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant select, insert, update on storage.objects to authenticated;

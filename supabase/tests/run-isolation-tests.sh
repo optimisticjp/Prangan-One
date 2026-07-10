@@ -46,6 +46,8 @@ CREATE SCHEMA storage;
 CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean NOT NULL DEFAULT false);
 CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text REFERENCES storage.buckets(id), name text NOT NULL, owner uuid);
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+CREATE ROLE authenticated NOLOGIN;
+CREATE ROLE anon NOLOGIN;
 STUB_EOF
 
 echo "Applying schema..."

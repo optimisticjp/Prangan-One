@@ -56,6 +56,13 @@ export default function Join() {
       const outcome = supabaseConfigured ? await submitJoinRequest(form) : selfEnrollResident(form)
       if (outcome.ok) setResult(outcome.status)
       else setError(errorCopy[outcome.error] ?? errorCopy.unknown)
+    } catch {
+      // A genuine network failure, not a structured error response -
+      // submitJoinRequest's own error handling only covers what Supabase
+      // itself returns as { error }, not the request never completing
+      // at all. Someone trying to join their society should never see a
+      // blank or broken screen if this happens.
+      setError(errorCopy.unknown)
     } finally {
       setSending(false)
     }

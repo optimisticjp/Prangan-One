@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
+import { TestDataProvider } from './testUtils'
 
 // Hoisted, module-level mock - store.tsx imports realData.ts statically,
 // so this has to be set up before either module is ever imported for the
@@ -30,7 +31,7 @@ afterEach(() => {
 describe('attemptRealWrite: the core mechanism behind failedWrites, retryFailedWrite, and dismissFailedWrite', () => {
   it('a write that fails shows up in failedWrites - this is the exact thing an external audit caught as invisible before this build', async () => {
     const { DataProvider, useData } = await import('../store')
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     act(() => {
       result.current.resolveRealSession({ role: 'resident_owner', societyId: 'soc_rajhans', flatId: 'flat_101' })
     })
@@ -50,7 +51,7 @@ describe('attemptRealWrite: the core mechanism behind failedWrites, retryFailedW
 
   it('tapping retry re-attempts the exact same write, and success removes it from failedWrites', async () => {
     const { DataProvider, useData } = await import('../store')
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     act(() => {
       result.current.resolveRealSession({ role: 'resident_owner', societyId: 'soc_rajhans', flatId: 'flat_101' })
     })
@@ -73,7 +74,7 @@ describe('attemptRealWrite: the core mechanism behind failedWrites, retryFailedW
   it('a write that succeeds on the first try never appears in failedWrites at all', async () => {
     shouldFail = false
     const { DataProvider, useData } = await import('../store')
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     act(() => {
       result.current.resolveRealSession({ role: 'resident_owner', societyId: 'soc_rajhans', flatId: 'flat_101' })
     })
@@ -88,7 +89,7 @@ describe('attemptRealWrite: the core mechanism behind failedWrites, retryFailedW
 
   it('dismissFailedWrite removes the entry without retrying - the person chose not to retry, not a hidden automatic retry', async () => {
     const { DataProvider, useData } = await import('../store')
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     act(() => {
       result.current.resolveRealSession({ role: 'resident_owner', societyId: 'soc_rajhans', flatId: 'flat_101' })
     })
@@ -108,7 +109,7 @@ describe('attemptRealWrite: the core mechanism behind failedWrites, retryFailedW
 
   it('the local demo (not a real session) never touches failedWrites at all - this mechanism is exclusively for real writes', async () => {
     const { DataProvider, useData } = await import('../store')
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') }) // local demo, not real
 
     act(() => {

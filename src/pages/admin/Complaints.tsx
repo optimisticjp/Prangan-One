@@ -31,7 +31,7 @@ export default function Complaints() {
     const openComplaint = openId ? db.complaints.find(c => c.id === openId) : undefined
     if (!openComplaint?.photoPath) { setPhotoUrl(null); return }
     let cancelled = false
-    getComplaintPhotoUrl(openComplaint.photoPath).then(url => { if (!cancelled) setPhotoUrl(url) })
+    getComplaintPhotoUrl(openComplaint.photoPath).then(url => { if (!cancelled) setPhotoUrl(url) }).catch(() => { if (!cancelled) setPhotoUrl(null) })
     return () => { cancelled = true }
   }, [openId, db.complaints, getComplaintPhotoUrl])
 

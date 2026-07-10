@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { DataProvider, useData } from '../store'
+import { useData } from '../store'
+import { TestDataProvider } from './testUtils'
 
 function setup() {
-  const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+  const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
   act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
   return result
 }
@@ -247,7 +248,7 @@ describe('loadDB backfills fields missing from an older saved browser snapshot (
     }
     localStorage.setItem('rt_db_v3', JSON.stringify(oldSavedShape))
 
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     expect(Array.isArray(result.current.rawDb.unmatchedLoginAttempts)).toBe(true)
     expect(result.current.rawDb.unmatchedLoginAttempts).toEqual([])
   })
@@ -261,7 +262,7 @@ describe('loadDB backfills fields missing from an older saved browser snapshot (
     }
     localStorage.setItem('rt_db_v3', JSON.stringify(oldSavedShape))
 
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     expect(Array.isArray(result.current.rawDb.unmatchedLoginAttempts)).toBe(true)
   })
 
@@ -273,7 +274,7 @@ describe('loadDB backfills fields missing from an older saved browser snapshot (
     }
     localStorage.setItem('rt_db_v3', JSON.stringify(oldSavedShape))
 
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     expect(result.current.rawDb.flats).toEqual([{ id: 'kept_flat', number: '999' }])
   })
 })
@@ -296,7 +297,7 @@ describe('activeSociety can never be undefined, even with zero real societies (r
     }
     localStorage.setItem('rt_db_v3', JSON.stringify(emptySocietiesDb))
 
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     expect(result.current.society).toBeDefined()
     expect(result.current.society.id).toBeTruthy()
     expect(() => result.current.society.subscriptionStatus).not.toThrow()

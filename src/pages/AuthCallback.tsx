@@ -41,19 +41,19 @@ export default function AuthCallback() {
     async function resolve() {
       if (!supabase) { setState('error'); return }
 
-      // Supabase's client parses the magic-link tokens from the URL and
-      // sets up the session automatically (detectSessionInUrl, on by
-      // default) - but that can be a tick behind this component mounting,
-      // so wait briefly for a real user rather than checking exactly once.
-      let user = (await supabase.auth.getUser()).data.user
-      for (let attempt = 0; !user && attempt < 10 && !cancelled; attempt++) {
-        await new Promise(r => setTimeout(r, 300))
-        user = (await supabase.auth.getUser()).data.user
-      }
-      if (cancelled) return
-      if (!user?.email) { setState('error'); return }
-
       try {
+        // Supabase's client parses the magic-link tokens from the URL and
+        // sets up the session automatically (detectSessionInUrl, on by
+        // default) - but that can be a tick behind this component mounting,
+        // so wait briefly for a real user rather than checking exactly once.
+        let user = (await supabase.auth.getUser()).data.user
+        for (let attempt = 0; !user && attempt < 10 && !cancelled; attempt++) {
+          await new Promise(r => setTimeout(r, 300))
+          user = (await supabase.auth.getUser()).data.user
+        }
+        if (cancelled) return
+        if (!user?.email) { setState('error'); return }
+
         const claimed = await claimMemberships(user.id, user.email)
         if (cancelled) return
 
@@ -70,6 +70,10 @@ export default function AuthCallback() {
           setState('choose')
         }
       } catch {
+        // Covers a failure anywhere above, not just claimMemberships -
+        // without this, an unexpected failure in the getUser() polling
+        // loop would leave someone stuck on the loading screen forever,
+        // during the single highest-stakes flow in the app: actual login.
         if (!cancelled) setState('error')
       }
     }

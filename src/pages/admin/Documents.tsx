@@ -15,9 +15,12 @@ function DownloadLink({ doc }: { doc: Doc }) {
   if (!doc.storagePath) return null
   const open = async () => {
     setLoading(true)
-    const url = await getDocumentUrl(doc.storagePath!)
-    setLoading(false)
-    if (url) window.open(url, '_blank')
+    try {
+      const url = await getDocumentUrl(doc.storagePath!)
+      if (url) window.open(url, '_blank')
+    } finally {
+      setLoading(false)
+    }
   }
   return (
     <button onClick={open} disabled={loading} className="text-navy-400 hover:text-saffron-600 disabled:opacity-40" aria-label="ડાઉનલોડ">

@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { DataProvider, useData } from '../store'
+import { useData } from '../store'
+import { TestDataProvider } from './testUtils'
 
 function setup() {
-  const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+  const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
   act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'write') })
   return result
 }

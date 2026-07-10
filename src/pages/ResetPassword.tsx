@@ -32,12 +32,15 @@ export default function ResetPassword() {
     let cancelled = false
     async function waitForRecoverySession() {
       if (!supabase) { setReady(true); return }
-      let user = (await supabase.auth.getUser()).data.user
-      for (let attempt = 0; !user && attempt < 10 && !cancelled; attempt++) {
-        await new Promise(r => setTimeout(r, 300))
-        user = (await supabase.auth.getUser()).data.user
+      try {
+        let user = (await supabase.auth.getUser()).data.user
+        for (let attempt = 0; !user && attempt < 10 && !cancelled; attempt++) {
+          await new Promise(r => setTimeout(r, 300))
+          user = (await supabase.auth.getUser()).data.user
+        }
+      } finally {
+        if (!cancelled) setReady(true)
       }
-      if (!cancelled) setReady(true)
     }
     waitForRecoverySession()
     return () => { cancelled = true }

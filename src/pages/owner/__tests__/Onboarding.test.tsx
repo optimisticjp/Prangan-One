@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { DataProvider, useData } from '../../../lib/store'
+import { TestDataProvider } from '../../../lib/__tests__/testUtils'
 import { renderHook } from '@testing-library/react'
 import Onboarding from '../Onboarding'
 
@@ -22,7 +23,7 @@ function fillStep0(nameEn = 'Test Onboarding Society') {
 
 describe('Onboarding wizard: the society is created right after step 1, not at the very end', () => {
   it('creating step 1 actually creates a real society, immediately reachable in db.societies', () => {
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     const before = result.current.rawDb.societies.length
 
     renderOnboarding()
@@ -31,7 +32,7 @@ describe('Onboarding wizard: the society is created right after step 1, not at t
 
     // a fresh useData() read reflects the same underlying db - confirms
     // the society genuinely exists now, one step in, not ten
-    const { result: after } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result: after } = renderHook(() => useData(), { wrapper: TestDataProvider })
     expect(after.current.rawDb.societies.length).toBe(before + 1)
     expect(after.current.rawDb.societies.some(s => s.nameEn === 'Early Creation Society')).toBe(true)
   })
@@ -41,7 +42,7 @@ describe('Onboarding wizard: the society is created right after step 1, not at t
     fillStep0('No Trial Yet Society')
     fireEvent.click(screen.getByText('આગળ'))
 
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     const soc = result.current.rawDb.societies.find(s => s.nameEn === 'No Trial Yet Society')
     expect(soc?.trialStartedAt).toBeUndefined()
     expect(soc?.subscriptionStatus).toBe('trial')
@@ -69,7 +70,7 @@ describe('Onboarding wizard: flats and bills actually attach to the real society
     fireEvent.click(screen.getByText('1 ફ્લેટ ઉમેરો'))
     await screen.findByText('1 ફ્લેટ ઉમેરાયા')
 
-    const { result } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
     const soc = result.current.rawDb.societies.find(s => s.nameEn === 'Flats Import Society')
     const flat = result.current.rawDb.flats.find(f => f.number === '101' && f.societyId === soc?.id)
     expect(flat?.ownerName).toBe('Test Owner')
@@ -89,13 +90,13 @@ describe('Onboarding wizard: activation is a real, separate step, not automatic'
     fireEvent.click(screen.getByText('આગળ')) // -> bills
     fireEvent.click(screen.getByText('આગળ')) // -> activate
 
-    const { result: beforeActivate } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result: beforeActivate } = renderHook(() => useData(), { wrapper: TestDataProvider })
     const socBefore = beforeActivate.current.rawDb.societies.find(s => s.nameEn === 'Activation Step Society')
     expect(socBefore?.trialStartedAt).toBeUndefined()
 
     fireEvent.click(screen.getByRole('button', { name: /સોસાયટી સક્રિય કરો/ }))
 
-    const { result: afterActivate } = renderHook(() => useData(), { wrapper: DataProvider })
+    const { result: afterActivate } = renderHook(() => useData(), { wrapper: TestDataProvider })
     const socAfter = afterActivate.current.rawDb.societies.find(s => s.nameEn === 'Activation Step Society')
     expect(socAfter?.trialStartedAt).toBeDefined()
   })

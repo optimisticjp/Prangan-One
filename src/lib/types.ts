@@ -166,6 +166,38 @@ export interface ImpersonationLog {
   // persistent support-mode banner while it's active.
   reason?: string
 }
+/**
+ * Tracks a real write that hasn't been confirmed saved yet - persisted as
+ * part of DB (unlike the transient in-memory failedWrites list in
+ * store.tsx), specifically so it survives a page reload rather than
+ * silently vanishing while the actual unsaved record stays sitting in
+ * local storage looking exactly like it saved fine. kind identifies
+ * which real-write function resyncPendingWrite (store.tsx) should use to
+ * retry it, looked up against the record's own current data in db, not a
+ * captured closure from the original attempt (which can't survive being
+ * saved to and reloaded from localStorage in the first place).
+ */
+export interface PendingSyncEntry {
+  id: string
+  kind: 'society' | 'flat' | 'flat-update' | 'membership' | 'bill-batch' | 'payment' | 'payment-confirm' | 'receipt-cancel'
+    | 'adjustment' | 'complaint' | 'complaint-advance' | 'complaint-notes' | 'complaint-feedback'
+    | 'notice' | 'notice-pin' | 'document' | 'expense' | 'vendor' | 'vendor-update' | 'poll' | 'poll-close' | 'poll-vote'
+    | 'event' | 'event-contribution' | 'event-volunteer' | 'event-expense' | 'vehicle'
+    | 'platform-billing' | 'platform-billing-update' | 'impersonation-log' | 'impersonation-log-exit'
+    | 'lead' | 'society-status'
+  label: string
+  /**
+   * Only needed for kinds whose id isn't a real record's own id (poll
+   * votes, event contributions/volunteers/expenses, and batch bill
+   * generation all use a composite string id instead, e.g.
+   * "vote-{pollId}-{flatId}") - parsing that back apart would be
+   * unreliable since real ids are UUIDs and already contain hyphens.
+   * Carries whatever resyncPendingWrite (store.tsx) actually needs to
+   * look the real data back up after a reload, when the original
+   * closure that captured it directly is gone.
+   */
+  context?: Record<string, string>
+}
 
 export interface AuditLogEntry {
   id: string; societyId: string; at: string; actor: string
@@ -281,6 +313,7 @@ export interface DB {
   unmatchedLoginAttempts: UnmatchedLoginAttempt[]
   impersonationLogs: ImpersonationLog[]
   auditLogs: AuditLogEntry[]
+  pendingSync: PendingSyncEntry[]
 }
 // societyId is the active tenant for this session: for a resident, derived
 // from their flat; for society_admin/committee_member/accountant, the

@@ -19,7 +19,7 @@ export default function ComplaintDetail() {
   useEffect(() => {
     if (!c?.photoPath) { setPhotoUrl(null); return }
     let cancelled = false
-    getComplaintPhotoUrl(c.photoPath).then(url => { if (!cancelled) setPhotoUrl(url) })
+    getComplaintPhotoUrl(c.photoPath).then(url => { if (!cancelled) setPhotoUrl(url) }).catch(() => { if (!cancelled) setPhotoUrl(null) })
     return () => { cancelled = true }
   }, [c?.photoPath, getComplaintPhotoUrl])
 

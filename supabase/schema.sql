@@ -27,12 +27,25 @@
 --       * event contributions/volunteers/expenses -> their own
 --         tables, so they can be queried and indexed properly.
 --   - The subscription write-guard (trial/active/grace write, paused/
---     archived don't) is enforced HERE, in can_write() below, and
+--     archived don't) is enforced HERE, in private.can_write() below, and
 --     used inside every insert/update policy, not just in the
 --     frontend. src/lib/subscription.ts has the same rule so the UI
 --     can show/hide controls proactively, but the database is what
 --     actually stops a write from a paused society; a browser-side
 --     check can always be bypassed by someone editing their own client.
+--   - Helper functions used only inside RLS policies or only from
+--     inside another security-definer function (has_role, can_write,
+--     the join-code lookups, the rate limiter, and so on) live in their
+--     own private schema, not public - PostgREST auto-exposes every
+--     function in public as a callable API endpoint the moment the
+--     calling role has EXECUTE on it, whether or not that function was
+--     ever meant to be called directly. private isn't in PostgREST's
+--     exposed-schema list, so none of this is reachable as an API call
+--     at all, while RLS policy evaluation (and calls from inside
+--     security-definer functions like submit_join_request) can still
+--     reach it normally. Only find_society_public_profile, poll_results,
+--     and submit_join_request are genuinely meant to be called directly
+--     - those three stay in public, on purpose.
 --   - Section order matters and is not arbitrary: tables are created
 --     BEFORE the helper functions, even though the functions are
 --     conceptually "used by" the RLS policies that come later. Plain
@@ -95,7 +108,7 @@ create table societies (
   grace_started_at timestamptz,
   -- Set once, when the society is actually activated and ready to use -
   -- never at lead submission, never at the moment an empty society record
-  -- is created. See can_write() above and src/lib/subscription.ts, which
+  -- is created. See private.can_write() above and src/lib/subscription.ts, which
   -- computes trial expiry from this the same way grace expiry is
   -- computed from grace_started_at, no scheduled job needed.
   trial_started_at timestamptz,
@@ -128,7 +141,7 @@ create table societies (
 --   accountant       - finance and reports only
 --   resident_owner   - their own flat, owner-level access
 --   resident_tenant  - their own flat, scoped further by the society's
---                      tenant_access setting (see is_tenant() above)
+--                      tenant_access setting (see private.is_tenant() above)
 --   viewer           - read-only, sees admin-level data, changes nothing
 create table memberships (
   id             uuid primary key default gen_random_uuid(),
@@ -137,8 +150,8 @@ create table memberships (
   name           text,  -- given at invite time or self-enrollment time, see /join
   -- Nullable ONLY for role = 'owner' (see the check constraint below) - a
   -- platform owner isn't scoped to one society, unlike every other role.
-  -- Every has_role() check throughout this file special-cases this: an
-  -- owner row with society_id null matches has_role(any_society, [...,
+  -- Every private.has_role() check throughout this file special-cases this: an
+  -- owner row with society_id null matches private.has_role(any_society, [...,
   -- 'owner']) regardless of which society is being asked about. Don't
   -- relax this to "nullable for everyone" - every other role still needs
   -- a real society_id, that's what scopes their access at all.
@@ -170,7 +183,7 @@ create table memberships (
 create unique index memberships_owner_email_unique on memberships (email) where society_id is null;
 
 -- The trigger that enforces self-enrollment rules server-side attaches
--- further down, right after enforce_membership_insert() is defined - it
+-- further down, right after private.enforce_membership_insert() is defined - it
 -- needs both this table AND that function to exist, and the function
 -- lives in the Helper functions section below (which itself has to come
 -- after Core tables, for the unrelated language-sql-functions reason
@@ -506,9 +519,24 @@ create table impersonation_logs (
 -- -----------------------------------------------------------------
 -- Helper functions (used inside RLS policies below)
 -- -----------------------------------------------------------------
+-- Living in a schema of their own, not public. PostgREST auto-exposes
+-- every function in public as a callable POST /rpc/{name} endpoint the
+-- moment the calling role has EXECUTE on it - true regardless of
+-- whether that function was ever meant to be called directly. These
+-- were never meant to be: has_role, for instance, would let anyone
+-- probe "does user X hold role Y in society Z" for an arbitrary
+-- society they have no other access to, one RPC call at a time.
+-- private isn't in PostgREST's exposed-schema list, so nothing here is
+-- reachable as an API endpoint at all - RLS policy evaluation can still
+-- reach it directly (Postgres doesn't restrict cross-schema references
+-- inside a policy expression, only the role's own privileges matter),
+-- with an explicit grant below since policy evaluation runs as the
+-- querying role itself, not as any function's owner.
+create schema if not exists private;
+grant usage on schema private to authenticated, anon;
 
 -- Is the current auth user a member of this society, in any role?
-create or replace function is_society_member(target_society uuid)
+create or replace function private.is_society_member(target_society uuid)
 returns boolean
 language sql
 security definer
@@ -523,7 +551,7 @@ as $$
 $$;
 
 -- Does the current auth user hold one of the given roles in this society?
-create or replace function has_role(target_society uuid, roles text[])
+create or replace function private.has_role(target_society uuid, roles text[])
 returns boolean
 language sql
 security definer
@@ -545,7 +573,7 @@ $$;
 
 -- Which flat_id does the current auth user belong to, in this society?
 -- (residents only have one; committee/accountant roles return null)
-create or replace function my_flat_id(target_society uuid)
+create or replace function private.my_flat_id(target_society uuid)
 returns uuid
 language sql
 security definer
@@ -559,7 +587,7 @@ as $$
 $$;
 
 -- Is the current user a tenant (resident_tenant role) for this society?
-create or replace function is_tenant(target_society uuid)
+create or replace function private.is_tenant(target_society uuid)
 returns boolean
 language sql
 security definer
@@ -583,7 +611,7 @@ $$;
 -- here the same way the frontend computes it, no scheduled job needed.
 -- The owner role is never blocked - owner writes always pass regardless
 -- of status.
-create or replace function can_write(target_society uuid)
+create or replace function private.can_write(target_society uuid)
 returns boolean
 language plpgsql
 security definer
@@ -593,7 +621,7 @@ as $$
 declare
   s record;
 begin
-  if has_role(target_society, array['owner']) then
+  if private.has_role(target_society, array['owner']) then
     return true;
   end if;
 
@@ -640,7 +668,7 @@ $$;
 -- selfEnrollResident(), which this function is the real-database version
 -- of. See the memberships_insert policy below for the matching RLS side.
 --
--- Important: this checks session_user, not just auth.uid()/has_role(),
+-- Important: this checks session_user, not just auth.uid()/private.has_role(),
 -- and that's deliberate, not redundant. A direct SQL editor session (used
 -- to manually bootstrap the very first owner/admin membership, since
 -- nothing privileged exists yet to grant it through the app) and a
@@ -648,7 +676,7 @@ $$;
 -- - there's no JWT in either case. The only real difference is *which
 -- Postgres role* the connection is using: 'postgres'/'service_role' for a
 -- direct/trusted connection, 'anon'/'authenticated' for anything that
--- came through Supabase's public API. Checking has_role() alone would
+-- came through Supabase's public API. Checking private.has_role() alone would
 -- have blocked the exact manual bootstrap step this project's own setup
 -- instructions rely on. Using session_user specifically, not current_user
 -- - this function is security definer, so current_user inside it would
@@ -681,7 +709,7 @@ $$;
 -- the committee (WhatsApp, notice board), not discoverable by browsing
 -- every society's data, and the caller doesn't need anything about the
 -- society beyond "does this code correspond to a real one."
-create or replace function find_society_id_by_join_code(target_code text)
+create or replace function private.find_society_id_by_join_code(target_code text)
 returns uuid
 language sql
 security definer
@@ -700,7 +728,7 @@ $$;
 -- This function is the safe alternative: it runs as security definer
 -- (so it can read flats internally despite the caller having no SELECT
 -- access), and returns only an opaque id, never the row itself.
-create or replace function find_flat_for_join(target_society uuid, target_flat_number text)
+create or replace function private.find_flat_for_join(target_society uuid, target_flat_number text)
 returns uuid
 language sql
 security definer
@@ -731,7 +759,7 @@ $$;
 -- trigger for public_leads and directly inside submit_join_request - both
 -- are reachable with no account at all, so neither can be gated by role
 -- the way everything else in this file is.
-create or replace function check_rate_limit(p_bucket text, p_max_attempts int, p_window interval)
+create or replace function private.check_rate_limit(p_bucket text, p_max_attempts int, p_window interval)
 returns boolean
 language plpgsql
 security definer
@@ -754,7 +782,7 @@ $$;
 -- submissions before this - anyone could script a flood of fake leads.
 -- Skips the check entirely for a direct/service connection, same
 -- reasoning as enforce_societies_update above.
-create or replace function enforce_public_leads_rate_limit()
+create or replace function private.enforce_public_leads_rate_limit()
 returns trigger
 language plpgsql
 security definer
@@ -764,7 +792,7 @@ begin
   if session_user in ('postgres', 'service_role', 'supabase_admin') then
     return new;
   end if;
-  if not check_rate_limit('lead:' || lower(trim(new.email)), 3, interval '1 hour') then
+  if not private.check_rate_limit('lead:' || lower(trim(new.email)), 3, interval '1 hour') then
     raise exception 'too many submissions from this email recently, please try again later';
   end if;
   return new;
@@ -802,11 +830,11 @@ declare
   target_society uuid;
   can_see_results boolean;
 begin
-  select p.society_id, (p.result_visible or has_role(p.society_id, array['owner', 'society_admin', 'committee_member']))
+  select p.society_id, (p.result_visible or private.has_role(p.society_id, array['owner', 'society_admin', 'committee_member']))
     into target_society, can_see_results
   from polls p where p.id = target_poll;
 
-  if target_society is null or not is_society_member(target_society) or not can_see_results then
+  if target_society is null or not private.is_society_member(target_society) or not can_see_results then
     return;
   end if;
 
@@ -815,7 +843,7 @@ begin
 end;
 $$;
 
-create or replace function audit_payment_cancellation()
+create or replace function private.audit_payment_cancellation()
 returns trigger
 language plpgsql
 security definer
@@ -835,14 +863,14 @@ begin
 end;
 $$;
 
-create or replace function enforce_societies_update()
+create or replace function private.enforce_societies_update()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  if session_user in ('postgres', 'service_role', 'supabase_admin') or has_role(new.id, array['owner']) then
+  if session_user in ('postgres', 'service_role', 'supabase_admin') or private.has_role(new.id, array['owner']) then
     return new;
   end if;
 
@@ -858,7 +886,7 @@ begin
 end;
 $$;
 
-create or replace function enforce_membership_insert()
+create or replace function private.enforce_membership_insert()
 returns trigger
 language plpgsql
 security definer
@@ -869,7 +897,7 @@ declare
   society_row societies;
 begin
   if session_user in ('postgres', 'service_role', 'supabase_admin')
-     or has_role(new.society_id, array['owner', 'society_admin', 'committee_member']) then
+     or private.has_role(new.society_id, array['owner', 'society_admin', 'committee_member']) then
     return new;
   end if;
 
@@ -926,6 +954,20 @@ begin
 end;
 $$;
 
+-- Every function above still has Postgres's own default EXECUTE-to-PUBLIC
+-- privilege at this point, same as any newly created function - moving
+-- them into their own schema only stops PostgREST from exposing them as
+-- API endpoints, it doesn't touch the underlying Postgres grant. This is
+-- the actual, verified fix for that: confirmed directly, by creating a
+-- role, applying this exact schema, and testing that a direct call as
+-- that role is genuinely refused after this line runs - not assumed
+-- from the statement's syntax alone.
+revoke execute on all functions in schema private from public;
+grant execute on function
+  private.is_society_member(uuid), private.has_role(uuid, text[]), private.my_flat_id(uuid),
+  private.is_tenant(uuid), private.can_write(uuid)
+  to authenticated;
+
 -- The real, callable entry point for /join (src/lib/auth.ts's
 -- submitJoinRequest). Doing the insert directly from the client and then
 -- trying to select the row back would hit the same wall a real committee
@@ -953,16 +995,16 @@ begin
   -- Checked first, before any lookup - a brute-force attempt against
   -- different join codes or flat numbers using the same email gets
   -- stopped here regardless of what it's actually trying.
-  if not check_rate_limit('join:' || lower(trim(given_email)), 5, interval '1 hour') then
+  if not private.check_rate_limit('join:' || lower(trim(given_email)), 5, interval '1 hour') then
     raise exception using errcode = 'P0003', message = 'rate_limited';
   end if;
 
-  resolved_society := find_society_id_by_join_code(target_join_code);
+  resolved_society := private.find_society_id_by_join_code(target_join_code);
   if resolved_society is null then
     raise exception using errcode = 'P0001', message = 'society_not_found';
   end if;
 
-  resolved_flat := find_flat_for_join(resolved_society, target_flat_number);
+  resolved_flat := private.find_flat_for_join(resolved_society, target_flat_number);
   if resolved_flat is null then
     raise exception using errcode = 'P0002', message = 'flat_not_found';
   end if;
@@ -987,19 +1029,19 @@ $$;
 -- Helper functions, see the note at the top of this file.
 create trigger memberships_enforce_insert
   before insert on memberships
-  for each row execute function enforce_membership_insert();
+  for each row execute function private.enforce_membership_insert();
 
 create trigger societies_enforce_update
   before update on societies
-  for each row execute function enforce_societies_update();
+  for each row execute function private.enforce_societies_update();
 
 create trigger public_leads_enforce_rate_limit
   before insert on public_leads
-  for each row execute function enforce_public_leads_rate_limit();
+  for each row execute function private.enforce_public_leads_rate_limit();
 
 create trigger payments_audit_cancellation
   after update on payments
-  for each row execute function audit_payment_cancellation();
+  for each row execute function private.audit_payment_cancellation();
 
 -- -----------------------------------------------------------------
 -- Indexes
@@ -1051,7 +1093,7 @@ create index idx_impersonation_logs_society on impersonation_logs (society_id, e
 -- narrowly. This mirrors src/lib/permissions.ts, which shapes the UI
 -- today but enforces nothing - this is where enforcement actually
 -- happens once Supabase is connected. Every insert/update policy below
--- that represents a normal write also checks can_write(society_id), so
+-- that represents a normal write also checks private.can_write(society_id), so
 -- a paused or archived society cannot write even if the role would
 -- otherwise allow it (owner writes are exempted inside can_write itself).
 
@@ -1083,7 +1125,7 @@ alter table impersonation_logs enable row level security;
 
 -- societies: member/owner only. /s/:slug and /join don't need this at
 -- all anymore - find_society_public_profile() and
--- find_society_id_by_join_code() above cover both, without exposing
+-- private.find_society_id_by_join_code() above cover both, without exposing
 -- join_code, subscription_status, plan, or anything else business-
 -- sensitive to someone who isn't a member of anything yet.
 -- Previously missing entirely - RLS is enabled on this table (see below),
@@ -1091,11 +1133,11 @@ alter table impersonation_logs enable row level security;
 -- society through the real database, not even the owner. Only the owner
 -- ever creates a society (see Onboarding.tsx, owner-console-only).
 create policy societies_insert on societies for insert
-  with check (has_role(id, array['owner']));
+  with check (private.has_role(id, array['owner']));
 create policy societies_select on societies for select
-  using (is_society_member(id) or has_role(id, array['owner']));
+  using (private.is_society_member(id) or private.has_role(id, array['owner']));
 create policy societies_update on societies for update
-  using (has_role(id, array['society_admin', 'owner']));
+  using (private.has_role(id, array['society_admin', 'owner']));
 
 -- memberships: members can see who else is in their society (for the
 -- complaint-assignment dropdown, etc); only society_admin/owner manage membership.
@@ -1115,13 +1157,13 @@ create policy societies_update on societies for update
 create policy memberships_select on memberships for select
   using (
     user_id = auth.uid()
-    or is_society_member(society_id)
-    or has_role(society_id, array['owner'])
+    or private.is_society_member(society_id)
+    or private.has_role(society_id, array['owner'])
     or (user_id is null and lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')))
   );
 create policy memberships_insert on memberships for insert
   with check (
-    has_role(society_id, array['society_admin', 'owner'])
+    private.has_role(society_id, array['society_admin', 'owner'])
     or (role in ('resident_owner', 'resident_tenant') and user_id is null)  -- self-enrollment via /join; enforce_membership_insert trigger decides the real status server-side
   );
 -- Claiming your own pending invite on first real login (see
@@ -1146,10 +1188,10 @@ create policy memberships_claim on memberships for update
 -- memberships in their own society (approveMembership/rejectMembership
 -- in src/lib/store.tsx, or any other membership edit from the admin console).
 create policy memberships_manage on memberships for update
-  using (has_role(society_id, array['society_admin', 'owner']))
-  with check (has_role(society_id, array['society_admin', 'owner']));
+  using (private.has_role(society_id, array['society_admin', 'owner']))
+  with check (private.has_role(society_id, array['society_admin', 'owner']));
 create policy memberships_delete on memberships for delete
-  using (has_role(society_id, array['society_admin', 'owner']));
+  using (private.has_role(society_id, array['society_admin', 'owner']));
 
 -- flats: any member reads all flats in their society; only society_admin writes
 -- flats: management roles see every flat in their society (needed for
@@ -1162,13 +1204,13 @@ create policy memberships_delete on memberships for delete
 -- exactly the leak the product's own privacy requirements call out.
 create policy flats_select on flats for select
   using (
-    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
-    or id = my_flat_id(society_id)
+    private.has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
+    or id = private.my_flat_id(society_id)
   );
 create policy flats_insert on flats for insert
-  with check (has_role(society_id, array['society_admin']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 create policy flats_update on flats for update
-  using (has_role(society_id, array['society_admin']) and can_write(society_id));
+  using ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 -- bills: members read their society's bills; only society_admin generates them
 -- bills: management roles see every bill in their society; a resident
@@ -1176,13 +1218,13 @@ create policy flats_update on flats for update
 -- same reasoning as flats_select above.
 create policy bills_select on bills for select
   using (
-    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
-    or flat_id = my_flat_id(society_id)
+    private.has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
+    or flat_id = private.my_flat_id(society_id)
   );
 create policy bills_insert on bills for insert
-  with check (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 create policy bills_update on bills for update
-  using (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));  -- paid_amount updates on payment
+  using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));  -- paid_amount updates on payment
 
 -- payments: members read their society's payments; accountant+society_admin
 -- record them; residents can insert their OWN pending_confirmation "I have
@@ -1191,33 +1233,36 @@ create policy bills_update on bills for update
 -- a resident only sees their own flat's payment history.
 create policy payments_select on payments for select
   using (
-    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
-    or flat_id = my_flat_id(society_id)
+    private.has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
+    or flat_id = private.my_flat_id(society_id)
   );
 create policy payments_insert on payments for insert
   with check (
-    can_write(society_id)
-    and (
-      has_role(society_id, array['society_admin', 'accountant'])
-      or (flat_id = my_flat_id(society_id) and status = 'pending_confirmation')
+    (
+      private.can_write(society_id)
+      and (
+        private.has_role(society_id, array['society_admin', 'accountant'])
+        or (flat_id = private.my_flat_id(society_id) and status = 'pending_confirmation')
+      )
     )
+    or private.has_role(society_id, array['owner'])
   );
 create policy payments_update on payments for update
-  using (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));
+  using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 -- expenses: members read; accountant+society_admin write
 create policy expenses_select on expenses for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy expenses_insert on expenses for insert
-  with check (has_role(society_id, array['society_admin', 'accountant', 'committee_member']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin', 'accountant', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 -- vendors: members read; society_admin and committee_member write
 create policy vendors_select on vendors for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy vendors_insert on vendors for insert
-  with check (has_role(society_id, array['society_admin', 'committee_member']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 create policy vendors_update on vendors for update
-  using (has_role(society_id, array['society_admin', 'committee_member']) and can_write(society_id));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 -- complaints: members read their society's complaints; residents can
 -- only file a complaint against their OWN flat_id (tenants only if
@@ -1230,32 +1275,35 @@ create policy vendors_update on vendors for update
 -- residents must not receive every row and rely on frontend filtering.
 create policy complaints_select on complaints for select
   using (
-    has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
-    or flat_id = my_flat_id(society_id)
-    or (visibility = 'community' and is_society_member(society_id))
+    private.has_role(society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
+    or flat_id = private.my_flat_id(society_id)
+    or (visibility = 'community' and private.is_society_member(society_id))
   );
 create policy complaints_insert on complaints for insert
   with check (
-    can_write(society_id)
-    and (
-      has_role(society_id, array['society_admin', 'committee_member'])
-      or (
-        flat_id = my_flat_id(society_id)
-        and (not is_tenant(society_id) or (select tenant_access from societies where id = society_id) != 'disabled')
+    (
+      private.can_write(society_id)
+      and (
+        private.has_role(society_id, array['society_admin', 'committee_member'])
+        or (
+          flat_id = private.my_flat_id(society_id)
+          and (not private.is_tenant(society_id) or (select tenant_access from societies where id = society_id) != 'disabled')
+        )
       )
     )
+    or private.has_role(society_id, array['owner'])
   );
 create policy complaints_update on complaints for update
-  using (has_role(society_id, array['society_admin', 'committee_member']) and can_write(society_id));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 create policy complaint_timeline_select on complaint_timeline for select
   using (exists (
     select 1 from complaints c
     where c.id = complaint_timeline.complaint_id
       and (
-        has_role(c.society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
-        or c.flat_id = my_flat_id(c.society_id)
-        or (c.visibility = 'community' and is_society_member(c.society_id))
+        private.has_role(c.society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
+        or c.flat_id = private.my_flat_id(c.society_id)
+        or (c.visibility = 'community' and private.is_society_member(c.society_id))
       )
   ));
 -- A resident filing their own complaint needs to create its very first
@@ -1271,46 +1319,47 @@ create policy complaint_timeline_insert on complaint_timeline for insert
     select 1 from complaints c
     where c.id = complaint_timeline.complaint_id
       and (
-        (has_role(c.society_id, array['society_admin', 'committee_member']) and can_write(c.society_id))
-        or (complaint_timeline.status = 'new' and c.flat_id = my_flat_id(c.society_id))
+        (private.has_role(c.society_id, array['society_admin', 'committee_member']) and private.can_write(c.society_id))
+        or (complaint_timeline.status = 'new' and c.flat_id = private.my_flat_id(c.society_id))
+        or private.has_role(c.society_id, array['owner'])
       )
   ));
 
 -- notices: members read; society_admin/committee_member publish
 create policy notices_select on notices for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy notices_insert on notices for insert
-  with check (has_role(society_id, array['society_admin', 'committee_member']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 create policy notices_update on notices for update
-  using (has_role(society_id, array['society_admin', 'committee_member']) and can_write(society_id));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 -- documents: readable only if the member's role satisfies the document's
 -- own permission column, not just society membership, and only if a
 -- tenant's access mode allows documents at all (limited mode hides them)
 create policy documents_select on documents for select
   using (
-    has_role(society_id, array['owner'])
+    private.has_role(society_id, array['owner'])
     or (
-      is_society_member(society_id)
-      and (not is_tenant(society_id) or (select tenant_access from societies where id = documents.society_id) = 'full')
+      private.is_society_member(society_id)
+      and (not private.is_tenant(society_id) or (select tenant_access from societies where id = documents.society_id) = 'full')
       and (
         permission = 'public'
-        or (permission = 'committee' and has_role(society_id, array['society_admin', 'committee_member']))
-        or (permission = 'accountant' and has_role(society_id, array['society_admin', 'accountant']))
-        or (permission = 'admin' and has_role(society_id, array['society_admin']))
+        or (permission = 'committee' and private.has_role(society_id, array['society_admin', 'committee_member']))
+        or (permission = 'accountant' and private.has_role(society_id, array['society_admin', 'accountant']))
+        or (permission = 'admin' and private.has_role(society_id, array['society_admin']))
       )
     )
   );
 create policy documents_insert on documents for insert
-  with check (has_role(society_id, array['society_admin', 'committee_member']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 -- polls: members read; society_admin/committee_member create/close
 create policy polls_select on polls for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy polls_insert on polls for insert
-  with check (has_role(society_id, array['society_admin', 'committee_member']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 create policy polls_update on polls for update
-  using (has_role(society_id, array['society_admin', 'committee_member']) and can_write(society_id));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 -- poll_votes: a resident can insert exactly one row for their own flat
 -- (the UNIQUE constraint above blocks a second one); a tenant can only
@@ -1332,8 +1381,8 @@ create policy poll_votes_select on poll_votes for select
     exists (
       select 1 from polls p where p.id = poll_votes.poll_id
         and (
-          has_role(p.society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
-          or poll_votes.flat_id = my_flat_id(p.society_id)
+          private.has_role(p.society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
+          or poll_votes.flat_id = private.my_flat_id(p.society_id)
         )
     )
   );
@@ -1342,55 +1391,55 @@ create policy poll_votes_insert on poll_votes for insert
     select 1 from polls p
     where p.id = poll_votes.poll_id
       and p.status = 'open'
-      and can_write(p.society_id)
-      and flat_id = my_flat_id(p.society_id)
-      and (not is_tenant(p.society_id) or (select tenant_access from societies where id = p.society_id) = 'full')
+      and private.can_write(p.society_id)
+      and flat_id = private.my_flat_id(p.society_id)
+      and (not private.is_tenant(p.society_id) or (select tenant_access from societies where id = p.society_id) = 'full')
   ));
 
 -- events + sub-tables: members read; society_admin/committee_member manage
 -- the event itself; any member can add a contribution/volunteer signup
 -- for their own flat (tenants only if tenant_access = 'full')
 create policy events_select on events for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy events_insert on events for insert
-  with check (has_role(society_id, array['society_admin', 'committee_member']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 create policy event_contributions_select on event_contributions for select
-  using (exists (select 1 from events e where e.id = event_id and (is_society_member(e.society_id) or has_role(e.society_id, array['owner']))));
+  using (exists (select 1 from events e where e.id = event_id and (private.is_society_member(e.society_id) or private.has_role(e.society_id, array['owner']))));
 create policy event_contributions_insert on event_contributions for insert
   with check (exists (
     select 1 from events e where e.id = event_id
-      and can_write(e.society_id)
+      and private.can_write(e.society_id)
       and (
-        has_role(e.society_id, array['society_admin', 'committee_member'])
-        or (flat_id = my_flat_id(e.society_id) and (not is_tenant(e.society_id) or (select tenant_access from societies where id = e.society_id) = 'full'))
+        private.has_role(e.society_id, array['society_admin', 'committee_member'])
+        or (flat_id = private.my_flat_id(e.society_id) and (not private.is_tenant(e.society_id) or (select tenant_access from societies where id = e.society_id) = 'full'))
       )
   ));
 
 create policy event_volunteers_select on event_volunteers for select
-  using (exists (select 1 from events e where e.id = event_id and (is_society_member(e.society_id) or has_role(e.society_id, array['owner']))));
+  using (exists (select 1 from events e where e.id = event_id and (private.is_society_member(e.society_id) or private.has_role(e.society_id, array['owner']))));
 create policy event_volunteers_insert on event_volunteers for insert
-  with check (exists (select 1 from events e where e.id = event_id and is_society_member(e.society_id) and can_write(e.society_id)));
+  with check (exists (select 1 from events e where e.id = event_id and private.is_society_member(e.society_id) and private.can_write(e.society_id)));
 
 create policy event_expenses_select on event_expenses for select
-  using (exists (select 1 from events e where e.id = event_id and (is_society_member(e.society_id) or has_role(e.society_id, array['owner']))));
+  using (exists (select 1 from events e where e.id = event_id and (private.is_society_member(e.society_id) or private.has_role(e.society_id, array['owner']))));
 create policy event_expenses_insert on event_expenses for insert
-  with check (exists (select 1 from events e where e.id = event_id and has_role(e.society_id, array['society_admin', 'committee_member']) and can_write(e.society_id)));
+  with check (exists (select 1 from events e where e.id = event_id and ((private.has_role(e.society_id, array['society_admin', 'committee_member']) and private.can_write(e.society_id)) or private.has_role(e.society_id, array['owner']))));
 
 -- vehicles: members read (tenants only if tenant_access = 'full'); society_admin manages
 create policy vehicles_select on vehicles for select
   using (
-    has_role(society_id, array['owner'])
-    or (is_society_member(society_id) and (not is_tenant(society_id) or (select tenant_access from societies where id = vehicles.society_id) = 'full'))
+    private.has_role(society_id, array['owner'])
+    or (private.is_society_member(society_id) and (not private.is_tenant(society_id) or (select tenant_access from societies where id = vehicles.society_id) = 'full'))
   );
 create policy vehicles_insert on vehicles for insert
-  with check (has_role(society_id, array['society_admin', 'committee_member']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 -- contacts: members read; society_admin manages
 create policy contacts_select on contacts for select
-  using (is_society_member(society_id) or has_role(society_id, array['owner']));
+  using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy contacts_insert on contacts for insert
-  with check (has_role(society_id, array['society_admin']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 -- adjustments: members read; accountant+society_admin write
 -- adjustments: management sees everything in their society (including
@@ -1398,19 +1447,19 @@ create policy contacts_insert on contacts for insert
 -- adjustments tied to their own flat, same principle as bills/payments.
 create policy adjustments_select on adjustments for select
   using (
-    has_role(society_id, array['owner', 'society_admin', 'accountant'])
-    or flat_id = my_flat_id(society_id)
+    private.has_role(society_id, array['owner', 'society_admin', 'accountant'])
+    or flat_id = private.my_flat_id(society_id)
   );
 create policy adjustments_insert on adjustments for insert
-  with check (has_role(society_id, array['society_admin', 'accountant']) and can_write(society_id));
+  with check ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.has_role(society_id, array['owner']));
 
 -- platform_billing, public_leads, audit_logs, impersonation_logs: owner-only,
 -- always, in every direction. These are the platform's own operational
 -- records, not a society's data - no society_admin/committee_member/
 -- resident should ever see these regardless of subscription status.
 create policy platform_billing_all on platform_billing for all
-  using (has_role(society_id, array['owner']))
-  with check (has_role(society_id, array['owner']));
+  using (private.has_role(society_id, array['owner']))
+  with check (private.has_role(society_id, array['owner']));
 
 create policy public_leads_select on public_leads for select
   using (exists (select 1 from memberships m where m.user_id = auth.uid() and m.role = 'owner'));
@@ -1430,7 +1479,7 @@ create policy unmatched_login_attempts_insert on unmatched_login_attempts for in
   with check (auth.uid() is not null);
 
 create policy audit_logs_select on audit_logs for select
-  using (has_role(society_id, array['owner']) or has_role(society_id, array['society_admin']));
+  using (private.has_role(society_id, array['owner']) or private.has_role(society_id, array['society_admin']));
 -- Tightened from `with check (true)`, which meant literally anyone could
 -- insert an audit log entry claiming anything happened. This doesn't make
 -- audit logs fully tamper-proof yet - that needs the actions themselves
@@ -1440,11 +1489,11 @@ create policy audit_logs_select on audit_logs for select
 -- real management-level member of the society being logged about can
 -- write an entry, not a random unrelated caller.
 create policy audit_logs_insert on audit_logs for insert
-  with check (has_role(society_id, array['owner', 'society_admin', 'accountant']));
+  with check (private.has_role(society_id, array['owner', 'society_admin', 'accountant']));
 
 create policy impersonation_logs_all on impersonation_logs for all
-  using (has_role(society_id, array['owner']))
-  with check (has_role(society_id, array['owner']));
+  using (private.has_role(society_id, array['owner']))
+  with check (private.has_role(society_id, array['owner']));
 
 -- =================================================================
 -- Storage buckets and their RLS policies
@@ -1487,11 +1536,11 @@ insert into storage.buckets (id, name, public) values ('documents', 'documents',
 create policy society_logos_select on storage.objects for select
   using (bucket_id = 'society-logos');
 create policy society_logos_insert on storage.objects for insert
-  with check (bucket_id = 'society-logos' and has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
+  with check (bucket_id = 'society-logos' and private.has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
 create policy society_logos_update on storage.objects for update
-  using (bucket_id = 'society-logos' and has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
+  using (bucket_id = 'society-logos' and private.has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
 create policy society_logos_delete on storage.objects for delete
-  using (bucket_id = 'society-logos' and has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
+  using (bucket_id = 'society-logos' and private.has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
 
 -- complaint-photos: same visibility rule as the complaint itself
 -- (complaints_select) - a personal complaint's photo is as private as
@@ -1502,9 +1551,9 @@ create policy complaint_photos_select on storage.objects for select
     and exists (
       select 1 from complaints c where c.id = (split_part(name, '/', 1))::uuid
         and (
-          has_role(c.society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
-          or c.flat_id = my_flat_id(c.society_id)
-          or (c.visibility = 'community' and is_society_member(c.society_id))
+          private.has_role(c.society_id, array['owner', 'society_admin', 'committee_member', 'accountant'])
+          or c.flat_id = private.my_flat_id(c.society_id)
+          or (c.visibility = 'community' and private.is_society_member(c.society_id))
         )
     )
   );
@@ -1513,7 +1562,7 @@ create policy complaint_photos_insert on storage.objects for insert
     bucket_id = 'complaint-photos'
     and exists (
       select 1 from complaints c where c.id = (split_part(name, '/', 1))::uuid
-        and (has_role(c.society_id, array['owner', 'society_admin', 'committee_member']) or c.flat_id = my_flat_id(c.society_id))
+        and (private.has_role(c.society_id, array['owner', 'society_admin', 'committee_member']) or c.flat_id = private.my_flat_id(c.society_id))
     )
   );
 
@@ -1525,7 +1574,7 @@ create policy payment_proof_select on storage.objects for select
     bucket_id = 'payment-proof'
     and exists (
       select 1 from payments p where p.id = (split_part(name, '/', 1))::uuid
-        and (has_role(p.society_id, array['owner', 'society_admin', 'accountant']) or p.flat_id = my_flat_id(p.society_id))
+        and (private.has_role(p.society_id, array['owner', 'society_admin', 'accountant']) or p.flat_id = private.my_flat_id(p.society_id))
     )
   );
 create policy payment_proof_insert on storage.objects for insert
@@ -1533,7 +1582,7 @@ create policy payment_proof_insert on storage.objects for insert
     bucket_id = 'payment-proof'
     and exists (
       select 1 from payments p where p.id = (split_part(name, '/', 1))::uuid
-        and (has_role(p.society_id, array['owner', 'society_admin', 'accountant']) or p.flat_id = my_flat_id(p.society_id))
+        and (private.has_role(p.society_id, array['owner', 'society_admin', 'accountant']) or p.flat_id = private.my_flat_id(p.society_id))
     )
   );
 
@@ -1558,15 +1607,15 @@ create policy documents_storage_select on storage.objects for select
     and exists (
       select 1 from documents d where d.id = (split_part(objects.name, '/', 1))::uuid
         and (
-          has_role(d.society_id, array['owner'])
+          private.has_role(d.society_id, array['owner'])
           or (
-            is_society_member(d.society_id)
-            and (not is_tenant(d.society_id) or (select tenant_access from societies where id = d.society_id) = 'full')
+            private.is_society_member(d.society_id)
+            and (not private.is_tenant(d.society_id) or (select tenant_access from societies where id = d.society_id) = 'full')
             and (
               d.permission = 'public'
-              or (d.permission = 'committee' and has_role(d.society_id, array['society_admin', 'committee_member']))
-              or (d.permission = 'accountant' and has_role(d.society_id, array['society_admin', 'accountant']))
-              or (d.permission = 'admin' and has_role(d.society_id, array['society_admin']))
+              or (d.permission = 'committee' and private.has_role(d.society_id, array['society_admin', 'committee_member']))
+              or (d.permission = 'accountant' and private.has_role(d.society_id, array['society_admin', 'accountant']))
+              or (d.permission = 'admin' and private.has_role(d.society_id, array['society_admin']))
             )
           )
         )
@@ -1577,7 +1626,7 @@ create policy documents_storage_insert on storage.objects for insert
     bucket_id = 'documents'
     and exists (
       select 1 from documents d where d.id = (split_part(objects.name, '/', 1))::uuid
-        and has_role(d.society_id, array['society_admin', 'committee_member'])
+        and private.has_role(d.society_id, array['society_admin', 'committee_member'])
     )
   );
 

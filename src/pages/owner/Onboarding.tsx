@@ -17,6 +17,20 @@
  * onboarding-specific plumbing, it's the real admin functions, just
  * reached through a guided flow instead of separate pages.
  *
+ * createSociety() calls setOwnerWorkingSociety(), not enterSociety() -
+ * this matters, and was actually the site of a real, previously-unnoticed
+ * bug. enterSociety() is built for a genuinely different job (an owner
+ * temporarily impersonating a different role to help a society), and
+ * deliberately flips the session to the local data layer while doing
+ * that. Using it here meant every step of this wizard past society
+ * creation was silently writing to the local layer only, regardless of
+ * whether the owner's own session was real - a society could look fully
+ * set up in the browser that built it while the real database only ever
+ * received the bare society record from step 1. setOwnerWorkingSociety()
+ * only changes which society the owner's own real writes are scoped to;
+ * it never touches role or isRealSession, so a real owner stays exactly
+ * as real for the whole wizard as they were before starting it.
+ *
  * trialStartedAt is deliberately NOT set when the society is created - see
  * the comment on activateSociety in store.tsx. A society sitting mid-wizard
  * is fully writable (a 'trial' society with no trialStartedAt yet never
@@ -54,7 +68,7 @@ const moduleInfo: { key: keyof SocietyModules; icon: typeof ReceiptText; label: 
 
 export default function Onboarding() {
   const {
-    addSociety, addMembership, enterSociety, session, uploadSocietyLogoAndSave,
+    addSociety, addMembership, setOwnerWorkingSociety, session, uploadSocietyLogoAndSave,
     updateSociety, addFlatsBulk, previewBillGeneration, generateBills, activateSociety, db, society: activeSociety,
   } = useData()
   const nav = useNavigate()
@@ -126,7 +140,7 @@ export default function Onboarding() {
       modules: { ownerEnabled: modules, adminVisible: modules }, tenantAccess: 'full',
     })
     setSocietyId(soc.id)
-    enterSociety(soc.id, 'society_admin', 'write')
+    setOwnerWorkingSociety(soc.id)
     return soc.id
   }
 

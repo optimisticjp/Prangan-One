@@ -20,9 +20,12 @@ export default function Documents() {
 
   const open = async (storagePath: string, id: string) => {
     setOpeningId(id)
-    const url = await getDocumentUrl(storagePath)
-    setOpeningId(null)
-    if (url) window.open(url, '_blank')
+    try {
+      const url = await getDocumentUrl(storagePath)
+      if (url) window.open(url, '_blank')
+    } finally {
+      setOpeningId(null)
+    }
   }
 
   if (tenantBlocked) {

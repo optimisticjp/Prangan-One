@@ -51,6 +51,14 @@ export default function ShareLink() {
         modules: defaultModuleLayer, createdAt: '', receiptSeq: 1, tenantAccess: 'full', subscriptionStatus: 'active',
       })
       setLoading(false)
+    }).catch(() => {
+      // A genuine fetch failure, not "this slug doesn't exist" - without
+      // this, the person would be stuck on the loading spinner forever,
+      // since setLoading(false) above would simply never run. Treated
+      // the same as not-found rather than a separate error state, same
+      // "clean not-found state instead of leaking anything" reasoning
+      // this page already uses for an unknown slug.
+      if (!cancelled) { setRealSociety(null); setLoading(false) }
     })
     return () => { cancelled = true }
   }, [slug])
