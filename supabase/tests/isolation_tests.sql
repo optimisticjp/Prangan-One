@@ -88,6 +88,17 @@ insert into poll_votes (poll_id, flat_id, option_idx) values
   ('f0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', 0),
   ('f0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000102', 0);
 
+-- A few owning rows Society A's owner-write matrix below needs to point at:
+-- one bill, one real payment (its id is the storage path for the
+-- payment-proof bucket test), and one event (for the event-expense test).
+-- All in Society A. Inserted here as postgres, straight setup data.
+insert into bills (id, society_id, flat_id, month, amount, due_date) values
+  ('ba110000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', '2027-01', 1200, '2027-01-10');
+insert into payments (id, society_id, flat_id, date, amount, mode, status) values
+  ('ba110000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', current_date, 500, 'cash', 'success');
+insert into events (id, society_id, name, type, date) values
+  ('ea110000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Diwali', 'festival', current_date);
+
 -- ----------------------------------------------------------------------
 -- Grants: one authenticated role, matching what every real Supabase
 -- project already grants by default - not narrowed per test, since the
@@ -131,7 +142,65 @@ begin
 end;
 $$;
 
-grant execute on function test_become(uuid), test_assert(boolean, text) to authenticated;
+-- Runs one write statement as whoever is currently active and reports how
+-- many rows it actually changed: a positive number means the write went
+-- through, 0 means RLS silently matched no rows (how a blocked UPDATE
+-- looks), and -1 means RLS raised outright (how a blocked INSERT looks).
+-- Security invoker on purpose, so the write inside runs as the caller and is
+-- checked against the real policies, not bypassed. Only insufficient_privilege
+-- (an RLS refusal) is swallowed - any other error still propagates and fails
+-- the suite loudly, so a broken test statement can't quietly read as "blocked".
+create or replace function test_try_write(p_sql text) returns int
+language plpgsql
+as $$
+declare n int;
+begin
+  execute p_sql;
+  get diagnostics n = row_count;
+  return n;
+exception
+  when insufficient_privilege then
+    return -1;
+end;
+$$;
+
+-- One representative owner write per category of client-society data, so the
+-- before/during/after support-session checks below can prove each category
+-- individually rather than trusting one to stand in for all of them. Every
+-- statement targets Society A and is written to be run as the owner. Fresh
+-- ids/keys (gen_random_uuid) each call so the "before" and "after" runs
+-- don't collide with each other. The storage rows use the owning row's id as
+-- their path prefix, exactly the path convention the real storage policies
+-- join back through. Document-bucket storage is deliberately NOT here: the
+-- owner has no upload path for it at all, so it's checked on its own below.
+create or replace function owner_write_cases() returns table(label text, write_sql text)
+language sql
+stable
+as $$
+  values
+    ('societies',          $w$update societies set name = name where id = 'a0000000-0000-0000-0000-000000000001'$w$),
+    ('memberships',        $w$insert into memberships (society_id, email, role) values ('a0000000-0000-0000-0000-000000000001', gen_random_uuid()::text || '@test.local', 'committee_member')$w$),
+    ('flats',              $w$insert into flats (society_id, number, floor, owner_name, occupancy) values ('a0000000-0000-0000-0000-000000000001', gen_random_uuid()::text, 1, 'Owner Write', 'owner')$w$),
+    ('bills',              $w$insert into bills (society_id, flat_id, month, amount, due_date) values ('a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', gen_random_uuid()::text, 1200, current_date)$w$),
+    ('payments',           $w$insert into payments (society_id, flat_id, date, amount, mode, status) values ('a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', current_date, 100, 'cash', 'success')$w$),
+    ('expenses',           $w$insert into expenses (society_id, date, category, amount, mode) values ('a0000000-0000-0000-0000-000000000001', current_date, 'Repairs', 100, 'cash')$w$),
+    ('vendors',            $w$insert into vendors (society_id, name) values ('a0000000-0000-0000-0000-000000000001', 'Owner Write Vendor')$w$),
+    ('complaints',         $w$insert into complaints (society_id, flat_id, category, title, priority) values ('a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', 'General', 'Owner write', 'normal')$w$),
+    ('complaint_timeline', $w$insert into complaint_timeline (complaint_id, status, by_name) values ('c0000000-0000-0000-0000-000000000001', 'assigned', 'Owner')$w$),
+    ('notices',            $w$insert into notices (society_id, title, body, category) values ('a0000000-0000-0000-0000-000000000001', 'Owner write', 'x', 'General')$w$),
+    ('documents',          $w$insert into documents (society_id, name, folder, permission) values ('a0000000-0000-0000-0000-000000000001', 'Owner write doc', 'General', 'public')$w$),
+    ('polls',              $w$insert into polls (society_id, question, type, options) values ('a0000000-0000-0000-0000-000000000001', 'Owner write?', 'yesno', '["Yes","No"]'::jsonb)$w$),
+    ('events',             $w$insert into events (society_id, name, type, date) values ('a0000000-0000-0000-0000-000000000001', 'Owner write event', 'festival', current_date)$w$),
+    ('event_expenses',     $w$insert into event_expenses (event_id, label, amount) values ('ea110000-0000-0000-0000-000000000001', 'Owner write expense', 100)$w$),
+    ('vehicles',           $w$insert into vehicles (society_id, flat_id, kind, number, slot) values ('a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', '2W', gen_random_uuid()::text, 'S1')$w$),
+    ('contacts',           $w$insert into contacts (society_id, name, phone, category) values ('a0000000-0000-0000-0000-000000000001', 'Owner write contact', '9000000000', 'committee')$w$),
+    ('adjustments',        $w$insert into adjustments (society_id, amount, type, reason) values ('a0000000-0000-0000-0000-000000000001', 100, 'credit', 'Owner write')$w$),
+    ('storage:society-logos',   $w$insert into storage.objects (bucket_id, name) values ('society-logos', 'a0000000-0000-0000-0000-000000000001/' || gen_random_uuid()::text || '.png')$w$),
+    ('storage:complaint-photos',$w$insert into storage.objects (bucket_id, name) values ('complaint-photos', 'c0000000-0000-0000-0000-000000000001/' || gen_random_uuid()::text || '.jpg')$w$),
+    ('storage:payment-proof',   $w$insert into storage.objects (bucket_id, name) values ('payment-proof', 'ba110000-0000-0000-0000-000000000002/' || gen_random_uuid()::text || '.jpg')$w$)
+$$;
+
+grant execute on function test_become(uuid), test_assert(boolean, text), test_try_write(text), owner_write_cases() to authenticated;
 
 set role authenticated;
 
@@ -342,92 +411,245 @@ exception
     raise notice 'PASS: a plain resident is still correctly refused from directly recording a successful payment through the new atomic function';
 end $$;
 
--- The owner support-mode database-level safeguard: even the owner's own
--- blanket write access, needed for real, legitimate owner actions, is
--- refused for a specific society while there's a currently-active
--- (not yet exited) support session for that owner and that society -
--- enforced by the database itself, not only by what the client app
--- happens to show. Mirrors exactly what was manually verified while
--- building this: a real write blocked during an active session, reads
--- completely unaffected throughout, and write access genuinely restored
--- the moment the session is exited.
-select test_become('00000000-0000-0000-0000-00000000000f'); -- the owner
-do $$
-declare
-  affected int;
-begin
-  insert into complaints (id, society_id, flat_id, category, title, status, priority)
-  values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', 'General', 'Owner write before any support session', 'new', 'normal');
-  get diagnostics affected = row_count;
-  if affected != 1 then
-    raise exception 'FAIL: the owner could not write normally before any support session existed at all';
-  end if;
-  raise notice 'PASS: the owner can write normally with no active support session, confirming this is not a general regression';
-end $$;
+-- ============================================================================
+-- Owner read-only support mode, proven end to end against real Postgres, one
+-- write category at a time, through the same real code path the app uses.
+--
+-- The whole point of this fix: even the owner's own blanket write access is
+-- refused for a specific society while there's a currently-active support
+-- session for that owner and that society - enforced by the database itself,
+-- not only by what the client app shows. The old version of this section
+-- only checked one category (complaints) and, worse, created the session by
+-- inserting a row directly with owner_user_id filled in by hand - which is
+-- exactly the path the real app never took, so it never caught that the real
+-- app wrote no owner_user_id at all. Everything below fixes that: it uses the
+-- real open_support_session / close_support_session RPCs, checks every write
+-- category individually, and asserts on real row counts (via test_try_write)
+-- rather than a broad "or others" catch that can pass even when a write
+-- actually went through.
+--
+-- Note on the role: these blocks run as `authenticated` (set role below), so
+-- RLS is genuinely enforced. reset session authorization drops back to
+-- postgres, which is a superuser that BYPASSES RLS, so every postgres-context
+-- manual insert is followed by `set role authenticated` again before any
+-- access-control check - otherwise the check would be meaningless.
+-- ============================================================================
 
+-- (0) The root cause, shown directly rather than described: a session row
+-- whose owner_user_id is NULL - exactly what the real app used to write -
+-- does NOT block the owner, because NULL never equals auth.uid(). This is why
+-- the safeguard never once activated in production even though the policy was
+-- correct. Everything after proves the fix makes a real session actually block.
 reset session authorization;
-insert into impersonation_logs (id, society_id, owner_user_id, mode, entered_at)
-values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000f', 'readonly', now());
-
+insert into impersonation_logs (society_id, owner_user_id, mode, entered_at)
+values ('a0000000-0000-0000-0000-000000000001', null, 'readonly', now());
+set role authenticated;
 select test_become('00000000-0000-0000-0000-00000000000f');
 do $$
+declare n int;
 begin
-  insert into complaints (id, society_id, flat_id, category, title, status, priority)
-  values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', 'General', 'Owner write during an active support session', 'new', 'normal');
-  raise exception 'FAIL: the owner was able to write to a society while a real, active support session for that exact society exists - the database-level safeguard is not working';
-exception
-  when insufficient_privilege or others then
-    raise notice 'PASS: the owner is genuinely refused from writing during an active support session, at the database level, not just by what the client app happens to show';
+  n := test_try_write($w$insert into notices (society_id, title, body, category) values ('a0000000-0000-0000-0000-000000000001', 'null-owner session does not block', 'x', 'General')$w$);
+  if n <= 0 then
+    raise exception 'FAIL: a null owner_user_id session blocked the owner - it never should, and that gap is exactly the production bug being fixed';
+  end if;
+  raise notice 'PASS: a null owner_user_id session does NOT block the owner (the exact production bug) - so writing owner_user_id for real is what actually matters';
+end $$;
+reset session authorization;
+delete from impersonation_logs where owner_user_id is null;
+
+-- (1) The trigger on the real API path: an insert arriving as the
+-- authenticated role has owner_user_id forced from auth.uid() and mode forced
+-- to readonly, no matter what the client tried to send. set session
+-- authorization makes session_user genuinely 'authenticated' here, which set
+-- role alone would not - that's what makes the trigger's own session_user
+-- check take the real, non-exempt path.
+set role authenticated;
+select test_become('00000000-0000-0000-0000-00000000000f');
+set session authorization authenticated;
+do $$
+declare v_id uuid; v_owner uuid; v_mode text;
+begin
+  insert into impersonation_logs (society_id, owner_user_id, mode)
+  values ('a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'write')
+  returning id, owner_user_id, mode into v_id, v_owner, v_mode;
+  if v_owner is distinct from '00000000-0000-0000-0000-00000000000f' then
+    raise exception 'FAIL: a raw insert kept the client-sent owner_user_id (%) instead of forcing it from auth.uid()', v_owner;
+  end if;
+  if v_mode <> 'readonly' then
+    raise exception 'FAIL: a raw insert created a mode=% session; every new session must be readonly only', v_mode;
+  end if;
+  perform set_config('test.probe_id', v_id::text, false);
+  raise notice 'PASS: a raw insert as authenticated has owner_user_id forced from auth.uid() and mode forced to readonly - neither identity nor write-mode can be forged from the client';
+end $$;
+reset session authorization;
+delete from impersonation_logs where id = current_setting('test.probe_id')::uuid;
+
+-- (2) BEFORE: with no support session, the owner can write every category.
+set role authenticated;
+select test_become('00000000-0000-0000-0000-00000000000f');
+do $$
+declare r record; n int;
+begin
+  for r in select label, write_sql from owner_write_cases() loop
+    n := test_try_write(r.write_sql);
+    if n <= 0 then
+      raise exception 'FAIL: the owner could not write category "%" before any support session existed (result %)', r.label, n;
+    end if;
+  end loop;
+  raise notice 'PASS: before any support session, the owner can write every category of client-society data';
 end $$;
 
+-- (3) Open the session the REAL way - the same open_support_session RPC
+-- insertImpersonationLogReal calls - and confirm the row it hands back:
+-- owner_user_id set server-side from auth.uid(), mode forced readonly, not
+-- yet exited. This is the code path the old manual-row test never took.
+select test_become('00000000-0000-0000-0000-00000000000f');
 do $$
-declare
-  visible_count int;
+declare v_log impersonation_logs;
 begin
-  select count(*) into visible_count from complaints where society_id = 'a0000000-0000-0000-0000-000000000001';
-  if visible_count = 0 then
-    raise exception 'FAIL: the owner could not read at all during an active support session - reads should be completely unaffected by this safeguard';
+  v_log := open_support_session('a0000000-0000-0000-0000-000000000001', 'checking a resident complaint, through the real code path');
+  if v_log.id is null then raise exception 'FAIL: open_support_session returned no session record'; end if;
+  if v_log.owner_user_id is distinct from '00000000-0000-0000-0000-00000000000f' then
+    raise exception 'FAIL: open_support_session did not set owner_user_id from auth.uid() (got %)', v_log.owner_user_id;
   end if;
+  if v_log.mode <> 'readonly' then raise exception 'FAIL: open_support_session did not force readonly (got %)', v_log.mode; end if;
+  if v_log.exited_at is not null then raise exception 'FAIL: a brand-new session should not already be exited'; end if;
+  perform set_config('test.support_log_id', v_log.id::text, false);
+  raise notice 'PASS: open_support_session created a real session with owner_user_id from auth.uid() and readonly mode, and returned the whole row to confirm';
+end $$;
+
+-- (4) DURING: with that real session active, every owner write category is
+-- refused at the database level, checked one category at a time.
+do $$
+declare r record; n int;
+begin
+  for r in select label, write_sql from owner_write_cases() loop
+    n := test_try_write(r.write_sql);
+    if n > 0 then
+      raise exception 'FAIL: the owner write to category "%" was NOT blocked during an active support session (result %)', r.label, n;
+    end if;
+  end loop;
+  raise notice 'PASS: during an active support session, every owner write category is genuinely refused at the database level';
+end $$;
+
+-- (5) DURING: reads are completely unaffected.
+do $$
+declare c int;
+begin
+  select count(*) into c from complaints where society_id = 'a0000000-0000-0000-0000-000000000001';
+  if c = 0 then raise exception 'FAIL: the owner could not read during a support session - reads must be unaffected'; end if;
   raise notice 'PASS: reads remain completely unaffected during an active support session - only writes are refused';
 end $$;
 
-reset session authorization;
-update impersonation_logs set exited_at = now()
-where society_id = 'a0000000-0000-0000-0000-000000000001' and owner_user_id = '00000000-0000-0000-0000-00000000000f';
-
-select test_become('00000000-0000-0000-0000-00000000000f');
+-- (6) DURING: a DIFFERENT society is completely unaffected - the owner can
+-- still write to Society B, since the guard is per-society.
 do $$
-declare
-  affected int;
+declare n int;
 begin
-  insert into complaints (id, society_id, flat_id, category, title, status, priority)
-  values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', 'General', 'Owner write after exiting the support session', 'new', 'normal');
-  get diagnostics affected = row_count;
-  if affected != 1 then
-    raise exception 'FAIL: the owner could not write again after genuinely exiting the support session - the safeguard should only apply while a session is actually active';
-  end if;
-  raise notice 'PASS: write access is genuinely restored the moment the support session is actually exited, not left permanently blocked';
+  n := test_try_write($w$insert into notices (society_id, title, body, category) values ('b0000000-0000-0000-0000-000000000001', 'owner writes society B fine', 'x', 'General')$w$);
+  if n <= 0 then raise exception 'FAIL: a support session for Society A also blocked the owner from writing to Society B - the guard must be per-society'; end if;
+  raise notice 'PASS: a support session for Society A leaves the owner''s writes to a different society (B) completely unaffected';
 end $$;
 
--- Time-bound, not just exit-bound: a session that was never explicitly
--- exited (a closed browser tab, a forgotten "exit" click) shouldn't
--- leave the owner's own write access blocked for that society forever.
-reset session authorization;
-insert into impersonation_logs (id, society_id, owner_user_id, mode, entered_at)
-values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000f', 'readonly', now() - interval '5 hours');
+-- (7) DURING: Society A's own admin is unaffected - the guard blocks only the
+-- owner, never the society's real management.
+select test_become('00000000-0000-0000-0000-0000000000a1');
+do $$
+declare n int;
+begin
+  n := test_try_write($w$insert into notices (society_id, title, body, category) values ('a0000000-0000-0000-0000-000000000001', 'admin writes fine during owner support', 'x', 'General')$w$);
+  if n <= 0 then raise exception 'FAIL: the owner support session leaked onto Society A''s own admin, blocking a normal admin write'; end if;
+  raise notice 'PASS: Society A''s own society_admin writes normally during the owner''s support session - only the owner is guarded';
+end $$;
 
+-- (8) DURING: general document storage. The owner has no upload path here in
+-- any mode (only society_admin/committee_member do), so there's no owner
+-- before/blocked/after cycle to run for it. What matters is that the guard
+-- doesn't leak onto the people who DO have a path (Society A's admin can still
+-- upload during the session) and the owner is refused by role, as always.
+select test_become('00000000-0000-0000-0000-0000000000a1');
+do $$
+declare n int;
+begin
+  n := test_try_write($w$insert into storage.objects (bucket_id, name) values ('documents', 'd0000000-0000-0000-0000-000000000001/' || gen_random_uuid()::text || '.pdf')$w$);
+  if n <= 0 then raise exception 'FAIL: Society A''s admin could not upload a document during the owner''s support session - the guard must not leak onto non-owner writers'; end if;
+  raise notice 'PASS: document-bucket upload by Society A''s own admin is unaffected by the owner''s support session';
+end $$;
 select test_become('00000000-0000-0000-0000-00000000000f');
 do $$
-declare
-  affected int;
+declare n int;
 begin
-  insert into complaints (id, society_id, flat_id, category, title, status, priority)
-  values (gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', 'General', 'Owner write after an old, never-exited session aged out', 'new', 'normal');
-  get diagnostics affected = row_count;
-  if affected != 1 then
-    raise exception 'FAIL: an old session that was never explicitly exited, but is well past the time-bound window, was still blocking the owner\''s writes - a forgotten exit should not lock things indefinitely';
+  n := test_try_write($w$insert into storage.objects (bucket_id, name) values ('documents', 'd0000000-0000-0000-0000-000000000001/' || gen_random_uuid()::text || '.pdf')$w$);
+  if n > 0 then raise exception 'FAIL: the owner uploaded a document - the owner has no document-storage path and must be refused in every mode'; end if;
+  raise notice 'PASS: the owner has no document-bucket upload path at all (refused by role, independent of support mode) - an audited decision, not an oversight';
+end $$;
+
+-- (9) Close the session the REAL way - the close_support_session RPC
+-- exitImpersonationLogReal calls - and confirm exited_at is genuinely set,
+-- and that a retry is safely idempotent.
+select test_become('00000000-0000-0000-0000-00000000000f');
+do $$
+declare v_closed impersonation_logs; v_retry impersonation_logs;
+begin
+  v_closed := close_support_session(current_setting('test.support_log_id')::uuid);
+  if v_closed.exited_at is null then
+    raise exception 'FAIL: close_support_session did not set exited_at - exit must be a confirmed database update, not fire-and-forget';
   end if;
-  raise notice 'PASS: a session past the time-bound window no longer blocks writes, even though it was never explicitly exited';
+  v_retry := close_support_session(current_setting('test.support_log_id')::uuid);
+  if v_retry.exited_at is null then
+    raise exception 'FAIL: retrying close on an already-closed session did not report success idempotently';
+  end if;
+  raise notice 'PASS: close_support_session confirmed the exit as a real database update, and is safely idempotent on retry';
+end $$;
+
+-- (10) AFTER: write access is genuinely restored across every category the
+-- moment the session is really exited.
+do $$
+declare r record; n int;
+begin
+  for r in select label, write_sql from owner_write_cases() loop
+    n := test_try_write(r.write_sql);
+    if n <= 0 then
+      raise exception 'FAIL: the owner could not write category "%" again after exiting the support session (result %)', r.label, n;
+    end if;
+  end loop;
+  raise notice 'PASS: after a real exit, the owner can write every category again - the guard only applied while the session was active';
+end $$;
+
+-- (11) Time-bound: a session that was never explicitly exited but is well past
+-- the window no longer blocks. Created directly here (not via the RPC) because
+-- the RPC always stamps now(), and this needs a deliberately old entered_at.
+reset session authorization;
+insert into impersonation_logs (society_id, owner_user_id, mode, entered_at)
+values ('a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000f', 'readonly', now() - interval '5 hours');
+set role authenticated;
+select test_become('00000000-0000-0000-0000-00000000000f');
+do $$
+declare n int;
+begin
+  n := test_try_write($w$insert into notices (society_id, title, body, category) values ('a0000000-0000-0000-0000-000000000001', 'write after an old session aged out', 'x', 'General')$w$);
+  if n <= 0 then
+    raise exception 'FAIL: an old, never-exited session past the time-bound window was still blocking the owner - a forgotten exit must not lock things forever';
+  end if;
+  raise notice 'PASS: a session past the time-bound window no longer blocks, even though it was never explicitly exited';
+end $$;
+
+-- (12) Historical mode=write rows (from before write mode was removed from the
+-- product) stay valid and readable - the fix pins only NEW sessions to
+-- readonly, it does not reject or rewrite what's already in the table.
+reset session authorization;
+insert into impersonation_logs (society_id, owner_user_id, mode, entered_at, exited_at)
+values ('a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000f', 'write', now() - interval '10 days', now() - interval '10 days');
+set role authenticated;
+select test_become('00000000-0000-0000-0000-00000000000f');
+do $$
+declare wc int;
+begin
+  select count(*) into wc from impersonation_logs where society_id = 'a0000000-0000-0000-0000-000000000001' and mode = 'write';
+  if wc = 0 then
+    raise exception 'FAIL: a historical mode=write row could not be read back - existing rows must stay valid and readable after the fix';
+  end if;
+  raise notice 'PASS: a historical mode=write session row is still valid and readable, the fix constrains only new sessions';
 end $$;
 
 \echo ''

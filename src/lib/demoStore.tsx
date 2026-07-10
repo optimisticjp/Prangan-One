@@ -178,8 +178,8 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         }
       },
       logout: () => persistSession(freshDemoSession()),
-      enterSociety: () => { /* owner support mode has no meaning in the demo - the demo never exposes the owner console at all */ },
-      exitImpersonation: () => {},
+      enterSociety: async () => ({ ok: true }), /* owner support mode has no meaning in the demo - the demo never exposes the owner console at all */
+      exitImpersonation: async () => ({ ok: true }),
       findSocietyBySlug: () => undefined,
       setActiveSocietyContext: () => {},
       setOwnerWorkingSociety: () => {},

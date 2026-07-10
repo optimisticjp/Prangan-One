@@ -132,6 +132,19 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
     const t = setTimeout(() => setBlockedToast(null), 4000)
     return () => clearTimeout(t)
   }, [lastBlockedReason])
+  // Exiting support is confirmed against the database, not fire-and-forget:
+  // stay in support mode and show a retry if the close didn't actually land,
+  // rather than returning to the Owner Console as if it worked while the
+  // owner may still be database-blocked for that society.
+  const [exiting, setExiting] = useState(false)
+  const [exitFailed, setExitFailed] = useState(false)
+  const doExitImpersonation = async () => {
+    setExiting(true)
+    setExitFailed(false)
+    const result = await exitImpersonation()
+    setExiting(false)
+    if (!result.ok) setExitFailed(true)
+  }
   const visibleItems = items.filter(it =>
     (!it.module || moduleEnabled(it.module))
     && (!it.roles || session.role === 'auditor' || (session.role && it.roles.includes(session.role))),
@@ -217,7 +230,12 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
               <ShieldAlert size={16} />
               Read-only સપોર્ટ વ્યુ · {society?.name ?? 'સોસાયટી'} - કંઈ સેવ નહીં થાય
             </span>
-            <button onClick={exitImpersonation} className="underline shrink-0">બહાર જાઓ</button>
+            <span className="inline-flex items-center gap-2 shrink-0">
+              {exitFailed && <span className="text-red-800">બંધ ન થયું</span>}
+              <button onClick={doExitImpersonation} disabled={exiting} className="underline disabled:opacity-60 disabled:no-underline">
+                {exiting ? 'બહાર નીકળી રહ્યા છીએ…' : exitFailed ? 'ફરી પ્રયાસ કરો' : 'બહાર જાઓ'}
+              </button>
+            </span>
           </div>
         )}
         {!session.actingAsOwner && session.role === 'auditor' && (
