@@ -927,29 +927,53 @@ export async function fetchAllAuditLogs(): Promise<AuditLogEntry[]> {
 }
 
 interface ImpersonationLogRow { id: string; society_id: string; mode: ImpersonationLog['mode']; reason: string | null; entered_at: string; exited_at: string | null }
+const impersonationLogFromRow = (r: ImpersonationLogRow): ImpersonationLog => ({
+  id: r.id, societyId: r.society_id, enteredAt: r.entered_at, mode: r.mode, exitedAt: r.exited_at ?? undefined, reason: r.reason ?? undefined,
+})
 export async function fetchAllImpersonationLogs(): Promise<ImpersonationLog[]> {
   if (!supabase) return []
   const { data, error } = await supabase.from('impersonation_logs').select('id, society_id, mode, reason, entered_at, exited_at').order('entered_at', { ascending: false })
   if (error) throw error
-  return ((data ?? []) as ImpersonationLogRow[]).map(r => ({ id: r.id, societyId: r.society_id, enteredAt: r.entered_at, mode: r.mode, exitedAt: r.exited_at ?? undefined, reason: r.reason ?? undefined }))
+  return ((data ?? []) as ImpersonationLogRow[]).map(impersonationLogFromRow)
 }
 
-/** The owner's genuine identity is real even while the society they're viewing stays on the local data layer for now (see enterSociety in store.tsx) - the log entry itself doesn't have that same limitation, so it's written for real regardless. */
-/** Safe to call again on retry (see attemptRealWrite in store.tsx) - checks whether the row already exists first. */
-export async function insertImpersonationLogReal(log: ImpersonationLog): Promise<void> {
+/**
+ * Opens a real support session through the open_support_session RPC, not a
+ * raw insert. The whole point: the RPC sets owner_user_id from auth.uid()
+ * server-side and forces mode 'readonly', so the client never tells the
+ * database who the owner is (it couldn't be trusted to). The old raw insert
+ * never wrote owner_user_id at all, which meant the database-level read-only
+ * safeguard never actually matched a real session. Returns the real row the
+ * database created - its own server-generated id and entered_at - so the
+ * caller can confirm a genuine session came back before switching the UI
+ * into that society's read-only view, instead of switching optimistically.
+ * See enterSociety in store.tsx.
+ */
+export async function insertImpersonationLogReal(societyId: string, reason?: string): Promise<ImpersonationLog> {
   if (!supabase) throw new Error('Supabase not configured')
-  const { count: existing } = await supabase.from('impersonation_logs').select('id', { count: 'exact', head: true }).eq('id', log.id)
-  if (existing) return
-  const { error } = await supabase.from('impersonation_logs').insert({
-    id: log.id, society_id: log.societyId, mode: log.mode, reason: log.reason ?? null,
-  })
+  const { data, error } = await supabase.rpc('open_support_session', { target_society: societyId, given_reason: reason ?? null })
   if (error) throw error
+  const row = (Array.isArray(data) ? data[0] : data) as ImpersonationLogRow | null
+  if (!row) throw new Error('open_support_session returned no session record')
+  return impersonationLogFromRow(row)
 }
 
-export async function exitImpersonationLogReal(logId: string): Promise<void> {
+/**
+ * Closes a real support session through the close_support_session RPC, which
+ * confirms the row really is this owner's own open session before updating
+ * exited_at. Returns the updated row so the caller can confirm the close
+ * actually landed in the database before returning to the Owner Console,
+ * rather than assuming it worked while the owner may still be database-
+ * blocked for that society. Idempotent server-side: retrying an already-
+ * closed session reports success. See exitImpersonation in store.tsx.
+ */
+export async function exitImpersonationLogReal(logId: string): Promise<ImpersonationLog> {
   if (!supabase) throw new Error('Supabase not configured')
-  const { error } = await supabase.from('impersonation_logs').update({ exited_at: new Date().toISOString() }).eq('id', logId)
+  const { data, error } = await supabase.rpc('close_support_session', { log_id: logId })
   if (error) throw error
+  const row = (Array.isArray(data) ? data[0] : data) as ImpersonationLogRow | null
+  if (!row) throw new Error('close_support_session returned no session record')
+  return impersonationLogFromRow(row)
 }
 
 // ---------------------------------------------------------------------

@@ -18,13 +18,22 @@ vi.mock('../supabase', async () => {
   return { ...actual, supabaseConfigured: true }
 })
 
+// insertImpersonationLogReal now returns the real session record the
+// database created (open_support_session RPC), so fail-closed enterSociety
+// has a genuine record to confirm before switching the UI. The id is a real
+// uuid shape (not the local 'imp_' prefix) so exit treats it as a real
+// session too.
 vi.mock('../realData', async () => {
   const actual = await vi.importActual<typeof import('../realData')>('../realData')
   return {
     ...actual,
     fetchSociety: vi.fn(async () => null),
-    insertImpersonationLogReal: vi.fn(async () => {}),
-    exitImpersonationLogReal: vi.fn(async () => {}),
+    insertImpersonationLogReal: vi.fn(async (societyId: string, reason?: string) => ({
+      id: '11111111-1111-4111-8111-111111111111', societyId, enteredAt: '2027-01-01T00:00:00Z', mode: 'readonly' as const, reason,
+    })),
+    exitImpersonationLogReal: vi.fn(async (logId: string) => ({
+      id: logId, societyId: 'soc_rajhans', enteredAt: '2027-01-01T00:00:00Z', mode: 'readonly' as const, exitedAt: '2027-01-01T01:00:00Z',
+    })),
   }
 })
 
@@ -42,8 +51,11 @@ describe('a genuinely real owner entering support mode actually fetches the targ
     act(() => {
       result.current.resolveRealSession({ role: 'owner', societyId: null as unknown as string, flatId: null })
     })
-    act(() => {
-      result.current.enterSociety('a-different-real-society-id', 'society_admin', 'checking a resident complaint')
+    // Awaited: fail-closed enterSociety only switches the UI into the target
+    // society once the database has confirmed the session, so the fetch it
+    // triggers happens after the awaited RPC resolves, not synchronously.
+    await act(async () => {
+      await result.current.enterSociety('a-different-real-society-id', 'society_admin', 'checking a resident complaint')
     })
 
     await waitFor(() => {
@@ -56,8 +68,8 @@ describe('a genuinely real owner entering support mode actually fetches the targ
     const { useData } = await import('../store')
     const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
 
-    act(() => {
-      result.current.enterSociety('soc_rajhans', 'society_admin')
+    await act(async () => {
+      await result.current.enterSociety('soc_rajhans', 'society_admin')
     })
 
     expect(realData.fetchSociety).not.toHaveBeenCalled()
@@ -71,8 +83,8 @@ describe('every kind of write stays genuinely blocked throughout a real support 
     act(() => {
       result.current.resolveRealSession({ role: 'owner', societyId: null as unknown as string, flatId: null })
     })
-    act(() => {
-      result.current.enterSociety('soc_rajhans', 'society_admin', 'checking something')
+    await act(async () => {
+      await result.current.enterSociety('soc_rajhans', 'society_admin', 'checking something')
     })
     return result
   }

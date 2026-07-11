@@ -44,8 +44,9 @@
 --     at all, while RLS policy evaluation (and calls from inside
 --     security-definer functions like submit_join_request) can still
 --     reach it normally. Only find_society_public_profile, poll_results,
---     and submit_join_request are genuinely meant to be called directly
---     - those three stay in public, on purpose.
+--     submit_join_request, open_support_session, and close_support_session
+--     are genuinely meant to be called directly - those five stay in
+--     public, on purpose.
 --   - Section order matters and is not arbitrary: tables are created
 --     BEFORE the helper functions, even though the functions are
 --     conceptually "used by" the RLS policies that come later. Plain
@@ -1039,6 +1040,59 @@ as $$
   );
 $$;
 
+-- One shared helper for "this owner may write to this society right now", so
+-- the owner-write condition lives in exactly one place instead of being
+-- copied, slightly differently, into every insert/update policy below. It is
+-- the owner role AND not currently inside a read-only support session for
+-- this society. Every policy that lets the owner write goes through this, so
+-- one policy can't quietly drift from the others on what "owner can write"
+-- actually means - which is exactly how the storage policies and a few
+-- table policies ended up without the support-mode check at all before this.
+create or replace function private.owner_can_write(target_society uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select private.has_role(target_society, array['owner'])
+     and not private.owner_in_readonly_support(target_society);
+$$;
+
+-- Sets owner_user_id on a new support-session row from auth.uid() itself,
+-- server-side, and forces every new session to mode 'readonly'. This is the
+-- actual root-cause fix. The real application code path used to insert a row
+-- without owner_user_id at all, and since that column is nullable and NULL
+-- never equals anything in SQL, owner_in_readonly_support above (which
+-- matches owner_user_id = auth.uid()) never matched a single real session -
+-- so the database-level safeguard never once activated for a real support
+-- session, even though the policy logic itself was correct. Now the identity
+-- is taken from the authenticated user directly, never from anything the
+-- browser sends, so it can't be wrong or forged.
+--
+-- A direct/trusted connection (postgres/service_role, used for the manual
+-- owner bootstrap, migrations, and backfilling historical rows) is left
+-- alone, exactly like the other enforce_* triggers in this file, so an
+-- explicit historical row - including an old mode = 'write' one - can still
+-- be written directly when that is genuinely what's intended. Write mode is
+-- gone from the product: historical 'write' rows already in the table stay
+-- valid and readable, only brand-new sessions are pinned to readonly.
+create or replace function private.enforce_impersonation_log_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if session_user in ('postgres', 'service_role', 'supabase_admin') then
+    return new;
+  end if;
+  new.owner_user_id := auth.uid();
+  new.mode := 'readonly';
+  return new;
+end;
+$$;
+
 -- Every function above still has Postgres's own default EXECUTE-to-PUBLIC
 -- privilege at this point, same as any newly created function - moving
 -- them into their own schema only stops PostgREST from exposing them as
@@ -1051,7 +1105,7 @@ revoke execute on all functions in schema private from public;
 grant execute on function
   private.is_society_member(uuid), private.has_role(uuid, text[]), private.my_flat_id(uuid),
   private.is_tenant(uuid), private.can_write(uuid), private.allocate_receipt_no(uuid, text),
-  private.owner_in_readonly_support(uuid)
+  private.owner_in_readonly_support(uuid), private.owner_can_write(uuid)
   to authenticated;
 
 -- The real, callable entry point for /join (src/lib/auth.ts's
@@ -1103,6 +1157,86 @@ begin
 end;
 $$;
 
+-- The real, callable entry point for the owner opening a support session
+-- (src/lib/realData.ts's insertImpersonationLogReal, called from
+-- enterSociety in src/lib/store.tsx). The client used to do a raw insert
+-- that never set owner_user_id, which is the whole bug this fix exists for.
+-- This runs as security definer and takes the owner identity from auth.uid()
+-- directly, so who the owner is is decided by the database from the real
+-- authenticated session, never from a value the browser chose. Only an
+-- authenticated user actually holding the owner role can open one, and every
+-- session it opens is readonly - write mode is gone from the product. The
+-- before-insert trigger re-applies both of those server-side too, so even a
+-- raw insert that skipped this function can't reintroduce a null owner or a
+-- write-mode session. Returns the whole created row so the caller can
+-- confirm a real record actually came back before switching the UI into the
+-- society's read-only view, instead of switching optimistically and hoping
+-- the write landed.
+create or replace function open_support_session(target_society uuid, given_reason text)
+returns impersonation_logs
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row impersonation_logs;
+begin
+  if auth.uid() is null then
+    raise exception using errcode = 'P0001', message = 'not_authenticated';
+  end if;
+  if not private.has_role(target_society, array['owner']) then
+    raise exception using errcode = 'P0001', message = 'only the platform owner can open a support session';
+  end if;
+
+  insert into impersonation_logs (society_id, owner_user_id, mode, reason)
+  values (target_society, auth.uid(), 'readonly', given_reason)
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+-- The matching close for a support session (exitImpersonationLogReal, called
+-- from exitImpersonation in src/lib/store.tsx). Confirms the row is really
+-- this owner's own open session before closing it, so exit is a genuine,
+-- checked database update the caller can wait on and confirm, not
+-- fire-and-forget. Safe to call again on a retry: a session already closed
+-- just reports success with the row as-is rather than erroring, the same
+-- idempotent discipline every other real write in this app already follows.
+create or replace function close_support_session(log_id uuid)
+returns impersonation_logs
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row impersonation_logs;
+begin
+  if auth.uid() is null then
+    raise exception using errcode = 'P0001', message = 'not_authenticated';
+  end if;
+
+  select * into v_row from impersonation_logs
+  where id = log_id and owner_user_id = auth.uid();
+
+  if v_row.id is null then
+    raise exception using errcode = 'P0001', message = 'no support session found to close';
+  end if;
+
+  if v_row.exited_at is not null then
+    -- Already closed, most likely a retry after the first close's response
+    -- never made it back. Report the existing row rather than erroring.
+    return v_row;
+  end if;
+
+  update impersonation_logs set exited_at = now()
+  where id = log_id
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
 -- -----------------------------------------------------------------
 -- Triggers
 -- -----------------------------------------------------------------
@@ -1128,6 +1262,14 @@ create trigger public_leads_enforce_rate_limit
 create trigger payments_audit_cancellation
   after update on payments
   for each row execute function private.audit_payment_cancellation();
+
+-- Forces owner_user_id and readonly mode on every new support-session row,
+-- no matter which code path inserted it (the open_support_session RPC, or a
+-- raw insert). See private.enforce_impersonation_log_insert above for why
+-- this is the root-cause fix and not a client-side patch.
+create trigger impersonation_logs_enforce_insert
+  before insert on impersonation_logs
+  for each row execute function private.enforce_impersonation_log_insert();
 
 -- -----------------------------------------------------------------
 -- Indexes
@@ -1222,8 +1364,15 @@ create policy societies_insert on societies for insert
   with check (private.has_role(id, array['owner']));
 create policy societies_select on societies for select
   using (private.is_society_member(id) or private.has_role(id, array['owner']));
+-- Owner is its own branch here, not lumped in with society_admin, so a
+-- read-only support session actually blocks the owner from editing the
+-- society's own row (name, branding, maintenance amount) during support -
+-- the combined array['society_admin', 'owner'] form it used to have never
+-- checked owner_in_readonly_support at all. society_admin's own access is
+-- unchanged. The enforce_societies_update trigger still separately stops a
+-- society_admin from touching plan/subscription/limit columns.
 create policy societies_update on societies for update
-  using (private.has_role(id, array['society_admin', 'owner']));
+  using (private.has_role(id, array['society_admin']) or private.owner_can_write(id));
 
 -- memberships: members can see who else is in their society (for the
 -- complaint-assignment dropdown, etc); only society_admin/owner manage membership.
@@ -1249,7 +1398,8 @@ create policy memberships_select on memberships for select
   );
 create policy memberships_insert on memberships for insert
   with check (
-    private.has_role(society_id, array['society_admin', 'owner'])
+    private.has_role(society_id, array['society_admin'])
+    or private.owner_can_write(society_id)  -- owner as its own branch, so support mode blocks the owner adding members mid-session
     or (role in ('resident_owner', 'resident_tenant') and user_id is null)  -- self-enrollment via /join; enforce_membership_insert trigger decides the real status server-side
   );
 -- Claiming your own pending invite on first real login (see
@@ -1274,10 +1424,10 @@ create policy memberships_claim on memberships for update
 -- memberships in their own society (approveMembership/rejectMembership
 -- in src/lib/store.tsx, or any other membership edit from the admin console).
 create policy memberships_manage on memberships for update
-  using (private.has_role(society_id, array['society_admin', 'owner']))
-  with check (private.has_role(society_id, array['society_admin', 'owner']));
+  using (private.has_role(society_id, array['society_admin']) or private.owner_can_write(society_id))
+  with check (private.has_role(society_id, array['society_admin']) or private.owner_can_write(society_id));
 create policy memberships_delete on memberships for delete
-  using (private.has_role(society_id, array['society_admin', 'owner']));
+  using (private.has_role(society_id, array['society_admin']) or private.owner_can_write(society_id));
 
 -- flats: any member reads all flats in their society; only society_admin writes
 -- flats: management roles see every flat in their society (needed for
@@ -1294,9 +1444,9 @@ create policy flats_select on flats for select
     or id = private.my_flat_id(society_id)
   );
 create policy flats_insert on flats for insert
-  with check ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 create policy flats_update on flats for update
-  using ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  using ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 -- bills: members read their society's bills; only society_admin generates them
 -- bills: management roles see every bill in their society; a resident
@@ -1308,9 +1458,9 @@ create policy bills_select on bills for select
     or flat_id = private.my_flat_id(society_id)
   );
 create policy bills_insert on bills for insert
-  with check ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 create policy bills_update on bills for update
-  using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));  -- paid_amount updates on payment
+  using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.owner_can_write(society_id));  -- paid_amount updates on payment
 
 -- payments: members read their society's payments; accountant+society_admin
 -- record them; residents can insert their OWN pending_confirmation "I have
@@ -1331,10 +1481,10 @@ create policy payments_insert on payments for insert
         or (flat_id = private.my_flat_id(society_id) and status = 'pending_confirmation')
       )
     )
-    or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id))
+    or private.owner_can_write(society_id)
   );
 create policy payments_update on payments for update
-  using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  using ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 -- Three atomic payment operations, replacing what used to be two or
 -- three separate client requests each - the actual fix for both the
@@ -1347,6 +1497,19 @@ create policy payments_update on payments for update
 -- allocation itself (which genuinely needs to touch a society-level
 -- counter an accountant otherwise can't) reaches into the security
 -- definer helper above for that one specific step.
+--
+-- This security-invoker choice is also exactly why these three don't need
+-- their own owner support-mode guard: because the insert/update inside them
+-- runs as the calling user, it's checked against payments_insert/
+-- payments_update/bills_update, which already carry private.owner_can_write.
+-- An owner who tried to record or cancel a payment during a read-only
+-- support session is stopped by those table policies from inside the
+-- function, no separate check here. (allocate_receipt_no is security
+-- definer, but it only ever touches receipt_seq and runs before the guarded
+-- insert; if that insert is refused, the whole transaction rolls back, so
+-- the counter isn't left advanced either.) Were these security definer
+-- instead, they'd bypass RLS entirely and would each need their own direct
+-- owner_can_write check - they aren't, so they don't.
 --
 -- All three are check-then-act idempotent, the same discipline every
 -- other real write in this app already follows: retrying an already-
@@ -1477,15 +1640,15 @@ $$;
 create policy expenses_select on expenses for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy expenses_insert on expenses for insert
-  with check ((private.has_role(society_id, array['society_admin', 'accountant', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin', 'accountant', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 -- vendors: members read; society_admin and committee_member write
 create policy vendors_select on vendors for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy vendors_insert on vendors for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 create policy vendors_update on vendors for update
-  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 -- complaints: members read their society's complaints; residents can
 -- only file a complaint against their OWN flat_id (tenants only if
@@ -1514,10 +1677,10 @@ create policy complaints_insert on complaints for insert
         )
       )
     )
-    or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id))
+    or private.owner_can_write(society_id)
   );
 create policy complaints_update on complaints for update
-  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 create policy complaint_timeline_select on complaint_timeline for select
   using (exists (
@@ -1544,7 +1707,7 @@ create policy complaint_timeline_insert on complaint_timeline for insert
       and (
         (private.has_role(c.society_id, array['society_admin', 'committee_member']) and private.can_write(c.society_id))
         or (complaint_timeline.status = 'new' and c.flat_id = private.my_flat_id(c.society_id))
-        or private.has_role(c.society_id, array['owner'])
+        or private.owner_can_write(c.society_id)  -- owner branch now respects read-only support mode too
       )
   ));
 
@@ -1552,9 +1715,9 @@ create policy complaint_timeline_insert on complaint_timeline for insert
 create policy notices_select on notices for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy notices_insert on notices for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 create policy notices_update on notices for update
-  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 -- documents: readable only if the member's role satisfies the document's
 -- own permission column, not just society membership, and only if a
@@ -1574,15 +1737,15 @@ create policy documents_select on documents for select
     )
   );
 create policy documents_insert on documents for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 -- polls: members read; society_admin/committee_member create/close
 create policy polls_select on polls for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy polls_insert on polls for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 create policy polls_update on polls for update
-  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  using ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 -- poll_votes: a resident can insert exactly one row for their own flat
 -- (the UNIQUE constraint above blocks a second one); a tenant can only
@@ -1625,7 +1788,7 @@ create policy poll_votes_insert on poll_votes for insert
 create policy events_select on events for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy events_insert on events for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 create policy event_contributions_select on event_contributions for select
   using (exists (select 1 from events e where e.id = event_id and (private.is_society_member(e.society_id) or private.has_role(e.society_id, array['owner']))));
@@ -1647,7 +1810,7 @@ create policy event_volunteers_insert on event_volunteers for insert
 create policy event_expenses_select on event_expenses for select
   using (exists (select 1 from events e where e.id = event_id and (private.is_society_member(e.society_id) or private.has_role(e.society_id, array['owner']))));
 create policy event_expenses_insert on event_expenses for insert
-  with check (exists (select 1 from events e where e.id = event_id and ((private.has_role(e.society_id, array['society_admin', 'committee_member']) and private.can_write(e.society_id)) or private.has_role(e.society_id, array['owner']))));
+  with check (exists (select 1 from events e where e.id = event_id and ((private.has_role(e.society_id, array['society_admin', 'committee_member']) and private.can_write(e.society_id)) or private.owner_can_write(e.society_id))));
 
 -- vehicles: members read (tenants only if tenant_access = 'full'); society_admin manages
 create policy vehicles_select on vehicles for select
@@ -1656,13 +1819,13 @@ create policy vehicles_select on vehicles for select
     or (private.is_society_member(society_id) and (not private.is_tenant(society_id) or (select tenant_access from societies where id = vehicles.society_id) = 'full'))
   );
 create policy vehicles_insert on vehicles for insert
-  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin', 'committee_member']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 -- contacts: members read; society_admin manages
 create policy contacts_select on contacts for select
   using (private.is_society_member(society_id) or private.has_role(society_id, array['owner']));
 create policy contacts_insert on contacts for insert
-  with check ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 -- adjustments: members read; accountant+society_admin write
 -- adjustments: management sees everything in their society (including
@@ -1674,7 +1837,7 @@ create policy adjustments_select on adjustments for select
     or flat_id = private.my_flat_id(society_id)
   );
 create policy adjustments_insert on adjustments for insert
-  with check ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or (private.has_role(society_id, array['owner']) and not private.owner_in_readonly_support(society_id)));
+  with check ((private.has_role(society_id, array['society_admin', 'accountant']) and private.can_write(society_id)) or private.owner_can_write(society_id));
 
 -- platform_billing, public_leads, audit_logs, impersonation_logs: owner-only,
 -- always, in every direction. These are the platform's own operational
@@ -1756,14 +1919,23 @@ insert into storage.buckets (id, name, public) values ('documents', 'documents',
 -- - confirmed this directly, an insert with no matching select policy
 -- errored on RETURNING even though the insert itself was permitted and
 -- actually happened.
+--
+-- The write policies below (insert/update/delete) split the owner into its
+-- own branch through private.owner_can_write, not lumped into one array with
+-- society_admin the way they were before this. Storage was a structurally
+-- separate part of the schema that the original support-mode work never
+-- touched at all, so the owner could change or delete a society's logo
+-- during a read-only support session even while every table write was
+-- blocked. Now the same one support-mode check gates the owner here too;
+-- society_admin's own access is unchanged.
 create policy society_logos_select on storage.objects for select
   using (bucket_id = 'society-logos');
 create policy society_logos_insert on storage.objects for insert
-  with check (bucket_id = 'society-logos' and private.has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
+  with check (bucket_id = 'society-logos' and (private.has_role((split_part(name, '/', 1))::uuid, array['society_admin']) or private.owner_can_write((split_part(name, '/', 1))::uuid)));
 create policy society_logos_update on storage.objects for update
-  using (bucket_id = 'society-logos' and private.has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
+  using (bucket_id = 'society-logos' and (private.has_role((split_part(name, '/', 1))::uuid, array['society_admin']) or private.owner_can_write((split_part(name, '/', 1))::uuid)));
 create policy society_logos_delete on storage.objects for delete
-  using (bucket_id = 'society-logos' and private.has_role((split_part(name, '/', 1))::uuid, array['owner', 'society_admin']));
+  using (bucket_id = 'society-logos' and (private.has_role((split_part(name, '/', 1))::uuid, array['society_admin']) or private.owner_can_write((split_part(name, '/', 1))::uuid)));
 
 -- complaint-photos: same visibility rule as the complaint itself
 -- (complaints_select) - a personal complaint's photo is as private as
@@ -1785,7 +1957,7 @@ create policy complaint_photos_insert on storage.objects for insert
     bucket_id = 'complaint-photos'
     and exists (
       select 1 from complaints c where c.id = (split_part(name, '/', 1))::uuid
-        and (private.has_role(c.society_id, array['owner', 'society_admin', 'committee_member']) or c.flat_id = private.my_flat_id(c.society_id))
+        and (private.has_role(c.society_id, array['society_admin', 'committee_member']) or private.owner_can_write(c.society_id) or c.flat_id = private.my_flat_id(c.society_id))
     )
   );
 
@@ -1805,7 +1977,7 @@ create policy payment_proof_insert on storage.objects for insert
     bucket_id = 'payment-proof'
     and exists (
       select 1 from payments p where p.id = (split_part(name, '/', 1))::uuid
-        and (private.has_role(p.society_id, array['owner', 'society_admin', 'accountant']) or p.flat_id = private.my_flat_id(p.society_id))
+        and (private.has_role(p.society_id, array['society_admin', 'accountant']) or private.owner_can_write(p.society_id) or p.flat_id = private.my_flat_id(p.society_id))
     )
   );
 
@@ -1844,6 +2016,14 @@ create policy documents_storage_select on storage.objects for select
         )
     )
   );
+-- Deliberately no owner branch here, unlike society-logos/complaint-photos/
+-- payment-proof above. The owner never had a document-upload path in this
+-- policy to begin with (only society_admin/committee_member ever could), so
+-- there's nothing for the read-only support guard to attach to - the owner
+-- is already blocked here in every mode, by role, not by support state.
+-- Checked this one on its own rather than assuming it matched the others'
+-- shape: adding an owner branch would be granting a capability the owner
+-- doesn't currently have, which is out of scope for a support-mode fix.
 create policy documents_storage_insert on storage.objects for insert
   with check (
     bucket_id = 'documents'

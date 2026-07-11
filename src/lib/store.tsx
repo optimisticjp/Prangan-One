@@ -585,8 +585,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         case 'vehicle': { const r = db.vehicles.find(x => x.id === id); retry(r ? () => insertVehicleReal(r) : null); return }
         case 'platform-billing': { const r = db.platformBilling.find(x => x.id === id); retry(r ? () => insertPlatformBillingReal(r) : null); return }
         case 'platform-billing-update': { const r = db.platformBilling.find(x => x.id === id); retry(r ? () => updatePlatformBillingReal(id, r) : null); return }
-        case 'impersonation-log': { const r = db.impersonationLogs.find(x => x.id === id); retry(r ? () => insertImpersonationLogReal(r) : null); return }
-        case 'impersonation-log-exit': { const r = db.impersonationLogs.find(x => x.id === id); retry(r?.exitedAt ? () => exitImpersonationLogReal(id) : null); return }
         case 'lead': { const r = db.leads.find(x => x.id === id); retry(r ? () => updateLeadInSupabase(id, { status: r.status, internalNote: r.internalNote }) : null); return }
       }
     }
@@ -659,41 +657,77 @@ export function DataProvider({ children }: { children: ReactNode }) {
           if (supabase) supabase.auth.signOut().catch(() => { /* local state is already cleared either way */ })
         }
       },
-      enterSociety: (societyId, role, reason) => {
+      // Entering a society as support is fail-closed for a real owner: the
+      // real database session is requested and confirmed FIRST, and only
+      // then does the UI switch into the target society's read-only view. If
+      // the database refuses or never confirms, the owner stays in the Owner
+      // Console with an error, rather than being dropped into a view that
+      // looks real but where the read-only safeguard was never actually
+      // armed. Returns the outcome so the calling button navigates only on
+      // success and can disable itself while the request is in flight, so it
+      // can't be double-submitted.
+      enterSociety: async (societyId, role, reason) => {
         // session.isRealSession here reflects the owner's own genuine
-        // identity, captured before setSession below overwrites it with
-        // the impersonated view's session - the log entry itself isn't
-        // limited by anything below, so it's written for real regardless
-        // whenever the owner genuinely is.
+        // identity, captured before setSession below overwrites it with the
+        // impersonated view's session.
         const wasRealOwner = session.isRealSession
-        const log: ImpersonationLog = { id: wasRealOwner ? realUid() : uid('imp'), societyId, enteredAt: new Date().toISOString(), mode: 'readonly', reason }
-        setDb(d => ({ ...d, impersonationLogs: [log, ...d.impersonationLogs] }))
-        if (wasRealOwner) {
-          attemptRealWrite(log.id, 'સપોર્ટ સેશન લોગ', () => insertImpersonationLogReal(log), 'impersonation-log')
+        if (!wasRealOwner) {
+          // Local/demo owner support mode: there is no real database session
+          // to confirm against, so this stays the immediate local switch it
+          // always was. Nothing here is real, and canWriteNow blocks writes
+          // the same way. Runs synchronously (no await before setSession) so
+          // a caller batching a follow-up action in the same tick still sees
+          // the pre-switch session, unchanged from before.
+          const log: ImpersonationLog = { id: uid('imp'), societyId, enteredAt: new Date().toISOString(), mode: 'readonly', reason }
+          setDb(d => ({ ...d, impersonationLogs: [log, ...d.impersonationLogs] }))
+          setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true, isRealSession: false, supportMode: 'readonly' })
+          return { ok: true }
         }
-        setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true, isRealSession: wasRealOwner, supportMode: 'readonly' })
+        try {
+          // Wait for the database to actually create the session and hand
+          // back a real record before touching the UI. insertImpersonationLogReal
+          // goes through the open_support_session RPC, which sets
+          // owner_user_id server-side from auth.uid() - that identity is
+          // exactly what the read-only safeguard matches on, so confirming
+          // the record came back is confirming the safeguard is now armed.
+          const created = await insertImpersonationLogReal(societyId, reason)
+          setDb(d => ({ ...d, impersonationLogs: [created, ...d.impersonationLogs] }))
+          setSession({ role, flatId: null, societyId, explicitSociety: true, actingAsOwner: true, isRealSession: true, supportMode: 'readonly' })
+          return { ok: true }
+        } catch {
+          return { ok: false, error: 'સપોર્ટ સેશન શરૂ ન થઈ શક્યું. ફરી પ્રયાસ કરો.' }
+        }
       },
-      exitImpersonation: () => {
+      // Exiting is equally explicit: the close is attempted and confirmed
+      // against the database before returning to the Owner Console. If it
+      // fails, the owner is kept in support mode with an error and a retry,
+      // not silently returned as if it worked while they may still be
+      // database-blocked for that society. The log id tells us whether the
+      // session was real (a server uuid) or local demo (the uid('imp')
+      // prefix) - the same check that fixed the older bug where a real owner
+      // came back out of support mode stuck in local-only state.
+      exitImpersonation: async () => {
         const current = db.impersonationLogs.find((l, i) => i === 0 && l.societyId === session.societyId && !l.exitedAt)
-        setDb(d => ({
-          ...d,
-          impersonationLogs: d.impersonationLogs.map((l, i) => i === 0 && l.societyId === session.societyId && !l.exitedAt ? { ...l, exitedAt: new Date().toISOString() } : l),
-        }))
-        // The log id itself tells us whether it was written for real
-        // (realUid()'s shape) vs. the local demo's uid('imp') prefix -
-        // simpler than threading the owner's real-session state through
-        // a second time here, and this is also the actual fix for a real
-        // bug: this used to hardcode isRealSession: false unconditionally
-        // on exit, meaning a genuinely real owner who entered support mode
-        // for real would come back out stuck in local-only mode, not
-        // restored to their own real session - every write after that
-        // point would have silently gone local-only too, the exact same
-        // shape as the onboarding bug earlier in this plan.
         const wasRealOwner = !!current && !current.id.startsWith('imp_')
-        if (wasRealOwner) {
-          attemptRealWrite(current!.id, 'સપોર્ટ સેશન બંધ', () => exitImpersonationLogReal(current!.id), 'impersonation-log-exit')
+        if (!wasRealOwner) {
+          setDb(d => ({
+            ...d,
+            impersonationLogs: d.impersonationLogs.map((l, i) => i === 0 && l.societyId === session.societyId && !l.exitedAt ? { ...l, exitedAt: new Date().toISOString() } : l),
+          }))
+          setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: false })
+          return { ok: true }
         }
-        setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: wasRealOwner })
+        try {
+          const closed = await exitImpersonationLogReal(current!.id)
+          setDb(d => ({
+            ...d,
+            impersonationLogs: d.impersonationLogs.map(l => l.id === current!.id ? { ...l, exitedAt: closed.exitedAt ?? new Date().toISOString() } : l),
+          }))
+          setSession({ role: 'owner', flatId: null, societyId: DEFAULT_SOCIETY_ID, explicitSociety: false, actingAsOwner: false, isRealSession: true })
+          return { ok: true }
+        } catch {
+          return { ok: false, error: 'સપોર્ટ સેશન બંધ ન થઈ શક્યું. ફરી પ્રયાસ કરો.' }
+        }
       },
       findSocietyBySlug: (slug) => db.societies.find(s => s.slug === slug),
       setActiveSocietyContext: (societyId) =>

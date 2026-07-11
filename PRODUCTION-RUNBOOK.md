@@ -18,18 +18,24 @@ Two session types share the same UI: a genuine, authenticated Supabase session (
 
 `supabase/schema.sql`, in this repository, is the single canonical schema. There is no second schema file competing with it - a copy of this exact file gets handed alongside each delivered build for convenience, but the file in the repo is always the real, current one.
 
-This project does not use incremental migration files. Every schema change to date has been applied by fully resetting and reapplying the complete schema (`prangan-one-full-reset.sql` then `schema.sql`), not by diffing against the previous version. This is a deliberate choice, documented in the schema file's own comments, and has worked cleanly because the schema itself has no data worth preserving across a reset yet - the moment a real society's data exists in production, this process needs to change to genuine, additive migrations that never drop a table, and that change should happen before it's needed under pressure, not during an actual incident.
+Schema changes now go through additive migrations under `supabase/migrations/`. Each one is written to run safely against a database that already has real society data: it never drops a table, and it handles existing rows explicitly rather than assuming a clean slate. The first such migration is `supabase/migrations/20260710120000_impersonation_owner_readonly_safeguard.sql` - read it as the reference shape for the ones that follow. Apply a migration by running its file against the live database, in filename (timestamp) order, once each.
 
-**To apply the schema to a fresh or reset project:**
+**The full reset is development-only now, and must never be run again once real client data exists.** For its entire history this project applied schema changes by fully wiping and reapplying the complete schema, which was fine only while there was no data worth preserving. That is no longer true the moment a single real society exists. The reset script has been renamed to `supabase/dev-only-destructive-reset.sql` to make what it is unmissable, and it now refuses to run at all if it finds any society rows - but that guard is a safety net, not permission. Running it against production would delete real societies, residents, bills, payments, and audit history with no recovery. It exists only for local development and standing up a brand-new empty project.
+
+**To stand up a fresh, empty project (development, or a new project with no data):**
 ```sql
--- 1. Run prangan-one-full-reset.sql (drops every table and function, if any exist)
--- 2. Run schema.sql in full
+-- 1. Run supabase/dev-only-destructive-reset.sql (development only; refuses to
+--    run if any society rows exist). Skip this entirely on a project that
+--    already has real data.
+-- 2. Run supabase/schema.sql in full
 -- 3. Re-add the owner's own membership, since the reset removes it too:
 insert into memberships (email, society_id, role, status)
 values ('pnitin147@gmail.com', null, 'owner', 'active');
 ```
 
-**Requires manual verification:** confirm the schema currently applied to the live Supabase project actually matches this repository's `schema.sql` exactly. This repository cannot see your live database's actual state. If there's any doubt, the safest path is a full reset and reapply using the process above, on a project with no real society data in it yet.
+**To apply a schema change to a project that already has real data:** run the new migration file(s) under `supabase/migrations/` against the live database, in order. Do not reset. `supabase/schema.sql` stays the canonical fresh-install schema and is kept in step with the migrations, so a brand-new project built from `schema.sql` and an existing project brought forward by the migrations end up identical.
+
+**Requires manual verification:** confirm the schema currently applied to the live Supabase project actually matches this repository's `schema.sql` exactly, and that every migration under `supabase/migrations/` has been applied. This repository cannot see your live database's actual state. If there's any doubt on a project that still has no real society data, the safest path is the fresh-install process above; on a project that already has real data, never reset - reconcile with a targeted migration instead.
 
 **Also requires manual verification, and worth calling out specifically: the public privacy page (`src/pages/public/Privacy.tsx`) states data is "hosted in AWS Mumbai."** This repository has no way to confirm which region your live Supabase project actually runs in - that claim was presumably written to match `supabase/README.md`'s own setup instructions (Mumbai if available at signup, Singapore otherwise), not independently verified against the live project. Check Supabase Dashboard → Project Settings → General for the actual region, and fix that page's wording if it's currently wrong - it's a factual claim on a public legal page, not something to leave assumed.
 

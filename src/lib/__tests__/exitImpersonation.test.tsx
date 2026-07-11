@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
+import { renderHook, act } from '@testing-library/react'
 import { TestDataProvider } from './testUtils'
 
 /**
@@ -23,8 +23,12 @@ vi.mock('../realData', async () => {
   const actual = await vi.importActual<typeof import('../realData')>('../realData')
   return {
     ...actual,
-    insertImpersonationLogReal: vi.fn(async () => {}),
-    exitImpersonationLogReal: vi.fn(async () => {}),
+    insertImpersonationLogReal: vi.fn(async (societyId: string, reason?: string) => ({
+      id: '11111111-1111-4111-8111-111111111111', societyId, enteredAt: '2027-01-01T00:00:00Z', mode: 'readonly' as const, reason,
+    })),
+    exitImpersonationLogReal: vi.fn(async (logId: string) => ({
+      id: logId, societyId: 'soc_rajhans', enteredAt: '2027-01-01T00:00:00Z', mode: 'readonly' as const, exitedAt: '2027-01-01T01:00:00Z',
+    })),
   }
 })
 
@@ -42,21 +46,22 @@ describe('exitImpersonation correctly restores whatever the owner genuinely was 
     })
     expect(result.current.session.isRealSession).toBe(true)
 
-    act(() => {
-      result.current.enterSociety('soc_rajhans', 'society_admin')
+    // Awaited: fail-closed enter switches into support mode only after the
+    // database confirms the real session record.
+    await act(async () => {
+      await result.current.enterSociety('soc_rajhans', 'society_admin')
     })
     // the actual point of this feature now existing at all: a genuinely
     // real owner sees this society's real, live data during support
     // mode, not a local, disconnected view while appearing to show
     // something real
     expect(result.current.session.isRealSession).toBe(true)
+    expect(result.current.rawDb.impersonationLogs.length).toBeGreaterThan(0)
 
-    await waitFor(() => {
-      expect(result.current.rawDb.impersonationLogs.length).toBeGreaterThan(0)
-    })
-
-    act(() => {
-      result.current.exitImpersonation()
+    // Awaited: exit returns to the Owner Console only once the database
+    // confirms the close actually landed.
+    await act(async () => {
+      await result.current.exitImpersonation()
     })
 
     // still real afterward too - the original bug this test file exists for
@@ -68,13 +73,13 @@ describe('exitImpersonation correctly restores whatever the owner genuinely was 
     const { useData } = await import('../store')
     const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
 
-    act(() => {
-      result.current.enterSociety('soc_rajhans', 'society_admin')
+    await act(async () => {
+      await result.current.enterSociety('soc_rajhans', 'society_admin')
     })
     expect(result.current.session.isRealSession).toBe(false)
 
-    act(() => {
-      result.current.exitImpersonation()
+    await act(async () => {
+      await result.current.exitImpersonation()
     })
 
     expect(result.current.session.isRealSession).toBe(false)

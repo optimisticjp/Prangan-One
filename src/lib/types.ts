@@ -183,7 +183,7 @@ export interface PendingSyncEntry {
     | 'adjustment' | 'complaint' | 'complaint-advance' | 'complaint-notes' | 'complaint-feedback'
     | 'notice' | 'notice-pin' | 'document' | 'expense' | 'vendor' | 'vendor-update' | 'poll' | 'poll-close' | 'poll-vote'
     | 'event' | 'event-contribution' | 'event-volunteer' | 'event-expense' | 'vehicle'
-    | 'platform-billing' | 'platform-billing-update' | 'impersonation-log' | 'impersonation-log-exit'
+    | 'platform-billing' | 'platform-billing-update'
     | 'lead' | 'society-status'
   label: string
   /**

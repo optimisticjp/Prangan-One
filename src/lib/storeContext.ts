@@ -95,8 +95,25 @@ interface Store {
    * confirmed this covers every real write in the app before relying on
    * it here, not assumed.
    */
-  enterSociety: (societyId: string, role: Role, reason?: string) => void
-  exitImpersonation: () => void
+  /**
+   * Enters a society as owner support. Fail-closed for a real owner: it
+   * requests the real database session and waits for the database to confirm
+   * a real record before switching the UI into the read-only view, so the
+   * read-only safeguard is genuinely armed before anything looks entered. On
+   * failure it resolves { ok: false } and leaves the owner in the Owner
+   * Console. Callers should await it, navigate only on { ok: true }, and
+   * disable the trigger while it's pending so it can't be double-submitted.
+   */
+  enterSociety: (societyId: string, role: Role, reason?: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  /**
+   * Exits owner support. Confirms the database actually closed the session
+   * before returning to the Owner Console; on failure it resolves
+   * { ok: false } and keeps the owner in support mode so the caller can show
+   * the error and offer a retry, rather than returning as if it worked while
+   * the owner may still be database-blocked for that society.
+   */
+  exitImpersonation: () => Promise<{ ok: true } | { ok: false; error: string }>
+
   /** Public lookup by slug (pranganone.com/s/rajhans-tower) - only exposes
    * non-sensitive metadata the caller already gets: name, logo, theme,
    * area. Works with no session/role at all, since a visitor hasn't

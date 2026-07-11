@@ -14,6 +14,12 @@ export default function OwnerSocieties() {
   const { rawDb, setSubscriptionStatus, enterSociety } = useData()
   const nav = useNavigate()
   const [busy, setBusy] = useState<string | null>(null)
+  // Which society's support session is currently being opened, and the error
+  // if it failed. Entering is fail-closed - we only navigate into the admin
+  // view once the database has actually confirmed the session, and the
+  // button stays disabled the whole time so it can't be double-clicked.
+  const [entering, setEntering] = useState<string | null>(null)
+  const [enterError, setEnterError] = useState<string | null>(null)
 
   const quickAction = (id: string, status: SubscriptionStatus) => {
     setBusy(id)
@@ -21,10 +27,25 @@ export default function OwnerSocieties() {
     setTimeout(() => setBusy(null), 300)
   }
 
+  const enterAsAdmin = async (id: string) => {
+    setEntering(id)
+    setEnterError(null)
+    const result = await enterSociety(id, 'society_admin')
+    setEntering(null)
+    if (result.ok) nav('/admin')
+    else setEnterError(result.error)
+  }
+
   return (
     <div>
       <PageHeader title="સોસાયટીઓ" sub={`કુલ ${rawDb.societies.length} સોસાયટી`}
         actions={<Link to="/owner/societies/new"><Button variant="accent"><Plus size={16} /> નવી સોસાયટી</Button></Link>} />
+
+      {enterError && (
+        <div role="alert" className="mb-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[13px] font-semibold px-4 py-2.5">
+          {enterError}
+        </div>
+      )}
 
       <TableWrap>
         <thead><tr>
@@ -62,8 +83,8 @@ export default function OwnerSocieties() {
                     {status === 'paused' && (
                       <Button variant="accent" onClick={() => quickAction(s.id, 'active')} disabled={busy === s.id}>ફરી શરૂ કરો</Button>
                     )}
-                    <button onClick={() => { enterSociety(s.id, 'society_admin'); nav('/admin') }}
-                      title="કમિટી તરીકે જુઓ" className="h-9 w-9 rounded-lg bg-navy-50 border border-navy-100 text-navy-600 inline-flex items-center justify-center hover:bg-navy-100">
+                    <button onClick={() => enterAsAdmin(s.id)} disabled={entering !== null}
+                      title="કમિટી તરીકે જુઓ" className="h-9 w-9 rounded-lg bg-navy-50 border border-navy-100 text-navy-600 inline-flex items-center justify-center hover:bg-navy-100 disabled:opacity-50 disabled:cursor-not-allowed">
                       <ArrowLeftRight size={15} />
                     </button>
                   </div>

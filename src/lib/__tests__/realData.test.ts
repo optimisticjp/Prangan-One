@@ -739,12 +739,39 @@ describe('owner console aggregates: flats, memberships, platform billing, audit 
     expect(result).toEqual([{ id: 'a1', societyId: 'soc1', at: '2027-01-01T00:00:00Z', actor: 'Owner', action: 'test', detail: 'x' }])
   })
 
-  it('insertImpersonationLogReal and exitImpersonationLogReal map correctly, including the reason field', async () => {
-    const insert = vi.fn().mockResolvedValue({ error: null })
-    vi.doMock('../supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => Promise.resolve({ count: 0, error: null }) }), insert }) } }))
+  it('insertImpersonationLogReal opens a session through the RPC (never a raw insert) and returns the row the database created', async () => {
+    // The real fix: the client goes through open_support_session, which sets
+    // owner_user_id server-side from auth.uid() and forces readonly. The
+    // client only sends the target society and reason, never who the owner
+    // is, and gets back the real server-generated record to confirm.
+    const rpc = vi.fn().mockResolvedValue({
+      data: { id: 'imp1', society_id: 'soc1', owner_user_id: 'owner-uid', mode: 'readonly', reason: 'checking billing', entered_at: '2027-01-01T00:00:00Z', exited_at: null },
+      error: null,
+    })
+    vi.doMock('../supabase', () => ({ supabase: { rpc } }))
     const { insertImpersonationLogReal } = await import('../realData')
-    await insertImpersonationLogReal({ id: 'imp1', societyId: 'soc1', enteredAt: '2027-01-01T00:00:00Z', mode: 'write', reason: 'checking billing' })
-    expect(insert).toHaveBeenCalledWith({ id: 'imp1', society_id: 'soc1', mode: 'write', reason: 'checking billing' })
+    const created = await insertImpersonationLogReal('soc1', 'checking billing')
+    expect(rpc).toHaveBeenCalledWith('open_support_session', { target_society: 'soc1', given_reason: 'checking billing' })
+    expect(created).toEqual({ id: 'imp1', societyId: 'soc1', enteredAt: '2027-01-01T00:00:00Z', mode: 'readonly', exitedAt: undefined, reason: 'checking billing' })
+  })
+
+  it('insertImpersonationLogReal throws when the RPC comes back with no session record, so a caller can fail closed', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null })
+    vi.doMock('../supabase', () => ({ supabase: { rpc } }))
+    const { insertImpersonationLogReal } = await import('../realData')
+    await expect(insertImpersonationLogReal('soc1', 'checking billing')).rejects.toThrow()
+  })
+
+  it('exitImpersonationLogReal closes a session through the RPC and returns the confirmed, exited row', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { id: 'imp1', society_id: 'soc1', owner_user_id: 'owner-uid', mode: 'readonly', reason: null, entered_at: '2027-01-01T00:00:00Z', exited_at: '2027-01-01T01:00:00Z' },
+      error: null,
+    })
+    vi.doMock('../supabase', () => ({ supabase: { rpc } }))
+    const { exitImpersonationLogReal } = await import('../realData')
+    const closed = await exitImpersonationLogReal('imp1')
+    expect(rpc).toHaveBeenCalledWith('close_support_session', { log_id: 'imp1' })
+    expect(closed).toEqual({ id: 'imp1', societyId: 'soc1', enteredAt: '2027-01-01T00:00:00Z', mode: 'readonly', exitedAt: '2027-01-01T01:00:00Z', reason: undefined })
   })
 })
 
