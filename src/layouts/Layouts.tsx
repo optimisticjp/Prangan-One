@@ -3,7 +3,6 @@ import { NavLink, Outlet, Link } from 'react-router-dom'
 import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, LogOut, ShieldAlert, Loader2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useData } from '../lib/store'
-import { restartDemo } from '../lib/demoStore'
 import { DemoRoleSwitcher } from '../components/DemoRoleSwitcher'
 import { useDialogA11y } from '../lib/useDialogA11y'
 import { SocietyLogo } from '../components/SocietyLogo'
@@ -196,15 +195,17 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
           // "Leave demo" goes back to the demo picker, NOT the real login -
           // the picker is where you pick another role or a fresh journey, and
           // dropping someone onto a real login screen from a button labeled
-          // "exit demo" is exactly the confusion this demo has avoided. It
-          // still uses restartDemo's real full reload (the shared
-          // clear-and-navigate), so the demo provider genuinely unmounts
-          // rather than a client-side nav leaving it mounted. Only the /demo
-          // page's own "real login" link ever goes to /login.
-          <button onClick={restartDemo}
-            className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
+          // "exit demo" is exactly the confusion this demo has avoided. A
+          // plain link to /demo plus logout() is all this needs: logout()
+          // clears only the session (an empty session), leaving the demo
+          // database fully intact, and staying inside the demo never changes
+          // which provider main.tsx mounted, so no reload and no data wipe
+          // are involved - coming back finds the same progress. Only the
+          // /demo page's own "real login" link ever goes to /login.
+          <Link to="/demo" onClick={logout}
+            className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
             <ArrowLeftRight size={17} /> ડેમો છોડો
-          </button>
+          </Link>
         )}
         <p className="text-center mt-3 flex items-center justify-center"><PoweredByPrangan dark /></p>
       </div>

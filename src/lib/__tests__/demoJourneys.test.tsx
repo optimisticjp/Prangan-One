@@ -147,53 +147,77 @@ describe('the same journey\u2019s key steps, through the actual, real page compo
   })
 })
 
-describe('the admin layout "exit demo" control returns to the demo picker, not the real login, via a genuine full reload rather than a client-side route change that would leave the demo provider mounted', () => {
-  it('clicking it clears all demo storage and does a full navigation back to /demo, not /login', async () => {
+describe('the admin layout "exit demo" control returns to the demo picker as a plain link, leaving all demo progress intact rather than wiping it', () => {
+  it('renders as a real anchor to /demo (no forced reload) and, when clicked, leaves the demo database and guide byte-for-byte untouched while only the session role becomes null', async () => {
     const { Shell } = await import('../../layouts/Layouts')
-    const { Routes, Route } = await import('react-router-dom')
 
-    // A demo session genuinely present in storage, so we can prove leaving
-    // clears it. main.tsx reads exactly the session key to pick the provider.
-    sessionStorage.setItem('prangan_demo_v1_db', '{}')
+    // A guide journey already in flight, part of the session state a person
+    // would not expect "leave demo" to silently throw away.
     sessionStorage.setItem('prangan_demo_v1_session', '{"role":"society_admin","flatId":null}')
-    sessionStorage.setItem('prangan_demo_v1_guide', '{"journey":"payment"}')
+    sessionStorage.setItem('prangan_demo_v1_guide', JSON.stringify({ journey: 'payment', targetFlatId: null, targetBillId: null, dismissed: false }))
 
-    // JSDOM can't perform a real navigation, so window.location is stubbed to
-    // capture the href. That is what proves this is a full navigation
-    // (window.location.href), the same real reload restartDemo does, not a
-    // plain client-side route change. "Leave demo" goes to the picker (/demo);
-    // only the /demo page's own "real login" link goes to /login.
-    const originalLocation = window.location
-    // @ts-expect-error jsdom's window.location isn't normally reassignable
-    delete window.location
-    // @ts-expect-error see above
-    window.location = { href: '' }
-    try {
-      render(
-        <MemoryRouter initialEntries={['/admin']}>
-          <DemoDataProvider>
-            <Routes>
-              <Route path="/admin" element={<Shell items={[]} title="Test" />}>
-                <Route index element={<div>admin home</div>} />
-              </Route>
-            </Routes>
-          </DemoDataProvider>
-        </MemoryRouter>,
-      )
-
-      const exitControl = await screen.findByText('ડેમો છોડો')
-      // It is not an anchor to /login - it's a full reload back to the picker.
-      expect(exitControl.closest('a')).toBeNull()
-      fireEvent.click(exitControl)
-
-      expect(window.location.href).toBe('/demo')
-      expect(sessionStorage.getItem('prangan_demo_v1_session')).toBeNull()
-      expect(sessionStorage.getItem('prangan_demo_v1_db')).toBeNull()
-      expect(sessionStorage.getItem('prangan_demo_v1_guide')).toBeNull()
-    } finally {
-      // @ts-expect-error restore the real location object for other tests
-      window.location = originalLocation
+    // A probe alongside the layout, only so this test can make genuine
+    // mid-session progress (record a real payment) through the same demo
+    // provider the layout is using, before leaving.
+    let recordPayment: ReturnType<typeof useData>['recordPayment']
+    let rawDb: ReturnType<typeof useData>['rawDb']
+    function Probe() {
+      const d = useData()
+      recordPayment = d.recordPayment
+      rawDb = d.rawDb
+      return null
     }
+
+    render(
+      <MemoryRouter initialEntries={['/admin']}>
+        <DemoDataProvider>
+          <Probe />
+          <Routes>
+            <Route path="/admin" element={<Shell items={[]} title="Test" />}>
+              <Route index element={<div>admin home</div>} />
+            </Route>
+            <Route path="/demo" element={<div>demo picker</div>} />
+          </Routes>
+        </DemoDataProvider>
+      </MemoryRouter>,
+    )
+
+    // Real progress: record a payment on the first unpaid bill. This persists
+    // into the demo database storage key, exactly the kind of work someone
+    // would lose if "leave demo" wiped everything.
+    const unpaid = rawDb!.bills.find(b => b.paidAmount < b.amount)!
+    let payId = ''
+    act(() => { payId = recordPayment!({ flatId: unpaid.flatId, billId: unpaid.id, amount: unpaid.amount - unpaid.paidAmount, mode: 'cash' })!.id })
+
+    // Snapshot the demo database and guide exactly as they stand, with that
+    // progress in them, immediately before leaving. The payment really is in
+    // the persisted database, not only in memory.
+    const dbWithProgress = sessionStorage.getItem('prangan_demo_v1_db')
+    const guideBefore = sessionStorage.getItem('prangan_demo_v1_guide')
+    expect(dbWithProgress).not.toBeNull()
+    expect(dbWithProgress).toContain(payId)
+
+    const exitControl = await screen.findByText('ડેમો છોડો')
+    // A genuine link to the picker, not a button that forces a reload: it is
+    // an <a> whose href is /demo. Staying inside the demo never re-picks the
+    // provider, so no reload is needed and none happens.
+    const anchor = exitControl.closest('a')
+    expect(anchor).not.toBeNull()
+    expect(anchor!.getAttribute('href')).toBe('/demo')
+
+    act(() => { fireEvent.click(exitControl) })
+
+    // It navigated to the picker, client-side, with the same provider still
+    // mounted (that is what makes the no-reload, no-wipe behavior possible).
+    expect(screen.getByText('demo picker')).toBeInTheDocument()
+
+    // The actual guarantee this test exists for: leaving did NOT wipe
+    // progress. The database and guide keys are byte-for-byte what they were,
+    // and only the session's own role was cleared to null - so returning to
+    // the demo finds the exact same data waiting.
+    expect(sessionStorage.getItem('prangan_demo_v1_db')).toBe(dbWithProgress)
+    expect(sessionStorage.getItem('prangan_demo_v1_guide')).toBe(guideBefore)
+    expect(JSON.parse(sessionStorage.getItem('prangan_demo_v1_session')!).role).toBeNull()
   })
 })
 

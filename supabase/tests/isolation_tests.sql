@@ -195,6 +195,7 @@ as $$
     ('vehicles',           $w$insert into vehicles (society_id, flat_id, kind, number, slot) values ('a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', '2W', gen_random_uuid()::text, 'S1')$w$),
     ('contacts',           $w$insert into contacts (society_id, name, phone, category) values ('a0000000-0000-0000-0000-000000000001', 'Owner write contact', '9000000000', 'committee')$w$),
     ('adjustments',        $w$insert into adjustments (society_id, amount, type, reason) values ('a0000000-0000-0000-0000-000000000001', 100, 'credit', 'Owner write')$w$),
+    ('audit_logs',         $w$insert into audit_logs (society_id, actor, action, detail) values ('a0000000-0000-0000-0000-000000000001', 'Owner', 'owner_write_test', 'x')$w$),
     ('storage:society-logos',   $w$insert into storage.objects (bucket_id, name) values ('society-logos', 'a0000000-0000-0000-0000-000000000001/' || gen_random_uuid()::text || '.png')$w$),
     ('storage:complaint-photos',$w$insert into storage.objects (bucket_id, name) values ('complaint-photos', 'c0000000-0000-0000-0000-000000000001/' || gen_random_uuid()::text || '.jpg')$w$),
     ('storage:payment-proof',   $w$insert into storage.objects (bucket_id, name) values ('payment-proof', 'ba110000-0000-0000-0000-000000000002/' || gen_random_uuid()::text || '.jpg')$w$)

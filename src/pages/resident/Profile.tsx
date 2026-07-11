@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeftRight, LogOut, Building2 } from 'lucide-react'
 import { useData } from '../../lib/store'
-import { restartDemo } from '../../lib/demoStore'
 import { Badge, Button, Card, PageHeader } from '../../components/ui'
 import { SetPasswordCard } from '../../components/SetPasswordCard'
 
@@ -57,12 +56,13 @@ export default function Profile() {
         </Button>
       ) : (
         // "Leave demo" returns to the demo picker, not the real login - the
-        // picker is where you pick another role or journey. It uses
-        // restartDemo's real full reload (the shared clear-and-navigate), so
-        // the demo provider genuinely unmounts rather than a client-side nav
-        // leaving it mounted. Only the /demo page's own "real login" link ever
+        // picker is where you pick another role or journey. logout() clears
+        // only the session (an empty session), leaving the demo database
+        // fully intact, and nav('/demo') stays inside the same mounted demo
+        // provider, so no reload and no data wipe happen - coming back finds
+        // the same progress. Only the /demo page's own "real login" link ever
         // goes to /login.
-        <Button variant="soft" full className="mt-4" onClick={restartDemo}>
+        <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav('/demo') }}>
           <ArrowLeftRight size={17} /> ડેમો છોડો
         </Button>
       )}

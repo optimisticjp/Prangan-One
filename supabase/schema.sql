@@ -1876,9 +1876,13 @@ create policy audit_logs_select on audit_logs for select
 -- database triggers, not application code choosing to insert one, which
 -- is real, separate, still-pending work. This at least means only a
 -- real management-level member of the society being logged about can
--- write an entry, not a random unrelated caller.
+-- write an entry, not a random unrelated caller. The owner is split into
+-- its own private.owner_can_write branch here rather than lumped into the
+-- role array, the same shape every other write policy uses, so a read-only
+-- support session cannot write an audit row either - the one case the plain
+-- has_role('owner') list missed.
 create policy audit_logs_insert on audit_logs for insert
-  with check (private.has_role(society_id, array['owner', 'society_admin', 'accountant']));
+  with check (private.has_role(society_id, array['society_admin', 'accountant']) or private.owner_can_write(society_id));
 
 create policy impersonation_logs_all on impersonation_logs for all
   using (private.has_role(society_id, array['owner']))
