@@ -191,3 +191,27 @@ Every one of these is real and independently verified, not assumed correct becau
 - **A permanent, always-visible identification banner** ("Demo Society, fictional data, changes are temporary") on every single demo screen, plus a genuinely reachable "restart demo" action from both the committee and resident sides - not buried in an admin-only settings page the way an earlier iteration of this project's own reset function was.
 - **Unsupported actions say so plainly, not silently.** File uploads, document links, and payment proof links a real session would fetch from Supabase Storage instead surface a real, visible "this is simulated" message in the demo, using the same toast mechanism a blocked real write already used.
 - **No watermark.** Deliberately not added - the permanent banner above already states this plainly in words on every screen, which is a stronger, more reliable signal than a subtle visual mark someone could simply not notice.
+
+## 20. Dependency security (npm audit)
+
+`npm audit`, run fresh on 2026-07-11, reports 2 vulnerabilities (1 moderate, 1 high). Both live in the build toolchain, not in anything shipped to a browser, and the honest status is that they are open, not clean - the only fix npm offers is a breaking major upgrade that this pass deliberately did not take.
+
+**The actual finding, exact packages:**
+
+- **esbuild `<=0.24.2` (moderate)** - GHSA-67mh-4wv8-2f99: esbuild's dev server lets any website send requests to it and read the responses. The installed copy is `esbuild@0.21.5`, pulled in by Vite.
+- **vite `<=6.4.2` (high)** - the installed direct copy is `vite@5.4.21`, already the newest 5.x. It carries three Vite-side advisories on top of the esbuild one above:
+  - GHSA-fx2h-pf6j-xcff (high): `server.fs.deny` bypass on Windows alternate paths.
+  - GHSA-4w7w-66w2-5vf9 (moderate): path traversal in the dev server's Optimized Deps `.map` handling.
+  - GHSA-v6wh-96g9-6wx3 (moderate): launch-editor NTLMv2 hash disclosure via UNC path handling on Windows.
+
+(Vitest 4 also carries its own internal `vite@8.1.3` / `esbuild@0.28.1`, but those are already-patched versions, which is why the audit flags only the direct `vite@5.4.21` build tool, not that copy.)
+
+**Why the deployed production build is specifically not exposed:**
+
+Every one of these advisories is against the Vite/esbuild dev server or a Windows-local editor-launch path - code that only runs on a developer's own machine during `npm run dev`, never in production. `vite` and `esbuild` are both devDependencies, not among the seven runtime `dependencies` in `package.json`, so they are build-time only. What actually gets deployed is the static `dist/` output of `npm run build`: plain pre-built HTML, CSS, and JS served by Cloudflare Pages. There is no Vite or esbuild dev server running in production for any of these to reach, and the two Windows-only advisories additionally need both a running dev server and Windows, which the Linux Cloudflare Pages build container is not.
+
+**Why no fix was applied here:**
+
+The only fix `npm audit` offers is `vite@8.1.4`, a breaking major upgrade from the current `vite@5.x`. `npm audit fix` without `--force` resolves neither finding - `5.4.21` is already the latest 5.x, and no 5.x patch addresses these, so there is no safe in-range upgrade to take. A major Vite bump is a real build-tooling change with its own regression surface, not a documentation-and-config change, and it is not warranted by a set of dev-server-only issues that cannot reach the deployed build. Left deliberately at `vite@5.4.21` for now; revisit as a dedicated, tested upgrade when the app next takes a planned Vite major for other reasons, or if Vite backports a fix to the 5.x line.
+
+**Do not report this as clean:** until that upgrade happens, `npm audit` will keep showing these 2 findings. That is expected and understood, written down here on purpose so a future reader does not mistake the standing count for a new regression, or force-upgrade Vite in a hurry as though it were a one-line dependency fix rather than the real, tested change it actually is.

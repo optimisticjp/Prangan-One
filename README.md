@@ -44,7 +44,8 @@ To build for production: `npm run build` (runs the TypeScript checker, then bund
 - **હું રહેવાસી છું** (I'm a resident): pick a flat, see that flat's bill, complaints, and history.
 - **હું કમિટી મેમ્બર છું** (I'm a committee member): the full admin panel.
 - **હું એકાઉન્ટન્ટ છું** (I'm an accountant): the accounts-focused panel.
-- **Prangan One ઓનર કન્સોલ**: the real owner console. Try **+ નવી સોસાયટી** to walk through creating a second society with its own theme and modules.
+
+The public demo deliberately stops at these three roles: the owner console is never exposed on `/demo`, only reachable from a real owner login.
 
 Every society also has a shareable link, `pranganone.com/s/{slug}` (Rajhans Tower's is `/s/rajhans-tower`), that shows that society's own branding before handing off to login.
 
@@ -56,7 +57,7 @@ See `QUICK_START.md` for a specific guided path through the app if you want a to
 
 **Real sessions** (anyone who actually logs in via magic link, Google, or a password) read and write for real: Supabase Postgres, enforced by Row Level Security so a resident's own queries can only ever return their own society's data regardless of what the client-side code does, not just because the UI happens to hide the rest. File uploads (complaint photos, payment proof screenshots, society logos, documents) go to real, private Supabase Storage buckets with signed URLs, not just a filename saved to a database row. Logging out clears everything a real session touched from this browser, not just some of it - see `CLAUDE_CODE_NEXT_STEPS.md`'s first build entry for the specific gap that used to exist here and how it was closed.
 
-**The local demo mode** (`/demo`, gated behind `VITE_DEMO_MODE`, on by default in local dev and off in a real production build unless explicitly enabled) is a separate, deliberate thing: no login, no backend, everything in the browser's own `localStorage`, seeded from the JSON files in `sample-data/`. Useful for exploring the UI, showing someone the product without setting anything up, or local development without a Supabase project connected. Refreshing keeps demo changes, clearing site data or opening a different browser resets to the sample data, and **સેટિંગ્સ → ડેમો ડેટા રીસેટ** does this on purpose from inside the committee panel. Nothing in demo mode is ever sent anywhere, and nothing from a demo session can end up in a real one or vice versa - they're entirely separate data layers, not one falling back to the other.
+**The local demo mode** (`/demo`, gated behind `VITE_DEMO_MODE`, on by default in local dev and off in a real production build unless explicitly enabled) is a separate, deliberate thing: no login, no backend, everything in the browser's own `sessionStorage`, seeded from the JSON files in `sample-data/`. Useful for exploring the UI, showing someone the product without setting anything up, or local development without a Supabase project connected. Refreshing keeps demo changes within the same tab; closing the tab, or opening a different browser, resets to the sample data. A permanent **ડેમો સોસાયટી** identity banner sits at the top of every demo screen with a **રીસ્ટાર્ટ** control that clears the session straight back to the sample data, reachable from anywhere in the demo rather than only from the committee panel's settings. Nothing in demo mode is ever sent anywhere, and nothing from a demo session can end up in a real one or vice versa - they're entirely separate data layers, not one falling back to the other.
 
 ## 6. Supabase, and what's actually connected
 
@@ -70,7 +71,6 @@ The data layer is one file, `src/lib/store.tsx`, exposing one hook, `useData()`,
 
 Worth knowing, genuinely current as of this writing, not carried over from an earlier stage of the build:
 
-- **A real support-session gap, not a data-layer one.** When the platform owner logs into a society to help its committee, that action itself is now genuinely logged for real (who, when, why), but the society's data during that session still comes from the local layer rather than the real one. Narrower than it sounds, and on the list to close, but real and worth knowing.
 - **Contacts (emergency and service numbers) are read-only from the real backend for now** - no add or edit UI exists yet for a committee to manage them for real, even though the underlying table and access rules already do.
 - **WhatsApp buttons open a share picker**, they don't send automatically. That needs the WhatsApp Cloud API, deferred, see below.
 - **Resident payment is fully manual, by design, not a placeholder waiting to be finished.** A resident sees UPI/bank instructions, can mark "I have paid" (which creates a pending record, not an official payment), and the committee verifies and records it before a receipt is generated. That's the real, intended flow for this build, not a stand-in for something automated.
@@ -81,7 +81,7 @@ Full detail on all of this, the free-tool cost research behind the hosting and a
 
 ## 8. Next steps
 
-**Active, in order:** responding to a production-readiness audit, tracked build by build in `CLAUDE_CODE_NEXT_STEPS.md` - real writes now surface a genuine failure and retry instead of failing silently, every core module reads and writes for real, tenant isolation has a repeatable automated check instead of only ever being verified by hand, and the remaining owner support-session gap noted above is next.
+**Active, in order:** responding to a production-readiness audit, tracked build by build in `CLAUDE_CODE_NEXT_STEPS.md` - real writes now surface a genuine failure and retry instead of failing silently, every core module reads and writes for real, tenant isolation has a repeatable automated check instead of only ever being verified by hand, and owner support sessions now read a society's real, live data under a read-only safeguard enforced at the database rather than a local stand-in.
 
 **Deferred, not part of the active build:** an online payment gateway (Razorpay or similar) and the WhatsApp Cloud API for automated messages. Neither is a launch blocker, manual payment recording and `wa.me` share links already cover the real workflow today. Native app and AI features are deferred too, further out.
 

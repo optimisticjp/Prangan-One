@@ -514,17 +514,20 @@ create table audit_logs (
   created_at  timestamptz not null default now()
 );
 
--- Owner "view as" / impersonation sessions. Every entry into a society as
--- its admin gets logged here, read-only or write-capable, per the
--- roadmap's non-negotiable: "every impersonation/view as session is
--- logged; read-only by default with an explicit act-as-admin toggle that
--- is also logged."
+-- Owner "view as" support sessions. Every entry into a society as its
+-- admin gets logged here. Support is read-only now: the "write-capable"
+-- / act-as-admin variant was removed from the product entirely, so
+-- open_support_session and the enforce_impersonation_log_insert trigger
+-- (both below) pin every new session to mode 'readonly'. The check below
+-- still permits 'write' for one reason only - historical rows written
+-- before that change stay valid and readable; no new 'write' row is ever
+-- created through the application path.
 create table impersonation_logs (
   id          uuid primary key default gen_random_uuid(),
   society_id  uuid not null references societies(id) on delete cascade,
   owner_user_id uuid references auth.users(id) on delete set null,
   mode        text not null check (mode in ('readonly', 'write')),
-  reason      text,  -- required for write-mode entries at the application layer (see ImpersonationLog in types.ts); not enforced here since a readonly "just looking" entry legitimately has none
+  reason      text,  -- kept nullable: a readonly "just looking" entry legitimately has none. Older write-mode rows carried a reason from the application layer (see ImpersonationLog in types.ts); no new write-mode rows are created now
   entered_at  timestamptz not null default now(),
   exited_at   timestamptz
 );
