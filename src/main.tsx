@@ -5,7 +5,12 @@ import App from './App'
 import { DataProvider } from './lib/store'
 import { DemoDataProvider, isDemoSessionActive } from './lib/demoStore'
 import { isDemoModeEnabled } from './lib/demoMode'
+import { initMonitoring } from './lib/monitoring'
 import './index.css'
+
+// Before anything renders, so early errors and unhandled promise rejections
+// are caught too. A no-op unless this is a production build with a DSN set.
+initMonitoring()
 
 // Decided once, synchronously, before the very first render - not a
 // live, in-session switch between two different providers under one
