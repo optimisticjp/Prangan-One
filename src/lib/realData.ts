@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { validateUpload, safeExtension } from './uploadValidation'
 import type { Adjustment, AuditLogEntry, Bill, Complaint, Contact, Doc, Expense, Flat, ImpersonationLog, Membership, Notice, Payment, PlatformBillingRecord, Poll, Society, SocietyEvent, TimelineEntry, Vehicle, Vendor } from './types'
 
 /**
@@ -374,7 +375,13 @@ export async function updateNoticePinnedReal(noticeId: string, pinned: boolean):
 /** Uploads to the public society-logos bucket and returns a permanent, directly-usable URL. */
 export async function uploadSocietyLogo(societyId: string, file: File): Promise<string> {
   if (!supabase) throw new Error('Supabase not configured')
-  const ext = file.name.split('.').pop() ?? 'png'
+  // Defense in depth: the bucket enforces this too, but reject up front so a
+  // bypassed or scripted client never even reaches the network call.
+  const check = validateUpload('society-logos', file)
+  if (!check.ok) throw new Error(check.reason)
+  // Extension comes from the real MIME type, never from file.name, so a
+  // mislabeled filename can't decide what the stored object is called.
+  const ext = safeExtension(file, 'png')
   const path = `${societyId}/logo.${ext}`
   const { error } = await supabase.storage.from('society-logos').upload(path, file, { upsert: true })
   if (error) throw error
@@ -385,7 +392,13 @@ export async function uploadSocietyLogo(societyId: string, file: File): Promise<
 /** Uploads to a private bucket - complaint-photos or payment-proof. ownerId is the complaint's or payment's own id, already known before this is called (see realUid() in id.ts), which is also the RLS check's join key. Returns the storage path, not a URL - a private file has no public URL, only a signed one, generated separately and only when actually needed for display (getSignedFileUrl below). */
 export async function uploadPrivateFile(bucket: 'complaint-photos' | 'payment-proof' | 'documents', ownerId: string, file: File): Promise<string> {
   if (!supabase) throw new Error('Supabase not configured')
-  const ext = file.name.split('.').pop() ?? 'jpg'
+  // Defense in depth: the bucket enforces this too, but reject up front so a
+  // bypassed or scripted client never even reaches the network call.
+  const check = validateUpload(bucket, file)
+  if (!check.ok) throw new Error(check.reason)
+  // Extension comes from the real MIME type, never from file.name, so a
+  // mislabeled filename can't decide what the stored object is called.
+  const ext = safeExtension(file, 'jpg')
   const path = `${ownerId}/${Date.now()}.${ext}`
   const { error } = await supabase.storage.from(bucket).upload(path, file)
   if (error) throw error

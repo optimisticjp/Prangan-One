@@ -116,11 +116,11 @@ export default function Contact() {
               <input id="contact-flatcount" className={inputClass} type="number" min="1" value={form.flatCount} onChange={e => setForm({ ...form, flatCount: e.target.value })} placeholder={t.flatCount} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label htmlFor="contact-role" className="sr-only">{t.roleOptions[0]}</label>
+              <label htmlFor="contact-role" className="sr-only">{t.role}</label>
               <select id="contact-role" className={inputClass} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                 {t.roleOptions.map(r => <option key={r}>{r}</option>)}
               </select>
-              <label htmlFor="contact-need" className="sr-only">{t.needOptions[0]}</label>
+              <label htmlFor="contact-need" className="sr-only">{t.mainNeed}</label>
               <select id="contact-need" className={inputClass} value={form.mainNeed} onChange={e => setForm({ ...form, mainNeed: e.target.value })}>
                 {t.needOptions.map(n => <option key={n}>{n}</option>)}
               </select>

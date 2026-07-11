@@ -1913,10 +1913,21 @@ create policy impersonation_logs_all on impersonation_logs for all
 -- src/lib/id.ts), so the same id is used for the upload path immediately
 -- after, not a placeholder that needs reconciling later.
 
-insert into storage.buckets (id, name, public) values ('society-logos', 'society-logos', true) on conflict (id) do nothing;
-insert into storage.buckets (id, name, public) values ('complaint-photos', 'complaint-photos', false) on conflict (id) do nothing;
-insert into storage.buckets (id, name, public) values ('payment-proof', 'payment-proof', false) on conflict (id) do nothing;
-insert into storage.buckets (id, name, public) values ('documents', 'documents', false) on conflict (id) do nothing;
+-- file_size_limit (bytes) and allowed_mime_types are enforced by Storage
+-- itself on every upload, so these hold even against a client that skips the
+-- app's own checks (src/lib/uploadValidation.ts mirrors these same numbers for
+-- immediate feedback - keep the two in step). image/svg+xml is deliberately
+-- NOT allowed anywhere: an SVG can carry script, and society-logos is a public
+-- bucket rendered in an <img>, so permitting SVG would be a stored-XSS vector.
+-- Raster images only; documents additionally allows application/pdf.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('society-logos', 'society-logos', true, 2097152, array['image/jpeg','image/png','image/webp']) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('complaint-photos', 'complaint-photos', false, 5242880, array['image/jpeg','image/png','image/webp']) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('payment-proof', 'payment-proof', false, 5242880, array['image/jpeg','image/png','image/webp']) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('documents', 'documents', false, 10485760, array['image/jpeg','image/png','image/webp','application/pdf']) on conflict (id) do nothing;
 
 -- society-logos: the bucket's own public flag means end users reading a
 -- logo never go through RLS at all - Supabase serves public bucket

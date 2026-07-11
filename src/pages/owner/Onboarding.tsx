@@ -46,6 +46,7 @@ import {
   Users, AlertTriangle, CheckCircle2, Rocket, Eye, SkipForward,
 } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { validateUpload } from '../../lib/uploadValidation'
 import { themePresets } from '../../lib/theme/presets'
 import { thisMonth, fmtMonth, inr } from '../../lib/format'
 import { parseCsv, validateFlatImport } from '../../lib/csv'
@@ -85,6 +86,7 @@ export default function Onboarding() {
   const [themeKey, setThemeKey] = useState(themePresets[0].key)
   const [logoName, setLogoName] = useState('')
   const [logoFile, setLogoFile] = useState<File | undefined>()
+  const [logoError, setLogoError] = useState<string | null>(null)
 
   const [maintenanceAmount, setMaintenanceAmount] = useState('1200')
   const [dueDay, setDueDay] = useState('10')
@@ -123,6 +125,12 @@ export default function Onboarding() {
 
   const onLogoFile = (f?: File) => {
     if (!f) return
+    // Validate up front and tell the owner right here why a logo was refused,
+    // since the actual upload's .catch() below is deliberately silent (branding
+    // still saves without a logo). The bucket enforces the same rules too.
+    const check = validateUpload('society-logos', f)
+    if (!check.ok) { setLogoError(check.reason); return }
+    setLogoError(null)
     setLogoName(f.name)
     setLogoFile(f)
   }
@@ -254,9 +262,11 @@ export default function Onboarding() {
                 <div className="text-[13.5px] font-semibold text-navy-600 mb-2">લોગો (વૈકલ્પિક)</div>
                 <label className="w-full min-h-[46px] rounded-xl border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center gap-2 text-[13.5px] font-semibold text-navy-500 cursor-pointer px-3">
                   <Upload size={16} /> {logoName || 'લોગો ફાઈલ પસંદ કરો'}
-                  <input type="file" accept="image/*" className="hidden" onChange={e => onLogoFile(e.target.files?.[0])} />
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => onLogoFile(e.target.files?.[0])} />
                 </label>
-                <p className="text-[12px] text-navy-400 mt-1.5">લોગો ના હોય તો કંઈ વાંધો નહીં, નામ પરથી બેજ બની જશે.</p>
+                {logoError
+                  ? <p className="text-[12px] text-over mt-1.5">{logoError}</p>
+                  : <p className="text-[12px] text-navy-400 mt-1.5">લોગો ના હોય તો કંઈ વાંધો નહીં, નામ પરથી બેજ બની જશે.</p>}
               </div>
             </div>
           )}

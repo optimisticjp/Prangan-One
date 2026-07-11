@@ -20,7 +20,7 @@ This runs on a real backend now, not a browser-only demo: real Supabase authenti
 
 **Accountant**: a narrower lens on the same data: income/expense dashboard, audit-ready CSV exports, and manual adjustments (round-offs, corrections).
 
-**Prangan One owner console** (the platform owner's own tool, not committee-facing): create a new society through a 5-step onboarding wizard, edit any society's branding/setup/modules afterward, log in as any society's committee for support, and a live case study built from Rajhans Tower's actual demo numbers.
+**Prangan One owner console** (the platform owner's own tool, not committee-facing): create a new society through a 10-step onboarding wizard, edit any society's branding/setup/modules afterward, log in as any society's committee for support, and a live case study built from Rajhans Tower's actual demo numbers.
 
 **Per-society configuration**: 6 curated color themes (not a raw color picker, each one pre-checked for contrast), optional logo upload with a generated-initials fallback, and 9 toggleable feature areas (billing, complaints, notices, documents, vendors, polls, events, parking, reports), enforced at the router level so a disabled module redirects away even on direct URL access, not just hidden from the menu.
 

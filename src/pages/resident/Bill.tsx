@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CreditCard, MessageCircle, Info, CheckCircle2, Clock } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { validateUpload } from '../../lib/uploadValidation'
 import { fmtDate, fmtMonth, inr, thisMonth } from '../../lib/format'
 import { waShare, waTemplates } from '../../lib/whatsapp'
 import { payModeLabel } from '../../lib/copy'
@@ -20,6 +21,7 @@ export default function Bill() {
   const [payRef, setPayRef] = useState('')
   const [payNote, setPayNote] = useState('')
   const [proofFile, setProofFile] = useState<File | undefined>()
+  const [proofError, setProofError] = useState<string | null>(null)
   const [justMarked, setJustMarked] = useState(false)
   const flat = session.flatId ? flatById(session.flatId) : undefined
   if (!flat) return null
@@ -30,11 +32,22 @@ export default function Bill() {
   const name = flat.occupancy === 'tenant' && flat.tenantName ? flat.tenantName : flat.ownerName
   const myPendingConfirmations = db.payments.filter(p => p.flatId === flat.id && p.status === 'pending_confirmation')
 
+  // Validate the screenshot the moment it's picked, so an oversized or
+  // non-image file is rejected with an immediate, readable reason instead of
+  // failing quietly later during the upload step. The bucket enforces the
+  // same rules server-side regardless (see uploadValidation.ts).
+  const onProofFile = (f?: File) => {
+    if (!f) { setProofFile(undefined); setProofError(null); return }
+    const check = validateUpload('payment-proof', f)
+    if (!check.ok) { setProofError(check.reason); setProofFile(undefined); return }
+    setProofError(null); setProofFile(f)
+  }
+
   const submitMarkPaid = () => {
     if (!cur) return
     recordPayment({ flatId: flat.id, billId: cur.id, amount: cur.amount - cur.paidAmount, mode: payMode, refNo: payRef.trim() || undefined, note: payNote.trim() || undefined, pending: true, proofFile })
     setMarkingPaid(false); setJustMarked(true); setPayOpen(false)
-    setPayRef(''); setPayNote(''); setProofFile(undefined)
+    setPayRef(''); setPayNote(''); setProofFile(undefined); setProofError(null)
   }
 
   return (
@@ -163,8 +176,9 @@ export default function Bill() {
             <Input value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="નોંધ (વૈકલ્પિક)" />
             <label className="min-h-[42px] rounded-xl border border-dashed border-cream-300 bg-white flex items-center justify-center gap-2 text-[13px] font-semibold text-navy-500 cursor-pointer">
               <CreditCard size={16} /> {proofFile ? 'સ્ક્રીનશોટ ✓' : 'સ્ક્રીનશોટ ઉમેરો (વૈકલ્પિક)'}
-              <input type="file" accept="image/*" className="hidden" onChange={e => setProofFile(e.target.files?.[0])} />
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => onProofFile(e.target.files?.[0])} />
             </label>
+            {proofError && <p className="text-[12.5px] text-over">{proofError}</p>}
             <div className="flex gap-2">
               <Button variant="soft" full onClick={() => setMarkingPaid(false)}>રદ કરો</Button>
               <Button full onClick={submitMarkPaid}>નોંધ કરો</Button>
