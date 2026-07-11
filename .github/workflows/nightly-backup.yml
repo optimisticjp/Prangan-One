@@ -17,7 +17,7 @@ jobs:
       - name: Install postgresql-client and supabase CLI deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client-16 jq curl
+          sudo apt-get install -y postgresql-client-17 jq curl
           curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz \
             | sudo tar -xz -C /usr/local/bin supabase
 
