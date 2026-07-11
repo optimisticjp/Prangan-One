@@ -12,6 +12,7 @@ import {
   FolderOpen, Store as StoreIcon, Vote, PartyPopper, Car, BarChart3, CheckCircle2, Mail, UserPlus, KeyRound, Copy,
 } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { validateUpload } from '../../lib/uploadValidation'
 import { themePresets } from '../../lib/theme/presets'
 import { effectiveStatus, graceDaysRemaining } from '../../lib/subscription'
 import { roleLabel } from '../../lib/permissions'
@@ -53,6 +54,7 @@ export default function SocietyDetail() {
   const [newMemberEmail, setNewMemberEmail] = useState('')
   const [newMemberRole, setNewMemberRole] = useState<Role>('committee_member')
   const [logoFile, setLogoFile] = useState<File | undefined>()
+  const [logoError, setLogoError] = useState<string | null>(null)
   // Entering support is fail-closed: only navigate once the database has
   // confirmed the session, keep the button disabled while it's in flight,
   // and surface a clear error if it never confirmed.
@@ -85,6 +87,12 @@ export default function SocietyDetail() {
 
   const onLogoFile = (f?: File) => {
     if (!f) return
+    // Validate up front and tell the owner right here why a logo was refused,
+    // since the actual upload's .catch() below is deliberately silent (branding
+    // still saves without a logo). The bucket enforces the same rules too.
+    const check = validateUpload('society-logos', f)
+    if (!check.ok) { setLogoError(check.reason); return }
+    setLogoError(null)
     setForm({ ...form, logoName: f.name })
     setLogoFile(f)
     const reader = new FileReader()
@@ -204,9 +212,10 @@ export default function SocietyDetail() {
               <SocietyBadge society={{ ...soc, logoDataUrl: form.logoDataUrl, themeKey: form.themeKey, nameEn: form.nameEn }} size={48} />
               <label className="flex-1 min-h-[44px] rounded-xl border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center gap-2 text-[13px] font-semibold text-navy-500 cursor-pointer px-3">
                 <Upload size={15} /> {form.logoName || 'લોગો બદલો'}
-                <input type="file" accept="image/*" className="hidden" onChange={e => onLogoFile(e.target.files?.[0])} />
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => onLogoFile(e.target.files?.[0])} />
               </label>
             </div>
+            {logoError && <p className="text-[12px] text-over mb-3 -mt-1">{logoError}</p>}
             <div className="grid grid-cols-2 gap-2">
               {themePresets.map(p => (
                 <button key={p.key} onClick={() => setForm({ ...form, themeKey: p.key })}

@@ -348,7 +348,7 @@ describe('storage: uploadPrivateFile and getSignedFileUrl', () => {
   it('throws when Supabase reports an upload error, rather than silently returning a broken path', async () => {
     vi.doMock('../supabase', () => ({ supabase: { storage: { from: () => ({ upload: vi.fn().mockResolvedValue({ error: { message: 'boom' } }) }) } } }))
     const { uploadPrivateFile } = await import('../realData')
-    await expect(uploadPrivateFile('payment-proof', 'pay-1', new File(['x'], 'proof.jpg'))).rejects.toBeTruthy()
+    await expect(uploadPrivateFile('payment-proof', 'pay-1', new File(['x'], 'proof.jpg', { type: 'image/jpeg' }))).rejects.toBeTruthy()
   })
 })
 

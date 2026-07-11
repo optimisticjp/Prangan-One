@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Wrench, Mic, ImagePlus, ChevronRight, Users, Lock } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { validateUpload } from '../../lib/uploadValidation'
 import { fmtDate } from '../../lib/format'
 import { complaintCategories, complaintStatusLabel, complaintStatusTone } from '../../lib/copy'
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Textarea } from '../../components/ui'
@@ -16,6 +17,7 @@ export default function Complaints() {
   const [visibility, setVisibility] = useState<'personal' | 'community'>('personal')
   const [photoName, setPhotoName] = useState('')
   const [photoFile, setPhotoFile] = useState<File | undefined>()
+  const [photoError, setPhotoError] = useState<string | null>(null)
 
   const flatId = session.flatId ?? ''
   // "My complaints": everything filed from my own flat, personal or
@@ -29,11 +31,22 @@ export default function Complaints() {
     .filter(c => c.visibility === 'community' && c.flatId !== flatId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
+  // Validate the photo the moment it's picked, so an oversized or non-image
+  // file is rejected with an immediate, readable reason rather than failing
+  // quietly later during upload. The bucket enforces the same rules
+  // server-side regardless (see uploadValidation.ts).
+  const onPhotoFile = (f?: File) => {
+    if (!f) { setPhotoName(''); setPhotoFile(undefined); setPhotoError(null); return }
+    const check = validateUpload('complaint-photos', f)
+    if (!check.ok) { setPhotoError(check.reason); setPhotoName(''); setPhotoFile(undefined); return }
+    setPhotoError(null); setPhotoName(f.name); setPhotoFile(f)
+  }
+
   const submit = () => {
     if (!title.trim()) return
     addComplaint({ flatId, category, title: title.trim(), detail: detail.trim(), priority, photoName: photoName || undefined, photoFile, visibility })
     setOpen(false)
-    setTitle(''); setDetail(''); setPriority('normal'); setVisibility('personal'); setPhotoName(''); setPhotoFile(undefined)
+    setTitle(''); setDetail(''); setPriority('normal'); setVisibility('personal'); setPhotoName(''); setPhotoFile(undefined); setPhotoError(null)
   }
 
   const ComplaintRow = ({ c }: { c: typeof mine[number] }) => (
@@ -118,12 +131,13 @@ export default function Complaints() {
         <div className="grid grid-cols-2 gap-2">
           <label className="min-h-[46px] rounded-xl border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center gap-2 text-[13.5px] font-semibold text-navy-500 cursor-pointer">
             <ImagePlus size={17} /> {photoName ? 'ફોટો ✓' : 'ફોટો ઉમેરો'}
-            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; setPhotoName(f?.name ?? ''); setPhotoFile(f) }} />
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => onPhotoFile(e.target.files?.[0])} />
           </label>
           <button type="button" disabled className="min-h-[46px] rounded-xl border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center gap-2 text-[13.5px] font-semibold text-navy-300">
             <Mic size={17} /> વૉઇસ નોટ (જલ્દી)
           </button>
         </div>
+        {photoError && <p className="text-[12.5px] text-over">{photoError}</p>}
         {photoName && (
           <div className="text-[12.5px] text-navy-400">
             ફોટો: {photoName} {!session.isRealSession && '(ડેમોમાં ફક્ત નામ સચવાય છે)'}
