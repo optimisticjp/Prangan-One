@@ -30,7 +30,7 @@ jobs:
       - name: Dump the database
         run: |
           mkdir -p out
-          pg_dump "${{ secrets.SUPABASE_DB_URL }}" \
+          /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.SUPABASE_DB_URL }}" \
             --no-owner --no-privileges \
             -f "out/db-${{ steps.stamp.outputs.date }}.sql"
           gzip "out/db-${{ steps.stamp.outputs.date }}.sql"
