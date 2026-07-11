@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 afterEach(() => {
   cleanup()
   sessionStorage.clear()
   vi.doUnmock('../../lib/demoMode')
+  vi.doUnmock('../../lib/demoStore')
   vi.resetModules()
 })
 
@@ -36,5 +37,23 @@ describe('/demo page', () => {
     await renderDemoWith(false)
     expect(await screen.findByText('ડેમો હાલમાં ચાલુ નથી')).toBeInTheDocument()
     expect(screen.queryByText('હું રહેવાસી છું')).not.toBeInTheDocument()
+  })
+
+  it('the "real login is here" link genuinely calls exitDemo (a full exit), not a plain client-side navigate', async () => {
+    // exitDemo is what unmounts the demo provider (clear storage + full
+    // reload). A plain nav('/login') would leave DemoDataProvider mounted, so
+    // a real login attempt from there would silently do nothing. Spy on
+    // exitDemo to prove the link goes through it now.
+    vi.doMock('../../lib/demoMode', () => ({ isDemoModeEnabled: () => true }))
+    const exitDemo = vi.fn()
+    vi.doMock('../../lib/demoStore', async () => {
+      const actual = await vi.importActual<typeof import('../../lib/demoStore')>('../../lib/demoStore')
+      return { ...actual, exitDemo }
+    })
+    const { default: Demo } = await import('../Demo')
+    render(<MemoryRouter><Demo /></MemoryRouter>)
+
+    fireEvent.click(await screen.findByText('અહીં'))
+    expect(exitDemo).toHaveBeenCalledTimes(1)
   })
 })

@@ -81,3 +81,45 @@ describe('the switcher\u2019s own decision, isDemoSessionActive, correctly reads
     expect(isDemoSessionActive()).toBe(false)
   })
 })
+
+describe('exitDemo genuinely ends the demo so the next load selects the real provider', () => {
+  it('clears the demo session key (checked in storage directly) and attempts a full navigation to /login', async () => {
+    // A genuinely active demo session: real data in storage and a real role
+    // set, the exact state DEFECT 1 describes someone "leaving" without ever
+    // actually leaving.
+    vi.stubGlobal('location', { href: '' })
+    const { startDemoSession, exitDemo, isDemoSessionActive } = await import('../demoStore')
+    startDemoSession('society_admin', undefined, '/admin')
+    sessionStorage.setItem('prangan_demo_v1_db', JSON.stringify({ some: 'real demo progress' }))
+    expect(isDemoSessionActive()).toBe(true)
+
+    exitDemo()
+
+    // Checked in storage directly, not in-memory React state: JSDOM cannot
+    // perform the real navigation exitDemo triggers, so this test proves the
+    // stored state main.tsx's provider decision reads is now correct - the
+    // session key is genuinely gone, so the next real page load would pick the
+    // real DataProvider - not the navigation event itself.
+    expect(sessionStorage.getItem('prangan_demo_v1_session')).toBeNull()
+    expect(isDemoSessionActive()).toBe(false)
+    expect(location.href).toBe('/login')
+  })
+})
+
+describe('restartDemo clears every demo storage key, including the guide key the old restart never touched', () => {
+  it('clears database, session, AND guide, then attempts a full navigation back to the picker', async () => {
+    vi.stubGlobal('location', { href: '' })
+    const { restartDemo } = await import('../demoStore')
+    sessionStorage.setItem('prangan_demo_v1_db', '{"x":1}')
+    sessionStorage.setItem('prangan_demo_v1_session', '{"role":"society_admin","flatId":null}')
+    sessionStorage.setItem('prangan_demo_v1_guide', '{"journey":"payment","dismissed":false}')
+
+    restartDemo()
+
+    expect(sessionStorage.getItem('prangan_demo_v1_db')).toBeNull()
+    expect(sessionStorage.getItem('prangan_demo_v1_session')).toBeNull()
+    // The guide key specifically - the old resetAll only cleared db + session.
+    expect(sessionStorage.getItem('prangan_demo_v1_guide')).toBeNull()
+    expect(location.href).toBe('/demo')
+  })
+})

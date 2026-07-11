@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { UserRound, ShieldCheck, Calculator, ChevronRight, FlaskConical, IndianRupee, Wrench, BarChart3 } from 'lucide-react'
 import { isDemoModeEnabled } from '../lib/demoMode'
-import { startDemoSession } from '../lib/demoStore'
+import { startDemoSession, exitDemo } from '../lib/demoStore'
 import { buildDemoSeed } from '../lib/demoSeed'
 import { saveGuideState } from '../lib/demoGuide'
 import { Button, Card, Select } from '../components/ui'
@@ -171,7 +171,12 @@ export default function Demo() {
 
           <p className="text-center text-[12.5px] text-navy-400 pt-2">
             આ ડેમો છે: પાસવર્ડની જરૂર નથી, બધો ડેટા તમારા બ્રાઉઝરમાં જ સચવાય છે.<br />
-            વાસ્તવિક લોગિન <button onClick={() => nav('/login')} className="font-semibold text-saffron-600 underline">અહીં</button> છે.
+            {/* exitDemo, not nav('/login'): if a demo session is active, a
+                client-side nav would land on /login still inside
+                DemoDataProvider, where a real login silently does nothing.
+                exitDemo clears demo storage and does a full reload so the real
+                provider takes over. */}
+            વાસ્તવિક લોગિન <button onClick={exitDemo} className="font-semibold text-saffron-600 underline">અહીં</button> છે.
           </p>
         </div>
       </div>

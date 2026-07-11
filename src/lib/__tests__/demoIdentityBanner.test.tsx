@@ -80,23 +80,53 @@ describe('the demo identity banner', () => {
     expect(screen.getByText(/કાલ્પનિક ડેટા/)).toBeInTheDocument()
   })
 
-  it('restarting genuinely, actually clears real progress made during the session, not just closes a dialog', async () => {
-    const { DemoIdentityBanner } = await import('../../components/DemoIdentityBanner')
+  it('restarting from the real banner control, inside an actual routed page, genuinely clears all demo storage', async () => {
+    // Route-level, not the store function in isolation: an actual page under
+    // /app, the real restart button, the real confirm modal. Restart now
+    // works by clearing all demo storage and doing a full reload back to the
+    // picker, so the whole tree remounts fresh - it does not mutate in-memory
+    // state here. JSDOM cannot perform that reload, so this proves the storage
+    // state the reload would then read is fully cleared: database, session,
+    // and, specifically, the guide key the old restart never touched.
+    const { ResidentLayout } = await import('../../layouts/Layouts')
     let data: ReturnType<typeof useData>
-    function Probe() {
-      data = useData()
-      return <DemoIdentityBanner />
+    function Probe() { data = useData(); return null }
+
+    const originalLocation = window.location
+    // @ts-expect-error jsdom's window.location isn't normally reassignable
+    delete window.location
+    // @ts-expect-error see above
+    window.location = { href: '' }
+    try {
+      render(
+        <MemoryRouter initialEntries={['/app']}>
+          <DemoDataProvider>
+            <Routes>
+              <Route path="/app" element={<ResidentLayout />}>
+                <Route index element={<Probe />} />
+              </Route>
+            </Routes>
+          </DemoDataProvider>
+        </MemoryRouter>,
+      )
+      // Genuine progress persisted to the demo storage keys.
+      act(() => { data!.login('society_admin') })
+      act(() => { data!.addNotice({ title: 'Restart storage test', body: '', category: 'general', pinned: false }) })
+      sessionStorage.setItem('prangan_demo_v1_guide', '{"journey":"payment","dismissed":false}')
+      expect(sessionStorage.getItem('prangan_demo_v1_db')).not.toBeNull()
+      expect(sessionStorage.getItem('prangan_demo_v1_session')).not.toBeNull()
+
+      fireEvent.click(screen.getByText('રીસ્ટાર્ટ'))
+      fireEvent.click(await screen.findByText('રીસ્ટાર્ટ કરો'))
+
+      expect(sessionStorage.getItem('prangan_demo_v1_db')).toBeNull()
+      expect(sessionStorage.getItem('prangan_demo_v1_session')).toBeNull()
+      expect(sessionStorage.getItem('prangan_demo_v1_guide')).toBeNull()
+      expect(window.location.href).toBe('/demo')
+    } finally {
+      // @ts-expect-error restore the real location object for other tests
+      window.location = originalLocation
     }
-    render(<MemoryRouter><DemoDataProvider><Probe /></DemoDataProvider></MemoryRouter>)
-    act(() => { data!.login('society_admin') })
-    act(() => { data!.addNotice({ title: 'Restart test notice', body: '', category: 'general', pinned: false }) })
-    expect(data!.db.notices.some(n => n.title === 'Restart test notice')).toBe(true)
-
-    fireEvent.click(screen.getByText('રીસ્ટાર્ટ'))
-    fireEvent.click(await screen.findByText('રીસ્ટાર્ટ કરો'))
-
-    expect(data!.db.notices.some(n => n.title === 'Restart test notice')).toBe(false)
-    expect(data!.session.role).toBeNull()
   })
 
   it('clicking restart but then backing out genuinely keeps everything exactly as it was', async () => {

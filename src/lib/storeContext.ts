@@ -24,6 +24,35 @@ export interface NewSocietyInput {
   modules: ModuleLayer; tenantAccess: TenantAccessMode
 }
 
+/** See the dataHealth field on Store below for what this is and why it's one
+ * model instead of scattered booleans. Every field here is either reused from
+ * existing tracking (refreshState from financialsLoading, pendingWriteCount
+ * from the failed-write queue) or a real signal the old booleans couldn't
+ * carry (real timestamps instead of a boolean, genuine offline state). */
+export interface DataHealth {
+  /** idle, or refreshing while a real fetch is in flight. This is the same
+   * financialsLoading the loading spinner already uses, named for what it
+   * means to this model, not a second flag tracking the same thing. */
+  refreshState: 'idle' | 'refreshing'
+  /** When a real server refresh last genuinely succeeded, epoch milliseconds,
+   * or null if none has this session yet. A real time, not a boolean, so the
+   * UI can show how old the data on screen actually is. */
+  lastRefreshSuccessAt: number | null
+  /** When a real server refresh last failed, epoch milliseconds, or null.
+   * Kept separate from the success time on purpose: "the last attempt failed"
+   * and "the last good data is from three hours ago" are two different facts,
+   * and someone needs both to know what they're looking at. */
+  lastRefreshFailureAt: number | null
+  /** Genuinely offline, wired to navigator.onLine and the window online/
+   * offline events - a real disconnection, not merely inferred from a failed
+   * fetch, since a failed fetch and being offline are different situations. */
+  offline: boolean
+  /** How many local writes are still waiting to sync. Exactly the length of
+   * the existing failed-write/retry queue (db.pendingSync, the same thing
+   * failedWrites is a view of), reused, not a second count of the same idea. */
+  pendingWriteCount: number
+}
+
 export
 interface Store {
   db: DB
@@ -48,6 +77,20 @@ interface Store {
    * run again. */
   fetchError: boolean
   retryFetch: () => void
+  /**
+   * One small, consistent view of the real session's own connection health,
+   * built from the same fetch tracking that already powers financialsLoading
+   * and fetchError, plus the browser's own online/offline signal and the
+   * existing failed-write queue - not a second, separate set of tracking for
+   * any of it. Only present on the real store: the demo provider has no real
+   * server to report the health of, so useData() there leaves this undefined.
+   *
+   * From these five, the UI can tell apart, and show differently: actively
+   * refreshing, current and synced (with the real age of the last good data),
+   * genuinely offline, a refresh that failed while the last good data is
+   * still on screen, and local changes still waiting to sync.
+   */
+  dataHealth?: DataHealth
   /** Why the most recent write attempt was blocked, if it was - null
    * means either nothing's been blocked yet, or the last attempt
    * succeeded. Set by guardedSetDb; check this after a mutation returns

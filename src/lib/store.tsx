@@ -259,6 +259,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // effect's own dependency array below, to force it to run again.
   const [fetchError, setFetchError] = useState(false)
   const [refetchTrigger, setRefetchTrigger] = useState(0)
+  // The richer connection-health model layered onto the same fetch tracking
+  // above (see dataHealth in the store value below, and DataHealth in
+  // storeContext.ts). These are real timestamps, not booleans: fetchError
+  // already says whether the last refresh failed, but not when the last good
+  // data actually came in, which is what lets the UI show a real age instead
+  // of a bare "failed". Set in the one fetch effect below, right where
+  // setFetchError already is, so there's no second fetch-tracking path.
+  const [lastRefreshSuccessAt, setLastRefreshSuccessAt] = useState<number | null>(null)
+  const [lastRefreshFailureAt, setLastRefreshFailureAt] = useState<number | null>(null)
+  // Genuinely offline, from the browser's own signal rather than inferred
+  // from a failed fetch - a failed fetch and a real disconnection are
+  // different situations and the UI should be able to say which. Wired to the
+  // window online/offline events in an effect below.
+  const [offline, setOffline] = useState(() => typeof navigator !== 'undefined' && navigator.onLine === false)
   // Surfaces WHY a write was just blocked, so a page can show something
   // like "you're in read-only mode" instead of the write just silently
   // doing nothing - before this, guardedSetDb only ever logged a console
@@ -309,6 +323,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // a stale closure, not the current value.
   const isRealSessionRef = useRef(session.isRealSession)
   useEffect(() => { isRealSessionRef.current = session.isRealSession }, [session.isRealSession])
+
+  // Offline state from the browser itself, not guessed from a failed fetch.
+  // navigator.onLine gives the current value; the online/offline window
+  // events keep it live as the connection actually comes and goes. Set up
+  // once - re-reading navigator.onLine on mount too, in case it changed
+  // between the initial useState above and this effect actually running.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const goOnline = () => setOffline(false)
+    const goOffline = () => setOffline(true)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    setOffline(navigator.onLine === false)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [])
 
   // Notices when a real session has genuinely ended, for any reason, not
   // just someone clicking the logout button - a token that quietly
@@ -366,9 +398,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fetchAllPlatformBilling(), fetchAllAuditLogs(), fetchAllImpersonationLogs(), fetchPublicLeads(),
       ])
         .then(([societies, flats, memberships, platformBilling, auditLogs, impersonationLogs, leads]) => {
-          if (!cancelled) { setDb(d => ({ ...d, societies, flats, memberships, platformBilling, auditLogs, impersonationLogs, leads })); setFetchError(false) }
+          if (!cancelled) { setDb(d => ({ ...d, societies, flats, memberships, platformBilling, auditLogs, impersonationLogs, leads })); setFetchError(false); setLastRefreshSuccessAt(Date.now()) }
         })
-        .catch(() => { if (!cancelled) setFetchError(true) })
+        .catch(() => { if (!cancelled) { setFetchError(true); setLastRefreshFailureAt(Date.now()) } })
         .finally(() => { if (!cancelled) setFinancialsLoading(false) })
       return () => { cancelled = true }
     }
@@ -408,8 +440,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           expenses: [...d.expenses.filter(e => e.societyId !== session.societyId), ...expenses],
         }))
         setFetchError(false)
+        setLastRefreshSuccessAt(Date.now())
       })
-      .catch(() => { if (!cancelled) setFetchError(true) })
+      .catch(() => { if (!cancelled) { setFetchError(true); setLastRefreshFailureAt(Date.now()) } })
       .finally(() => { if (!cancelled) setFinancialsLoading(false) })
     return () => { cancelled = true }
   }, [session.societyId, session.isRealSession, session.role, refetchTrigger])
@@ -591,6 +624,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     return {
       db: scopedDb, rawDb: db, session, society, financialsLoading, fetchError, retryFetch: () => setRefetchTrigger(n => n + 1), lastBlockedReason, canWriteNow,
+      // One consistent connection-health model, all of it reused from state
+      // that already exists: refreshState is the same financialsLoading the
+      // spinner uses, pendingWriteCount is the length of the same pendingSync
+      // queue failedWrites is a view of, and the two timestamps plus offline
+      // are the new signals the old booleans couldn't carry. See DataHealth
+      // in storeContext.ts.
+      dataHealth: {
+        refreshState: financialsLoading ? 'refreshing' : 'idle',
+        lastRefreshSuccessAt,
+        lastRefreshFailureAt,
+        offline,
+        pendingWriteCount: db.pendingSync.length,
+      },
       failedWrites: db.pendingSync.map(p => ({ id: p.id, label: p.label })),
       retryFailedWrite: (id) => {
         const closure = failedWriteRetries.current.get(id)
@@ -1308,7 +1354,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setDb(DEMO_SEED_ENABLED ? buildSeed() : emptySeed())
       },
     }
-  }, [db, session, activeSociety, activeSocietyId, financialsLoading, lastBlockedReason])
+  }, [db, session, activeSociety, activeSocietyId, financialsLoading, lastBlockedReason, lastRefreshSuccessAt, lastRefreshFailureAt, offline])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

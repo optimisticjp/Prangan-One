@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { FlaskConical, RotateCcw } from 'lucide-react'
 import { useData } from '../lib/store'
+import { restartDemo } from '../lib/demoStore'
 import { Modal, Button } from './ui'
 
 /**
@@ -14,7 +15,7 @@ import { Modal, Button } from './ui'
  * confused with each other.
  */
 export function DemoIdentityBanner() {
-  const { session, resetAll } = useData()
+  const { session } = useData()
   const [confirmOpen, setConfirmOpen] = useState(false)
   if (session.isRealSession) return null
 
@@ -36,7 +37,11 @@ export function DemoIdentityBanner() {
         </p>
         <div className="flex gap-2">
           <Button variant="soft" full onClick={() => setConfirmOpen(false)}>રહેવા દો</Button>
-          <Button variant="danger" full onClick={() => { resetAll(); setConfirmOpen(false) }}>રીસ્ટાર્ટ કરો</Button>
+          {/* restartDemo clears all three demo storage keys and does a full
+              navigation back to /demo, so the whole tree remounts fresh on the
+              picker. It deliberately does not touch in-memory state here - the
+              reload is what resets everything, cleanly, in one shot. */}
+          <Button variant="danger" full onClick={restartDemo}>રીસ્ટાર્ટ કરો</Button>
         </div>
       </Modal>
     </>

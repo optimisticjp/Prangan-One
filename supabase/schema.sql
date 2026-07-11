@@ -514,17 +514,20 @@ create table audit_logs (
   created_at  timestamptz not null default now()
 );
 
--- Owner "view as" / impersonation sessions. Every entry into a society as
--- its admin gets logged here, read-only or write-capable, per the
--- roadmap's non-negotiable: "every impersonation/view as session is
--- logged; read-only by default with an explicit act-as-admin toggle that
--- is also logged."
+-- Owner "view as" support sessions. Every entry into a society as its
+-- admin gets logged here. Support is read-only now: the "write-capable"
+-- / act-as-admin variant was removed from the product entirely, so
+-- open_support_session and the enforce_impersonation_log_insert trigger
+-- (both below) pin every new session to mode 'readonly'. The check below
+-- still permits 'write' for one reason only - historical rows written
+-- before that change stay valid and readable; no new 'write' row is ever
+-- created through the application path.
 create table impersonation_logs (
   id          uuid primary key default gen_random_uuid(),
   society_id  uuid not null references societies(id) on delete cascade,
   owner_user_id uuid references auth.users(id) on delete set null,
   mode        text not null check (mode in ('readonly', 'write')),
-  reason      text,  -- required for write-mode entries at the application layer (see ImpersonationLog in types.ts); not enforced here since a readonly "just looking" entry legitimately has none
+  reason      text,  -- kept nullable: a readonly "just looking" entry legitimately has none. Older write-mode rows carried a reason from the application layer (see ImpersonationLog in types.ts); no new write-mode rows are created now
   entered_at  timestamptz not null default now(),
   exited_at   timestamptz
 );
@@ -1873,9 +1876,13 @@ create policy audit_logs_select on audit_logs for select
 -- database triggers, not application code choosing to insert one, which
 -- is real, separate, still-pending work. This at least means only a
 -- real management-level member of the society being logged about can
--- write an entry, not a random unrelated caller.
+-- write an entry, not a random unrelated caller. The owner is split into
+-- its own private.owner_can_write branch here rather than lumped into the
+-- role array, the same shape every other write policy uses, so a read-only
+-- support session cannot write an audit row either - the one case the plain
+-- has_role('owner') list missed.
 create policy audit_logs_insert on audit_logs for insert
-  with check (private.has_role(society_id, array['owner', 'society_admin', 'accountant']));
+  with check (private.has_role(society_id, array['society_admin', 'accountant']) or private.owner_can_write(society_id));
 
 create policy impersonation_logs_all on impersonation_logs for all
   using (private.has_role(society_id, array['owner']))

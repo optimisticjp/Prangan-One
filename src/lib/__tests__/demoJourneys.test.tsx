@@ -128,37 +128,96 @@ describe('the same journey\u2019s key steps, through the actual, real page compo
     const { default: Payments } = await import('../../pages/admin/Payments')
     render(<MemoryRouter><Provider><Payments /></Provider></MemoryRouter>)
 
+    // The pending-verification queue can legitimately hold more than one claim
+    // at once now - the seed ships a separate resident's pending UPI claim too,
+    // realistic disorder a demo should show - so scope to THIS journey flat's
+    // own row before finding its confirm button, rather than the whole queue,
+    // which would match every claim's button. Same intent as before, just
+    // correctly targeted at flat 101's row.
     const queue = await screen.findByText('રહેવાસીએ "મેં ચૂકવ્યું" કહ્યું છે, પુષ્ટિ બાકી')
     const queueCard = queue.closest('div')!
-    expect(within(queueCard).getByText(overdueFlat.number, { exact: false })).toBeInTheDocument()
-
-    const confirmButton = within(queueCard).getByText('પુષ્ટિ કરો')
+    const flatRow = within(queueCard).getByText(overdueFlat.number, { exact: false }).closest('.flex') as HTMLElement
+    const confirmButton = within(flatRow).getByText('પુષ્ટિ કરો')
     act(() => { fireEvent.click(confirmButton) })
 
-    // confirmed - the pending-verification card for this flat is gone now
-    expect(within(queueCard).queryByText(overdueFlat.number, { exact: false })).not.toBeInTheDocument()
+    // confirmed - this flat's own pending row is gone now (the other
+    // resident's separate claim genuinely remains, untouched)
+    const queueAfter = screen.getByText('રહેવાસીએ "મેં ચૂકવ્યું" કહ્યું છે, પુષ્ટિ બાકી').closest('div')!
+    expect(within(queueAfter).queryByText(overdueFlat.number, { exact: false })).not.toBeInTheDocument()
   })
 })
 
-describe('the "exit demo" link in the admin layout points to the demo picker, not the real login screen - a real bug found and fixed in an earlier build in this same plan', () => {
-  it('for a demo session, the link genuinely goes to /demo, not /login', async () => {
+describe('the admin layout "exit demo" control returns to the demo picker as a plain link, leaving all demo progress intact rather than wiping it', () => {
+  it('renders as a real anchor to /demo (no forced reload) and, when clicked, leaves the demo database and guide byte-for-byte untouched while only the session role becomes null', async () => {
     const { Shell } = await import('../../layouts/Layouts')
-    const { Routes, Route } = await import('react-router-dom')
+
+    // A guide journey already in flight, part of the session state a person
+    // would not expect "leave demo" to silently throw away.
+    sessionStorage.setItem('prangan_demo_v1_session', '{"role":"society_admin","flatId":null}')
+    sessionStorage.setItem('prangan_demo_v1_guide', JSON.stringify({ journey: 'payment', targetFlatId: null, targetBillId: null, dismissed: false }))
+
+    // A probe alongside the layout, only so this test can make genuine
+    // mid-session progress (record a real payment) through the same demo
+    // provider the layout is using, before leaving.
+    let recordPayment: ReturnType<typeof useData>['recordPayment']
+    let rawDb: ReturnType<typeof useData>['rawDb']
+    function Probe() {
+      const d = useData()
+      recordPayment = d.recordPayment
+      rawDb = d.rawDb
+      return null
+    }
 
     render(
       <MemoryRouter initialEntries={['/admin']}>
         <DemoDataProvider>
+          <Probe />
           <Routes>
             <Route path="/admin" element={<Shell items={[]} title="Test" />}>
               <Route index element={<div>admin home</div>} />
             </Route>
+            <Route path="/demo" element={<div>demo picker</div>} />
           </Routes>
         </DemoDataProvider>
       </MemoryRouter>,
     )
 
-    const switchLink = await screen.findByText('ડેમો છોડો')
-    expect(switchLink.closest('a')).toHaveAttribute('href', '/demo')
+    // Real progress: record a payment on the first unpaid bill. This persists
+    // into the demo database storage key, exactly the kind of work someone
+    // would lose if "leave demo" wiped everything.
+    const unpaid = rawDb!.bills.find(b => b.paidAmount < b.amount)!
+    let payId = ''
+    act(() => { payId = recordPayment!({ flatId: unpaid.flatId, billId: unpaid.id, amount: unpaid.amount - unpaid.paidAmount, mode: 'cash' })!.id })
+
+    // Snapshot the demo database and guide exactly as they stand, with that
+    // progress in them, immediately before leaving. The payment really is in
+    // the persisted database, not only in memory.
+    const dbWithProgress = sessionStorage.getItem('prangan_demo_v1_db')
+    const guideBefore = sessionStorage.getItem('prangan_demo_v1_guide')
+    expect(dbWithProgress).not.toBeNull()
+    expect(dbWithProgress).toContain(payId)
+
+    const exitControl = await screen.findByText('ડેમો છોડો')
+    // A genuine link to the picker, not a button that forces a reload: it is
+    // an <a> whose href is /demo. Staying inside the demo never re-picks the
+    // provider, so no reload is needed and none happens.
+    const anchor = exitControl.closest('a')
+    expect(anchor).not.toBeNull()
+    expect(anchor!.getAttribute('href')).toBe('/demo')
+
+    act(() => { fireEvent.click(exitControl) })
+
+    // It navigated to the picker, client-side, with the same provider still
+    // mounted (that is what makes the no-reload, no-wipe behavior possible).
+    expect(screen.getByText('demo picker')).toBeInTheDocument()
+
+    // The actual guarantee this test exists for: leaving did NOT wipe
+    // progress. The database and guide keys are byte-for-byte what they were,
+    // and only the session's own role was cleared to null - so returning to
+    // the demo finds the exact same data waiting.
+    expect(sessionStorage.getItem('prangan_demo_v1_db')).toBe(dbWithProgress)
+    expect(sessionStorage.getItem('prangan_demo_v1_guide')).toBe(guideBefore)
+    expect(JSON.parse(sessionStorage.getItem('prangan_demo_v1_session')!).role).toBeNull()
   })
 })
 

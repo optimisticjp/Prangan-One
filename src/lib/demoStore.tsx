@@ -22,6 +22,7 @@ import type {
 import { todayISO } from './format'
 import { Ctx, type NewSocietyInput, type Store } from './storeContext'
 import { buildDemoSeed, DEMO_SCHEMA_VERSION, DEMO_SOCIETY_ID, demoId } from './demoSeed'
+import { clearGuideState } from './demoGuide'
 import {
   billStatus, flatAdjustmentNet,
   flatPending as sharedFlatPending, totalPending as sharedTotalPending,
@@ -64,6 +65,43 @@ export function startDemoSession(role: Role, flatId: string | undefined, targetR
   // actually take effect, rather than trying to live-swap two different
   // providers under one already-mounted React tree.
   window.location.href = targetRoute
+}
+
+// Clears every trace of a demo session from storage and then does a real,
+// full browser navigation. The full navigation is the whole point, not an
+// incidental detail: main.tsx decides which provider to mount once,
+// synchronously, at the very start of a load by reading these keys, and never
+// re-evaluates that decision after mount (see the note on startDemoSession
+// above, which forces a full navigation for the same reason, in the other
+// direction). A client-side route change would leave DemoDataProvider mounted,
+// so a demo session could "reach" /login and still be running entirely inside
+// the demo provider, where resolveRealSession() is a no-op and a real login
+// attempt silently does nothing. Only a genuine reload makes main.tsx run its
+// decision again and pick the real DataProvider.
+//
+// Keys are cleared in a fixed order - database, then session, then guide -
+// before the navigation is attempted.
+function clearDemoStorageAndNavigate(targetRoute: string) {
+  try { sessionStorage.removeItem(DEMO_STORAGE_KEY) } catch { /* ignore */ }
+  try { sessionStorage.removeItem(DEMO_SESSION_KEY) } catch { /* ignore */ }
+  clearGuideState()
+  window.location.href = targetRoute
+}
+
+// Genuinely exit the demo: clear all demo storage and full-navigate to the
+// real /login, so main.tsx mounts the real DataProvider on the next load.
+// This exists because the old demo logout() only cleared the session role and
+// never forced a reload, so "leaving" the demo never actually left it.
+export function exitDemo() {
+  clearDemoStorageAndNavigate('/login')
+}
+
+// Restart the demo: clear all demo storage and full-navigate back to /demo,
+// the picker, landing clean. Deliberately does not try to preserve the
+// current role or route - a restart always goes back to a fresh picker. Same
+// clear-and-navigate mechanism as exitDemo, only the destination differs.
+export function restartDemo() {
+  clearDemoStorageAndNavigate('/demo')
 }
 
 export function isDemoSessionActive(): boolean {

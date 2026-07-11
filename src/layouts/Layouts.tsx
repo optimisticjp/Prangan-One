@@ -186,11 +186,27 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
             <DemoRoleSwitcher />
           </div>
         )}
-        <Link to={session.isRealSession ? '/login' : '/demo'} onClick={logout}
-          className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
-          {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
-          {session.isRealSession ? 'લોગ આઉટ' : 'ડેમો છોડો'}
-        </Link>
+        {session.isRealSession ? (
+          <Link to="/login" onClick={logout}
+            className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
+            <LogOut size={17} /> લોગ આઉટ
+          </Link>
+        ) : (
+          // "Leave demo" goes back to the demo picker, NOT the real login -
+          // the picker is where you pick another role or a fresh journey, and
+          // dropping someone onto a real login screen from a button labeled
+          // "exit demo" is exactly the confusion this demo has avoided. A
+          // plain link to /demo plus logout() is all this needs: logout()
+          // clears only the session (an empty session), leaving the demo
+          // database fully intact, and staying inside the demo never changes
+          // which provider main.tsx mounted, so no reload and no data wipe
+          // are involved - coming back finds the same progress. Only the
+          // /demo page's own "real login" link ever goes to /login.
+          <Link to="/demo" onClick={logout}
+            className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
+            <ArrowLeftRight size={17} /> ડેમો છોડો
+          </Link>
+        )}
         <p className="text-center mt-3 flex items-center justify-center"><PoweredByPrangan dark /></p>
       </div>
     </>

@@ -50,10 +50,22 @@ export default function Profile() {
         <div className="text-[13.5px] text-navy-400 mt-1">{society.address} · મેન્ટેનન્સ દર મહિને ₹{society.maintenanceAmount}, તા. {society.dueDay} સુધીમાં</div>
       </Card>
 
-      <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav(session.isRealSession ? '/login' : '/demo') }}>
-        {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
-        {session.isRealSession ? 'લોગ આઉટ' : 'રોલ બદલો / બહાર નીકળો'}
-      </Button>
+      {session.isRealSession ? (
+        <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav('/login') }}>
+          <LogOut size={17} /> લોગ આઉટ
+        </Button>
+      ) : (
+        // "Leave demo" returns to the demo picker, not the real login - the
+        // picker is where you pick another role or journey. logout() clears
+        // only the session (an empty session), leaving the demo database
+        // fully intact, and nav('/demo') stays inside the same mounted demo
+        // provider, so no reload and no data wipe happen - coming back finds
+        // the same progress. Only the /demo page's own "real login" link ever
+        // goes to /login.
+        <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav('/demo') }}>
+          <ArrowLeftRight size={17} /> ડેમો છોડો
+        </Button>
+      )}
       <p className="text-center text-[12px] text-navy-300 mt-4">{society.name} · Prangan One દ્વારા સંચાલિત</p>
     </div>
   )
