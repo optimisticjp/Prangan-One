@@ -1,6 +1,8 @@
 /**
- * Whether the /demo page's role shortcuts (resident/admin/accountant/owner
- * buttons that log in with no password) are reachable at all. Split into
+ * Whether the /demo page's role shortcuts (resident/admin/accountant
+ * buttons that log in with no password) are reachable at all. The owner role
+ * was removed from the public demo, so it is deliberately not in that list.
+ * Split into
  * its own module, separate from Demo.tsx, specifically so tests can mock
  * just this one function (see src/pages/__tests__/Demo.test.tsx) instead
  * of needing to reset and re-import the entire app's module graph to make

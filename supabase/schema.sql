@@ -1,14 +1,16 @@
 -- =================================================================
 -- Prangan One - Supabase schema
 -- =================================================================
--- This is the real, currently-applied schema - not a target written in
--- advance. A local demo mode also exists in the app (see
--- src/lib/store.tsx) for exploring the UI without a Supabase project
--- connected, entirely separate from this, but every real session reads
--- and writes through what's defined here. See supabase/README.md for
--- setup and re-applying this after a change, and
--- supabase/tests/run-isolation-tests.sh for an automated, repeatable
--- check of the tenant isolation this schema actually provides.
+-- This is the canonical schema: the single fresh-install target, kept in
+-- step with the additive migrations under supabase/migrations/, not a
+-- snapshot of whatever is currently applied to the live production database
+-- (which this repo cannot see or verify - see PRODUCTION-RUNBOOK.md section
+-- 2). A local demo mode also exists in the app (see src/lib/store.tsx) for
+-- exploring the UI without a Supabase project connected, entirely separate
+-- from this, but every real session reads and writes through what's defined
+-- here. See supabase/README.md for setup and applying this to a fresh
+-- project, and supabase/tests/run-isolation-tests.sh for an automated,
+-- repeatable check of the tenant isolation this schema actually provides.
 --
 -- Design notes:
 --   - Every society-owned table carries society_id, so one Supabase

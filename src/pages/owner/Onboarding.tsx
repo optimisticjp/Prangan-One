@@ -20,16 +20,17 @@
  * createSociety() calls setOwnerWorkingSociety(), not enterSociety() -
  * this matters, and was actually the site of a real, previously-unnoticed
  * bug. enterSociety() is built for a genuinely different job (an owner
- * temporarily impersonating a different role to help a society), and
- * deliberately flips the session to the local data layer while doing
- * that. Using it here meant every step of this wizard past society
- * creation was silently writing to the local layer only, regardless of
- * whether the owner's own session was real - a society could look fully
- * set up in the browser that built it while the real database only ever
- * received the bare society record from step 1. setOwnerWorkingSociety()
- * only changes which society the owner's own real writes are scoped to;
- * it never touches role or isRealSession, so a real owner stays exactly
- * as real for the whole wizard as they were before starting it.
+ * entering read-only "view as" support mode for a society), so it changes
+ * the acting context rather than just re-scoping the owner's own writes.
+ * Using it here meant every step of this wizard past society creation ran
+ * in that support context instead of as the owner's own real writes - at
+ * the time that silently left the wizard's later steps off the real
+ * backend, so a society could look fully set up in the browser that built
+ * it while the real database only ever received the bare society record
+ * from step 1. setOwnerWorkingSociety() only changes which society the
+ * owner's own real writes are scoped to; it never touches role, support
+ * mode, or isRealSession, so a real owner stays exactly as real for the
+ * whole wizard as they were before starting it.
  *
  * trialStartedAt is deliberately NOT set when the society is created - see
  * the comment on activateSociety in store.tsx. A society sitting mid-wizard

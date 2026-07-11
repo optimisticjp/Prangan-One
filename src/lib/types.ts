@@ -154,16 +154,17 @@ export interface PublicLead {
   createdAt: string
 }
 
-// Every owner "view as" / impersonation session gets one row. Read-only
-// entry and any escalation to a write-capable session both get logged,
-// per the roadmap's non-negotiable on this.
+// Every owner "view as" support session gets one row. Support is read-only
+// now; the 'write' mode below is retained only so historical rows (including
+// real write-mode ones from before write mode was removed from the product)
+// stay valid and readable - no new write session can be created.
 export interface ImpersonationLog {
   id: string; societyId: string; enteredAt: string; mode: 'readonly' | 'write'
   exitedAt?: string
-  // Required for write-mode entries - readonly "just looking" entries can
-  // skip it, but taking real action on a society's behalf needs a stated
-  // reason, shown back to the owner in the activity log and in the
-  // persistent support-mode banner while it's active.
+  // The stated reason for the session, shown back to the owner in the
+  // activity log and in the persistent support-mode banner while it's
+  // active. Optional: readonly "just looking" entries and older historical
+  // rows may carry none.
   reason?: string
 }
 /**
@@ -343,10 +344,13 @@ export interface DB {
 // which the product's own hard separation requirement rules out entirely.
 export interface Session {
   role: Role | null; flatId: string | null; societyId: string; explicitSociety: boolean; actingAsOwner: boolean; isRealSession: boolean
-  // Which mode an owner's support session is actually in. Previously
-  // enterSociety() took a mode argument and only logged it - canWriteNow
-  // never checked it, so "read-only" support was a banner and a label
-  // with nothing behind it; the owner could write regardless of which
-  // mode they picked. Undefined outside of actingAsOwner sessions.
-  supportMode?: 'readonly' | 'write'
+  // The mode a live owner support session is in. Only 'readonly' now: the
+  // write-capable variant was removed from the product, and the database
+  // trigger forces every new session to readonly, so no live session can
+  // ever be anything else - the type says so rather than still offering a
+  // 'write' a real session can never hold. (ImpersonationLog.mode keeps the
+  // 'readonly' | 'write' union on purpose - it has to represent historical
+  // rows, including real write-mode ones from before the removal.) Undefined
+  // outside of actingAsOwner sessions.
+  supportMode?: 'readonly'
 }

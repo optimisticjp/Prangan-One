@@ -653,5 +653,210 @@ begin
   raise notice 'PASS: a historical mode=write session row is still valid and readable, the fix constrains only new sessions';
 end $$;
 
+-- ============================================================================
+-- (13) The three atomic payment RPCs themselves, under a real support session.
+--
+-- record_payment_atomic / confirm_pending_payment_atomic / cancel_receipt_atomic
+-- are what the app actually calls for every payment, not raw table writes. The
+-- rest of this suite proved the payments/bills tables carry the owner guard,
+-- and proved these functions are correct for receipt numbering; it never called
+-- them while a support session was active. They are security invoker, so the
+-- insert/update inside each is meant to be re-checked against payments_insert /
+-- payments_update / bills_update - but "meant to" is an inference until the real
+-- call path is exercised. This section exercises it, before/during/after a
+-- genuine session opened through the real open_support_session RPC, with real,
+-- valid arguments (the same shapes the before-checks pass with, so a block here
+-- is the guard doing its job, not an argument error).
+--
+-- Two genuinely different shapes, asserted for what actually matters on purpose:
+--   - record_payment_atomic INSERTs, so a blocked owner call RAISES (the new row
+--     violates payments_insert) and "blocked" means the call errors.
+--   - confirm_/cancel_ first SELECT ... FOR UPDATE the target row, and a locking
+--     select applies payments_update's USING as well, so the guarded row is not
+--     even lockable by the owner and the function fails closed ("payment not
+--     found"). Rather than pin the exact refusal mechanism, each confirm_/cancel_
+--     check attempts the call, tolerates however it is refused, and then asserts
+--     the invariant that truly matters: the underlying payment did not move
+--     (still pending / still not cancelled). The after-phase runs the identical
+--     call once the session is closed and it succeeds - that is what proves a
+--     during-block is the support guard, not a malformed argument.
+-- ============================================================================
+
+-- Clean slate: drop the aged-out session phase 11 left in place, so "before" is
+-- a genuinely session-free state for the owner on Society A.
+reset session authorization;
+delete from impersonation_logs where society_id = 'a0000000-0000-0000-0000-000000000001' and exited_at is null;
+
+-- Real rows to act on, created the realistic way: Society A's own committee
+-- member records the pending payments and the to-be-cancelled receipts, Society
+-- B's own admin does the same for B. Recording these successfully with no
+-- session active is itself the "before" proof that these functions work
+-- normally for real management - the during-checks below are the contrast.
+set role authenticated;
+select test_become('00000000-0000-0000-0000-0000000000a1'); -- committee member, Society A
+do $$
+begin
+  -- pending payments for the confirm checks
+  perform record_payment_atomic('0a1c0000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 400, 'upi', null, null, 'pending_confirmation');
+  perform record_payment_atomic('0a1c0000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 450, 'upi', null, null, 'pending_confirmation');
+  -- confirmed receipts for the cancel checks (record pending, then confirm, so a
+  -- real receipt genuinely exists before anyone tries to cancel it)
+  perform record_payment_atomic('0a1d0000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 500, 'upi', null, null, 'pending_confirmation');
+  perform confirm_pending_payment_atomic('0a1d0000-0000-0000-0000-000000000001');
+  perform record_payment_atomic('0a1d0000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 550, 'upi', null, null, 'pending_confirmation');
+  perform confirm_pending_payment_atomic('0a1d0000-0000-0000-0000-000000000002');
+  raise notice 'SETUP: Society A committee member created real pending payments and confirmed receipts via the atomic functions, with no session active (the before-state for these functions)';
+end $$;
+
+select test_become('00000000-0000-0000-0000-0000000000b1'); -- admin, Society B
+do $$
+begin
+  perform record_payment_atomic('0b1c0000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000201', null, current_date, 400, 'upi', null, null, 'pending_confirmation');
+  perform record_payment_atomic('0b1d0000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000201', null, current_date, 500, 'upi', null, null, 'pending_confirmation');
+  perform confirm_pending_payment_atomic('0b1d0000-0000-0000-0000-000000000003');
+  raise notice 'SETUP: Society B admin created its own pending payment and confirmed receipt, for the per-society during-checks';
+end $$;
+
+-- BEFORE (record_payment_atomic): with no session, the owner can record a
+-- payment through the real function, valid args, receipt allocated.
+select test_become('00000000-0000-0000-0000-00000000000f'); -- owner
+do $$
+declare v jsonb;
+begin
+  v := record_payment_atomic(gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 300, 'cash', null, null, 'success');
+  if v->>'receipt_no' is null then
+    raise exception 'FAIL: record_payment_atomic did not allocate a receipt for the owner before any session - the before-state must genuinely work, or the during-block below proves nothing';
+  end if;
+  raise notice 'PASS: before any support session, the owner records a payment through record_payment_atomic and gets a real receipt (%)', v->>'receipt_no';
+end $$;
+
+-- Open the session the REAL way, the same RPC the app calls.
+select test_become('00000000-0000-0000-0000-00000000000f');
+do $$
+declare v_log impersonation_logs;
+begin
+  v_log := open_support_session('a0000000-0000-0000-0000-000000000001', 'reviewing payments, atomic-function checks');
+  perform set_config('test.atomic_support_log_id', v_log.id::text, false);
+  raise notice 'SETUP: owner opened a real readonly support session for Society A, for the atomic-function during-checks';
+end $$;
+
+-- DURING (record_payment_atomic): the owner's insert is refused. record INSERTs,
+-- so this genuinely raises, exactly as the raw payments_insert did earlier.
+do $$
+begin
+  perform record_payment_atomic(gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 300, 'cash', null, null, 'success');
+  raise exception 'FAIL: record_payment_atomic let the owner record a payment during a readonly support session - the security-invoker function did not inherit payments_insert''s owner guard';
+exception
+  when insufficient_privilege then
+    raise notice 'PASS: record_payment_atomic refuses the owner during a readonly support session (payments_insert raises on the blocked row), same as the raw insert';
+end $$;
+
+-- DURING (confirm_pending_payment_atomic): the owner is refused. The refusal
+-- surfaces as the function failing closed (the row is not lockable, so it raises
+-- "payment not found"); the invariant we actually assert is the payment itself -
+-- it must stay pending. The nested block tolerates however the refusal arrives.
+do $$
+declare v_status text;
+begin
+  begin
+    perform confirm_pending_payment_atomic('0a1c0000-0000-0000-0000-000000000001');
+  exception when others then null; -- refused; the real proof is the row state below
+  end;
+  select status into v_status from payments where id = '0a1c0000-0000-0000-0000-000000000001';
+  if v_status is distinct from 'pending_confirmation' then
+    raise exception 'FAIL: confirm_pending_payment_atomic moved a payment (status now %) during a readonly support session - the owner guard did not reach the real function''s call path', v_status;
+  end if;
+  raise notice 'PASS: confirm_pending_payment_atomic leaves the payment genuinely pending during a readonly support session - the guarded row is not confirmable by the owner';
+end $$;
+
+-- DURING (cancel_receipt_atomic): same, the receipt must stay not-cancelled.
+do $$
+declare v_cancelled boolean;
+begin
+  begin
+    perform cancel_receipt_atomic('0a1d0000-0000-0000-0000-000000000001', 'owner should not be able to do this mid-support');
+  exception when others then null; -- refused; the real proof is the row state below
+  end;
+  select cancelled into v_cancelled from payments where id = '0a1d0000-0000-0000-0000-000000000001';
+  if v_cancelled is distinct from false then
+    raise exception 'FAIL: cancel_receipt_atomic reversed a receipt (cancelled=%) during a readonly support session - the owner guard did not reach the real function''s call path', v_cancelled;
+  end if;
+  raise notice 'PASS: cancel_receipt_atomic leaves the receipt genuinely un-cancelled during a readonly support session - the guarded row is not cancellable by the owner';
+end $$;
+
+-- DURING, per-society: the session is for Society A only, so the owner can still
+-- confirm and cancel Society B's own rows - the atomic guard is per-society.
+do $$
+declare v_status text; v_cancelled boolean;
+begin
+  perform confirm_pending_payment_atomic('0b1c0000-0000-0000-0000-000000000003');
+  select status into v_status from payments where id = '0b1c0000-0000-0000-0000-000000000003';
+  if v_status <> 'success' then
+    raise exception 'FAIL: a Society A support session also blocked the owner from confirming Society B''s payment (status %) - the atomic guard must be per-society', v_status;
+  end if;
+  perform cancel_receipt_atomic('0b1d0000-0000-0000-0000-000000000003', 'per-society check');
+  select cancelled into v_cancelled from payments where id = '0b1d0000-0000-0000-0000-000000000003';
+  if not v_cancelled then
+    raise exception 'FAIL: a Society A support session also blocked the owner from cancelling Society B''s receipt - the atomic guard must be per-society';
+  end if;
+  raise notice 'PASS: a Society A support session leaves the owner free to confirm and cancel Society B''s own rows through the atomic functions - per-society, not global';
+end $$;
+
+-- DURING, non-owner unaffected: Society A's own committee member can still
+-- confirm and cancel A's rows during the owner's session - the guard is owner-only.
+select test_become('00000000-0000-0000-0000-0000000000a1'); -- committee member, Society A
+do $$
+declare v_status text; v_cancelled boolean;
+begin
+  perform confirm_pending_payment_atomic('0a1c0000-0000-0000-0000-000000000002');
+  select status into v_status from payments where id = '0a1c0000-0000-0000-0000-000000000002';
+  if v_status <> 'success' then
+    raise exception 'FAIL: Society A''s own committee member could not confirm a payment during the owner''s support session (status %) - the guard must apply only to the owner', v_status;
+  end if;
+  perform cancel_receipt_atomic('0a1d0000-0000-0000-0000-000000000002', 'committee cancels its own receipt, unaffected by owner session');
+  select cancelled into v_cancelled from payments where id = '0a1d0000-0000-0000-0000-000000000002';
+  if not v_cancelled then
+    raise exception 'FAIL: Society A''s own committee member could not cancel a receipt during the owner''s support session - the guard must apply only to the owner';
+  end if;
+  raise notice 'PASS: Society A''s own committee member confirms and cancels normally during the owner''s support session - the atomic guard is owner-only, it does not leak onto real management';
+end $$;
+
+-- Close the session the REAL way.
+select test_become('00000000-0000-0000-0000-00000000000f');
+do $$
+declare v_closed impersonation_logs;
+begin
+  v_closed := close_support_session(current_setting('test.atomic_support_log_id')::uuid);
+  if v_closed.exited_at is null then
+    raise exception 'FAIL: could not close the atomic-function support session for the after-checks';
+  end if;
+  raise notice 'SETUP: owner exited the support session for the atomic-function after-checks';
+end $$;
+
+-- AFTER: with the session genuinely exited, every atomic function works for the
+-- owner again on the exact rows blocked moments ago.
+do $$
+declare v jsonb; v_status text; v_cancelled boolean;
+begin
+  v := record_payment_atomic(gen_random_uuid(), 'a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000101', null, current_date, 300, 'cash', null, null, 'success');
+  if v->>'receipt_no' is null then
+    raise exception 'FAIL: after exiting support, record_payment_atomic still would not record for the owner - the guard must only apply while the session is active';
+  end if;
+
+  perform confirm_pending_payment_atomic('0a1c0000-0000-0000-0000-000000000001');
+  select status into v_status from payments where id = '0a1c0000-0000-0000-0000-000000000001';
+  if v_status <> 'success' then
+    raise exception 'FAIL: after exiting support, the owner still could not confirm the previously-blocked payment (status %)', v_status;
+  end if;
+
+  perform cancel_receipt_atomic('0a1d0000-0000-0000-0000-000000000001', 'owner cancels after exiting support');
+  select cancelled into v_cancelled from payments where id = '0a1d0000-0000-0000-0000-000000000001';
+  if not v_cancelled then
+    raise exception 'FAIL: after exiting support, the owner still could not cancel the previously-blocked receipt';
+  end if;
+
+  raise notice 'PASS: after a real exit, record_payment_atomic, confirm_pending_payment_atomic, and cancel_receipt_atomic all work for the owner again on the exact rows they were blocked on - the guard applied only during the session';
+end $$;
+
 \echo ''
 \echo 'All isolation tests completed successfully.'
