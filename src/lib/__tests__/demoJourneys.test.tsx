@@ -128,15 +128,22 @@ describe('the same journey\u2019s key steps, through the actual, real page compo
     const { default: Payments } = await import('../../pages/admin/Payments')
     render(<MemoryRouter><Provider><Payments /></Provider></MemoryRouter>)
 
+    // The pending-verification queue can legitimately hold more than one claim
+    // at once now - the seed ships a separate resident's pending UPI claim too,
+    // realistic disorder a demo should show - so scope to THIS journey flat's
+    // own row before finding its confirm button, rather than the whole queue,
+    // which would match every claim's button. Same intent as before, just
+    // correctly targeted at flat 101's row.
     const queue = await screen.findByText('રહેવાસીએ "મેં ચૂકવ્યું" કહ્યું છે, પુષ્ટિ બાકી')
     const queueCard = queue.closest('div')!
-    expect(within(queueCard).getByText(overdueFlat.number, { exact: false })).toBeInTheDocument()
-
-    const confirmButton = within(queueCard).getByText('પુષ્ટિ કરો')
+    const flatRow = within(queueCard).getByText(overdueFlat.number, { exact: false }).closest('.flex') as HTMLElement
+    const confirmButton = within(flatRow).getByText('પુષ્ટિ કરો')
     act(() => { fireEvent.click(confirmButton) })
 
-    // confirmed - the pending-verification card for this flat is gone now
-    expect(within(queueCard).queryByText(overdueFlat.number, { exact: false })).not.toBeInTheDocument()
+    // confirmed - this flat's own pending row is gone now (the other
+    // resident's separate claim genuinely remains, untouched)
+    const queueAfter = screen.getByText('રહેવાસીએ "મેં ચૂકવ્યું" કહ્યું છે, પુષ્ટિ બાકી').closest('div')!
+    expect(within(queueAfter).queryByText(overdueFlat.number, { exact: false })).not.toBeInTheDocument()
   })
 })
 
