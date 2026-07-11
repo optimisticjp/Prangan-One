@@ -140,25 +140,51 @@ describe('the same journey\u2019s key steps, through the actual, real page compo
   })
 })
 
-describe('the "exit demo" link in the admin layout points to the demo picker, not the real login screen - a real bug found and fixed in an earlier build in this same plan', () => {
-  it('for a demo session, the link genuinely goes to /demo, not /login', async () => {
+describe('the admin layout "exit demo" control genuinely exits the demo, a full navigation to the real login, not a client-side route change that would leave the demo provider mounted', () => {
+  it('clicking it clears the demo session storage and does a full navigation to /login', async () => {
     const { Shell } = await import('../../layouts/Layouts')
     const { Routes, Route } = await import('react-router-dom')
 
-    render(
-      <MemoryRouter initialEntries={['/admin']}>
-        <DemoDataProvider>
-          <Routes>
-            <Route path="/admin" element={<Shell items={[]} title="Test" />}>
-              <Route index element={<div>admin home</div>} />
-            </Route>
-          </Routes>
-        </DemoDataProvider>
-      </MemoryRouter>,
-    )
+    // A demo session genuinely present in storage, so we can prove exit
+    // clears it. main.tsx reads exactly the session key to pick the provider.
+    sessionStorage.setItem('prangan_demo_v1_db', '{}')
+    sessionStorage.setItem('prangan_demo_v1_session', '{"role":"society_admin","flatId":null}')
+    sessionStorage.setItem('prangan_demo_v1_guide', '{"journey":"payment"}')
 
-    const switchLink = await screen.findByText('ડેમો છોડો')
-    expect(switchLink.closest('a')).toHaveAttribute('href', '/demo')
+    // JSDOM can't perform a real navigation, so window.location is stubbed to
+    // capture the href exitDemo sets. That is what proves this is a full
+    // navigation (window.location.href), not a client-side <Link> to /demo.
+    const originalLocation = window.location
+    // @ts-expect-error jsdom's window.location isn't normally reassignable
+    delete window.location
+    // @ts-expect-error see above
+    window.location = { href: '' }
+    try {
+      render(
+        <MemoryRouter initialEntries={['/admin']}>
+          <DemoDataProvider>
+            <Routes>
+              <Route path="/admin" element={<Shell items={[]} title="Test" />}>
+                <Route index element={<div>admin home</div>} />
+              </Route>
+            </Routes>
+          </DemoDataProvider>
+        </MemoryRouter>,
+      )
+
+      const exitControl = await screen.findByText('ડેમો છોડો')
+      // It is no longer an anchor to /demo - it's a real exit, not a route change.
+      expect(exitControl.closest('a')).toBeNull()
+      fireEvent.click(exitControl)
+
+      expect(window.location.href).toBe('/login')
+      expect(sessionStorage.getItem('prangan_demo_v1_session')).toBeNull()
+      expect(sessionStorage.getItem('prangan_demo_v1_db')).toBeNull()
+      expect(sessionStorage.getItem('prangan_demo_v1_guide')).toBeNull()
+    } finally {
+      // @ts-expect-error restore the real location object for other tests
+      window.location = originalLocation
+    }
   })
 })
 

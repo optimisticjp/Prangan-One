@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeftRight, LogOut, Building2 } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { exitDemo } from '../../lib/demoStore'
 import { Badge, Button, Card, PageHeader } from '../../components/ui'
 import { SetPasswordCard } from '../../components/SetPasswordCard'
 
@@ -50,10 +51,19 @@ export default function Profile() {
         <div className="text-[13.5px] text-navy-400 mt-1">{society.address} · મેન્ટેનન્સ દર મહિને ₹{society.maintenanceAmount}, તા. {society.dueDay} સુધીમાં</div>
       </Card>
 
-      <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav(session.isRealSession ? '/login' : '/demo') }}>
-        {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
-        {session.isRealSession ? 'લોગ આઉટ' : 'રોલ બદલો / બહાર નીકળો'}
-      </Button>
+      {session.isRealSession ? (
+        <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav('/login') }}>
+          <LogOut size={17} /> લોગ આઉટ
+        </Button>
+      ) : (
+        // exitDemo does a full reload to /login (clearing all demo storage) so
+        // the real DataProvider takes over - a client-side nav would leave the
+        // demo provider mounted. Switching roles inside the demo is the
+        // top-bar dropdown's job; this button is a genuine exit.
+        <Button variant="soft" full className="mt-4" onClick={exitDemo}>
+          <ArrowLeftRight size={17} /> ડેમો છોડો
+        </Button>
+      )}
       <p className="text-center text-[12px] text-navy-300 mt-4">{society.name} · Prangan One દ્વારા સંચાલિત</p>
     </div>
   )

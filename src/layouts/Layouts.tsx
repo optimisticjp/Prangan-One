@@ -3,6 +3,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom'
 import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, LogOut, ShieldAlert, Loader2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useData } from '../lib/store'
+import { exitDemo } from '../lib/demoStore'
 import { DemoRoleSwitcher } from '../components/DemoRoleSwitcher'
 import { useDialogA11y } from '../lib/useDialogA11y'
 import { SocietyLogo } from '../components/SocietyLogo'
@@ -186,11 +187,22 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
             <DemoRoleSwitcher />
           </div>
         )}
-        <Link to={session.isRealSession ? '/login' : '/demo'} onClick={logout}
-          className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
-          {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
-          {session.isRealSession ? 'લોગ આઉટ' : 'ડેમો છોડો'}
-        </Link>
+        {session.isRealSession ? (
+          <Link to="/login" onClick={logout}
+            className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
+            <LogOut size={17} /> લોગ આઉટ
+          </Link>
+        ) : (
+          // exitDemo, not a client-side nav to /demo: it clears all demo
+          // storage and does a full reload to /login, so the real DataProvider
+          // actually takes over. A plain link here would leave DemoDataProvider
+          // mounted, which is exactly how a "left" demo session could still be
+          // running inside the demo provider on the real login screen.
+          <button onClick={exitDemo}
+            className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
+            <ArrowLeftRight size={17} /> ડેમો છોડો
+          </button>
+        )}
         <p className="text-center mt-3 flex items-center justify-center"><PoweredByPrangan dark /></p>
       </div>
     </>
