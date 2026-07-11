@@ -2,6 +2,7 @@ import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { AlertOctagon, RotateCcw } from 'lucide-react'
 import { PranganBrand } from './PranganBrand'
+import { reportError } from '../lib/monitoring'
 
 interface State { hasError: boolean; message?: string }
 
@@ -20,6 +21,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     // eslint-disable-next-line no-console
     console.error('Prangan One render error:', error, info.componentStack)
+    reportError(error, { componentStack: info.componentStack, boundary: 'root' })
   }
 
   render() {

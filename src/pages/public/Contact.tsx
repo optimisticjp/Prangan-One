@@ -4,6 +4,7 @@ import { PublicLayout } from './PublicLayout'
 import { usePublicLang } from './usePublicLang'
 import { usePageMeta } from './usePageMeta'
 import { useData } from '../../lib/store'
+import { reportError } from '../../lib/monitoring'
 import { submitLeadToFormspree } from '../../lib/formspree'
 import { submitPublicLeadToSupabase } from '../../lib/leads'
 
@@ -69,15 +70,19 @@ export default function Contact() {
       addLead(payload) // kept locally too, so the demo/local owner console still shows it
       try {
         await submitPublicLeadToSupabase(payload) // the real, shared record - what the owner console reads when configured, see Leads.tsx
-      } catch {
+      } catch (err) {
         // Formspree already delivered the email successfully at this point,
         // the actual inquiry reached us either way - don't tell someone
         // their message failed just because this second, additional write
-        // didn't land. Nothing else useful to do with this failure from
-        // here, there's no in-app error reporting wired up yet.
+        // didn't land. Report it so we know the shared record is dropping,
+        // but deliberately do not surface an error to the user here.
+        reportError(err, { where: 'contact_supabase_lead' })
       }
       setSent(true)
-    } catch {
+    } catch (err) {
+      // The primary path (Formspree) failed - the user genuinely didn't get
+      // through, so they see the error, and we get told the primary path is down.
+      reportError(err, { where: 'contact_formspree' })
       setError(true)
     } finally {
       setSending(false)

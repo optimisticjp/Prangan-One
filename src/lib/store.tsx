@@ -58,6 +58,7 @@ import { Ctx, useData, type Store, type NewSocietyInput } from './storeContext'
 export { useData }
 export type { Store }
 import { supabase, supabaseConfigured } from './supabase'
+import { reportError } from './monitoring'
 import {
   billStatus, flatAdjustmentNet,
   flatPending as sharedFlatPending, totalPending as sharedTotalPending,
@@ -305,7 +306,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setDb(d => (d.pendingSync.some(p => p.id === id) ? { ...d, pendingSync: d.pendingSync.filter(p => p.id !== id) } : d))
       })
       .catch(() => {
+        // Report ONLY the terminal failure - the first time this write is
+        // marked as a sync failure - not each transient retry. failedWriteRetries
+        // still holding this id means it already failed and this is a re-attempt,
+        // so it's already been reported; the .then success path clears it, which
+        // re-arms reporting for a genuinely new failure of the same id later.
+        // Context is intentionally PII-free: the operation kind and society id
+        // only, never the payload (bill/payment/complaint contents, names, phones).
+        const alreadyFailing = failedWriteRetries.current.has(id)
         failedWriteRetries.current.set(id, () => attemptRealWrite(id, label, writeFn, kind, context))
+        if (!alreadyFailing) reportError(new Error(`real write failed: ${kind}`), { op: kind, societyId: activeSocietyId })
         setDb(d => (d.pendingSync.some(p => p.id === id) ? d : { ...d, pendingSync: [...d.pendingSync, { id, label, kind, context }] }))
       })
   }
