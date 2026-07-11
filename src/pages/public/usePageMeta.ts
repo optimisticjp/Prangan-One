@@ -17,6 +17,11 @@ function setMeta(name: string, content: string, isProperty = false) {
  * behind auth and are marked noindex separately (see index.html and
  * public/robots.txt for the app-route exclusion).
  */
+// Same absolute image the static shells (index.html + the build-time
+// scripts/generate-seo-html.mjs step) reference, so an in-app navigation never
+// leaves a stale or relative image behind.
+const OG_IMAGE = 'https://pranganone.com/og-image.png'
+
 export function usePageMeta(title: string, description: string) {
   useEffect(() => {
     const fullTitle = `${title} | Prangan One`
@@ -26,6 +31,15 @@ export function usePageMeta(title: string, description: string) {
     setMeta('og:description', description, true)
     setMeta('og:type', 'website', true)
     setMeta('og:site_name', 'Prangan One', true)
+    // Keep the OG/Twitter card tags consistent across in-app navigation, the
+    // same way the pre-generated static shells set them, so a link copied from
+    // inside the running app previews correctly too.
+    setMeta('og:url', window.location.origin + window.location.pathname, true)
+    setMeta('og:image', OG_IMAGE, true)
+    setMeta('twitter:card', 'summary_large_image')
+    setMeta('twitter:title', fullTitle)
+    setMeta('twitter:description', description)
+    setMeta('twitter:image', OG_IMAGE)
     // index.html defaults to noindex for the whole app (it sits behind
     // auth); public pages are the exception and should be crawlable.
     setMeta('robots', 'index, follow')

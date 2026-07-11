@@ -1,0 +1,6 @@
+# SPA deep-link fallback for Cloudflare Pages. Cloudflare serves an existing
+# static file before applying this catch-all, so the crawlable public shells the
+# build generates (dist/index.html, dist/pricing/index.html, dist/features/...,
+# etc.) are served as-is, while any other deep link (/admin, /app, /owner,
+# /s/:slug, ...) falls back to the SPA shell so client-side routing can take over.
+/*  /index.html  200
