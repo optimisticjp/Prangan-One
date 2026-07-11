@@ -97,9 +97,10 @@ describe('dataHealth.offline is wired to the browser, not inferred from a failed
   it('flips with the window online/offline events', async () => {
     const { useData } = await import('../store')
     const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
-    act(() => {
+    await act(async () => {
       result.current.resolveRealSession({ role: 'society_admin', societyId: 'soc_rajhans', flatId: null })
     })
+    await settle() // the real session kicks off the fetch effect; settle its async inside act
 
     expect(result.current.dataHealth?.offline).toBe(false)
     act(() => { window.dispatchEvent(new Event('offline')) })
@@ -113,9 +114,10 @@ describe('dataHealth.pendingWriteCount reuses the existing failed-write queue', 
   it('is exactly the length of failedWrites, the same pendingSync source, not a separate count', async () => {
     const { useData } = await import('../store')
     const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
-    act(() => {
+    await act(async () => {
       result.current.resolveRealSession({ role: 'society_admin', societyId: 'soc_rajhans', flatId: null })
     })
+    await settle() // the real session kicks off the fetch effect; settle its async inside act
     // Both read from db.pendingSync, so they agree by construction - this
     // guards against anyone later adding a second, separate counter.
     expect(result.current.dataHealth?.pendingWriteCount).toBe(result.current.failedWrites.length)

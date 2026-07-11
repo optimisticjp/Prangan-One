@@ -215,3 +215,18 @@ Every one of these advisories is against the Vite/esbuild dev server or a Window
 The only fix `npm audit` offers is `vite@8.1.4`, a breaking major upgrade from the current `vite@5.x`. `npm audit fix` without `--force` resolves neither finding - `5.4.21` is already the latest 5.x, and no 5.x patch addresses these, so there is no safe in-range upgrade to take. A major Vite bump is a real build-tooling change with its own regression surface, not a documentation-and-config change, and it is not warranted by a set of dev-server-only issues that cannot reach the deployed build. Left deliberately at `vite@5.4.21` for now; revisit as a dedicated, tested upgrade when the app next takes a planned Vite major for other reasons, or if Vite backports a fix to the 5.x line.
 
 **Do not report this as clean:** until that upgrade happens, `npm audit` will keep showing these 2 findings. That is expected and understood, written down here on purpose so a future reader does not mistake the standing count for a new regression, or force-upgrade Vite in a hurry as though it were a one-line dependency fix rather than the real, tested change it actually is.
+
+## 21. Vite / Vitest version mismatch (test tooling only)
+
+Every test run prints a couple of warnings that look alarming but are not:
+
+```
+[vite] warning: `esbuild` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `oxc` instead.
+[vite] warning: `optimizeDeps.esbuildOptions` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `optimizeDeps.rolldownOptions` instead.
+```
+
+**Where they come from, exactly.** The app's own build tool is Vite 5 (`vite@^5.4.11` in `package.json`, currently resolving to `5.4.21`). Vitest 4 (`vitest@^4.1.9`) bundles its own, newer Vite internally (Vite 8.1.x, with esbuild 0.28.x) to transform and run the tests - it does not use the app's Vite 5. That newer Vite has moved from esbuild to oxc/rolldown, while `@vitejs/plugin-react` still passes it esbuild-style options, and the newer Vite prints the deprecation notice above. So the warning is Vitest's internal Vite talking to the React plugin, during `vitest run`, and nowhere else.
+
+**Why it does not matter for production.** The deployed artifact is built by `npm run build`, which uses the app's own Vite 5 - the warnings do not appear there, and the mismatch has no effect on the produced `dist/` bundle or on anything running in a browser. It is confined entirely to the test toolchain: a cosmetic deprecation notice, not a build error, not a runtime issue, not a security finding (the security posture of these packages is covered separately in section 20).
+
+**The plan, deliberately not now.** Aligning the two - either moving the app itself to a Vite major that matches Vitest's, or pinning Vitest to a build on Vite 5 - is real, but it is a build-tooling change with its own regression surface, exactly the kind of thing not worth doing in a hurry right before real societies onboard. It is scheduled, intentional maintenance for a quieter moment, not an emergency, and until then the warnings are expected and can be ignored. When it is done, do it as its own change with a full test run and a production build check, not folded into unrelated work.

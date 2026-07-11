@@ -9,6 +9,15 @@ function setup() {
   return result
 }
 
+// A write made during a real session kicks off attemptRealWrite's async
+// .then/.catch (see store.tsx), which resolves a microtask later. Awaiting
+// this inside act keeps that follow-up state update wrapped, instead of it
+// landing after the test's own synchronous act() and tripping a React
+// "not wrapped in act(...)" warning.
+async function flush() {
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+}
+
 afterEach(() => {
   localStorage.clear()
 })
@@ -56,7 +65,7 @@ describe('logout clears real session financial data (previously it never did)', 
     expect(result.current.db.flats.length).toBe(before)
   })
 
-  it('a real session\u2019s fetched-society data is cleared on logout, not left cached', () => {
+  it('a real session\u2019s fetched-society data is cleared on logout, not left cached', async () => {
     const result = setup()
     act(() => {
       result.current.resolveRealSession({ role: 'resident_owner', societyId: 'soc_rajhans', flatId: 'flat_101' })
@@ -64,6 +73,7 @@ describe('logout clears real session financial data (previously it never did)', 
     expect(result.current.session.isRealSession).toBe(true)
 
     act(() => { result.current.addFlat({ number: '888', floor: 8, ownerName: 'Real Session Flat', phone: '1', occupancy: 'owner', sqft: 500 }) })
+    await flush() // let the real-session write's async attempt settle inside act
     act(() => { result.current.logout() })
 
     // re-enter the same society locally afterward and confirm the flat
@@ -72,7 +82,7 @@ describe('logout clears real session financial data (previously it never did)', 
     expect(result.current.db.flats.some(f => f.number === '888')).toBe(false)
   })
 
-  it('clears fields well beyond the original four - a real gap an external audit caught, since every module added since only ever got wired into fetching, never into logout cleanup', () => {
+  it('clears fields well beyond the original four - a real gap an external audit caught, since every module added since only ever got wired into fetching, never into logout cleanup', async () => {
     const result = setup()
     act(() => {
       result.current.resolveRealSession({ role: 'resident_owner', societyId: 'soc_rajhans', flatId: 'flat_101' })
@@ -85,6 +95,7 @@ describe('logout clears real session financial data (previously it never did)', 
       result.current.addComplaint({ flatId: 'flat_101', category: 'Leak', title: 'Audit test complaint', detail: '', priority: 'normal' })
       result.current.addDocumentMeta({ name: 'Audit test doc', folder: 'General', permission: 'public', size: '1 KB' })
     })
+    await flush() // both real-session writes above settle their async attempt inside act
     expect(result.current.db.complaints.some(c => c.title === 'Audit test complaint')).toBe(true)
     expect(result.current.db.documents.some(d => d.name === 'Audit test doc')).toBe(true)
 
@@ -95,7 +106,7 @@ describe('logout clears real session financial data (previously it never did)', 
     expect(result.current.db.documents.some(d => d.name === 'Audit test doc')).toBe(false)
   })
 
-  it('a real owner session logging out clears platform-wide data too, not just one society\u2019s worth - societies, platform billing, and leads were never scoped to a single society in the first place, so a societyId filter could never have cleaned them up even before this fix', () => {
+  it('a real owner session logging out clears platform-wide data too, not just one society\u2019s worth - societies, platform billing, and leads were never scoped to a single society in the first place, so a societyId filter could never have cleaned them up even before this fix', async () => {
     const result = setup()
     act(() => {
       result.current.resolveRealSession({ role: 'owner', societyId: 'soc_rajhans', flatId: null })
@@ -108,6 +119,7 @@ describe('logout clears real session financial data (previously it never did)', 
         tenantAccess: 'full',
       })
     })
+    await flush() // the real-session addSociety settles its async attempt inside act
     expect(result.current.rawDb.societies.some(s => s.nameEn === 'Audit Test Society')).toBe(true)
 
     act(() => { result.current.logout() })

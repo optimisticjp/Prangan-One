@@ -168,16 +168,16 @@ interface Store {
   setActiveSocietyContext: (societyId: string) => void
   /**
    * Points a real owner's own session at a specific society, without
-   * touching role or isRealSession - unlike enterSociety, which is for
-   * temporarily impersonating a different role for support purposes and
-   * deliberately switches to the local data layer while doing that. This
-   * is for the owner's own onboarding wizard: the owner is still the
-   * owner, their session is still exactly as real as it was, only which
-   * society their own real writes are scoped to changes. Using
-   * enterSociety here instead was the actual root cause of a real bug -
-   * every onboarding step past society creation silently wrote to the
-   * local layer only, since enterSociety's whole purpose is flipping
-   * isRealSession off.
+   * touching role, support mode, or isRealSession - unlike enterSociety,
+   * which switches into read-only "view as" support mode (the owner acts as
+   * that society's admin, guarded read-only, though on real live data). This
+   * is for the owner's own onboarding wizard: the owner is still the owner,
+   * their session is still exactly as real as it was, only which society
+   * their own real writes are scoped to changes. Using enterSociety here
+   * instead was the actual root cause of a real bug - it puts the session
+   * into the support-mode acting context rather than just re-scoping the
+   * owner's own writes, which is not what onboarding a brand-new society
+   * needs.
    */
   setOwnerWorkingSociety: (societyId: string) => void
   /** Public lookup by join code (Google Classroom-style, entered at

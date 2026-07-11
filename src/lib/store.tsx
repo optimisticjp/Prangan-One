@@ -370,12 +370,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   )
   const activeSocietyId = activeSociety.id
 
-  // The first slice of the real (Supabase-backed) data layer: flats,
-  // bills, payments, adjustments - the core financial loop. Everything
-  // else (complaints, notices, documents, polls, events, vendors,
-  // parking, contacts) still runs on the local layer only, that's real
-  // future work, not done here. Strictly gated on isRealSession, not
-  // explicitSociety - see the comment on Session in types.ts for why that
+  // The real (Supabase-backed) per-society data bundle for a logged-in
+  // session: the financial core (flats, bills, payments, adjustments) plus
+  // complaints, notices, the society row, documents, memberships, vendors,
+  // vehicles (parking), contacts, polls, events, and expenses - every core
+  // module reads for real here now, not just the financial slice this
+  // started as (see the Promise.all below). Strictly gated on isRealSession,
+  // not explicitSociety - see the comment on Session in types.ts for why that
   // distinction matters: getting this gate wrong would mean demo and
   // production data mixing, which the product's own hard separation
   // requirement rules out entirely.
