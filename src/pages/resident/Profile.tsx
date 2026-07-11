@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeftRight, LogOut, Building2 } from 'lucide-react'
 import { useData } from '../../lib/store'
-import { exitDemo } from '../../lib/demoStore'
+import { restartDemo } from '../../lib/demoStore'
 import { Badge, Button, Card, PageHeader } from '../../components/ui'
 import { SetPasswordCard } from '../../components/SetPasswordCard'
 
@@ -56,11 +56,13 @@ export default function Profile() {
           <LogOut size={17} /> લોગ આઉટ
         </Button>
       ) : (
-        // exitDemo does a full reload to /login (clearing all demo storage) so
-        // the real DataProvider takes over - a client-side nav would leave the
-        // demo provider mounted. Switching roles inside the demo is the
-        // top-bar dropdown's job; this button is a genuine exit.
-        <Button variant="soft" full className="mt-4" onClick={exitDemo}>
+        // "Leave demo" returns to the demo picker, not the real login - the
+        // picker is where you pick another role or journey. It uses
+        // restartDemo's real full reload (the shared clear-and-navigate), so
+        // the demo provider genuinely unmounts rather than a client-side nav
+        // leaving it mounted. Only the /demo page's own "real login" link ever
+        // goes to /login.
+        <Button variant="soft" full className="mt-4" onClick={restartDemo}>
           <ArrowLeftRight size={17} /> ડેમો છોડો
         </Button>
       )}

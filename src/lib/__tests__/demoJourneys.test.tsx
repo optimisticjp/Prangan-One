@@ -140,20 +140,22 @@ describe('the same journey\u2019s key steps, through the actual, real page compo
   })
 })
 
-describe('the admin layout "exit demo" control genuinely exits the demo, a full navigation to the real login, not a client-side route change that would leave the demo provider mounted', () => {
-  it('clicking it clears the demo session storage and does a full navigation to /login', async () => {
+describe('the admin layout "exit demo" control returns to the demo picker, not the real login, via a genuine full reload rather than a client-side route change that would leave the demo provider mounted', () => {
+  it('clicking it clears all demo storage and does a full navigation back to /demo, not /login', async () => {
     const { Shell } = await import('../../layouts/Layouts')
     const { Routes, Route } = await import('react-router-dom')
 
-    // A demo session genuinely present in storage, so we can prove exit
+    // A demo session genuinely present in storage, so we can prove leaving
     // clears it. main.tsx reads exactly the session key to pick the provider.
     sessionStorage.setItem('prangan_demo_v1_db', '{}')
     sessionStorage.setItem('prangan_demo_v1_session', '{"role":"society_admin","flatId":null}')
     sessionStorage.setItem('prangan_demo_v1_guide', '{"journey":"payment"}')
 
     // JSDOM can't perform a real navigation, so window.location is stubbed to
-    // capture the href exitDemo sets. That is what proves this is a full
-    // navigation (window.location.href), not a client-side <Link> to /demo.
+    // capture the href. That is what proves this is a full navigation
+    // (window.location.href), the same real reload restartDemo does, not a
+    // plain client-side route change. "Leave demo" goes to the picker (/demo);
+    // only the /demo page's own "real login" link goes to /login.
     const originalLocation = window.location
     // @ts-expect-error jsdom's window.location isn't normally reassignable
     delete window.location
@@ -173,11 +175,11 @@ describe('the admin layout "exit demo" control genuinely exits the demo, a full 
       )
 
       const exitControl = await screen.findByText('ડેમો છોડો')
-      // It is no longer an anchor to /demo - it's a real exit, not a route change.
+      // It is not an anchor to /login - it's a full reload back to the picker.
       expect(exitControl.closest('a')).toBeNull()
       fireEvent.click(exitControl)
 
-      expect(window.location.href).toBe('/login')
+      expect(window.location.href).toBe('/demo')
       expect(sessionStorage.getItem('prangan_demo_v1_session')).toBeNull()
       expect(sessionStorage.getItem('prangan_demo_v1_db')).toBeNull()
       expect(sessionStorage.getItem('prangan_demo_v1_guide')).toBeNull()
