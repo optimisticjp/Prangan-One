@@ -78,4 +78,31 @@ describe('useDialogA11y', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).not.toHaveBeenCalled()
   })
+
+  it('a real, previously-shipped bug: typing into a field inside the dialog must not steal focus back to the first focusable element, even though every real caller of Modal passes onClose as a fresh inline function on every single render', () => {
+    function RealisticForm() {
+      const [open, setOpen] = useState(true)
+      const [value, setValue] = useState('')
+      const ref = useRef<HTMLDivElement>(null)
+      useDialogA11y(open, () => setOpen(false), ref)
+      if (!open) return null
+      return (
+        <div ref={ref} role="dialog" aria-modal="true">
+          <button aria-label="close">X</button>
+          <input aria-label="flat number" value={value} onChange={e => setValue(e.target.value)} />
+        </div>
+      )
+    }
+    render(<RealisticForm />)
+    const input = screen.getByLabelText('flat number')
+    input.focus()
+    expect(input).toHaveFocus()
+    fireEvent.change(input, { target: { value: 'a' } })
+    expect(input).toHaveFocus()
+    fireEvent.change(input, { target: { value: 'a6' } })
+    expect(input).toHaveFocus()
+    fireEvent.change(input, { target: { value: 'a602' } })
+    expect(input).toHaveFocus()
+    expect(input).toHaveValue('a602')
+  })
 })
