@@ -1,4 +1,19 @@
-- name: Install postgresql-client 17 and deps
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: '30 20 * * *'   # 20:30 UTC = 2:00 AM IST, daily
+  workflow_dispatch: {}       # the "Run now" button
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set date stamp
+        id: stamp
+        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Install postgresql-client 17 and deps
         run: |
           sudo apt-get update
           sudo apt-get install -y curl ca-certificates jq gnupg lsb-release
@@ -11,3 +26,48 @@
           sudo apt-get install -y postgresql-client-17
           curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz \
             | sudo tar -xz -C /usr/local/bin supabase
+
+      - name: Dump the database
+        run: |
+          mkdir -p out
+          pg_dump "${{ secrets.SUPABASE_DB_URL }}" \
+            --no-owner --no-privileges \
+            -f "out/db-${{ steps.stamp.outputs.date }}.sql"
+          gzip "out/db-${{ steps.stamp.outputs.date }}.sql"
+
+      - name: Download Storage files
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          PROJECT_REF=$(echo "${{ secrets.SUPABASE_DB_URL }}" | grep -oE '[a-z0-9]{20}' | head -1)
+          BASE="https://${PROJECT_REF}.supabase.co/storage/v1"
+          mkdir -p out/storage
+          for BUCKET in society-logos complaint-photos payment-proof documents; do
+            echo "Backing up bucket: $BUCKET"
+            mkdir -p "out/storage/$BUCKET"
+            FILES=$(curl -s -X POST "$BASE/object/list/$BUCKET" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+              -H "Content-Type: application/json" \
+              -d '{"prefix":"","limit":1000}' | jq -r '.[].name')
+            for F in $FILES; do
+              curl -s "$BASE/object/$BUCKET/$F" \
+                -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+                --create-dirs -o "out/storage/$BUCKET/$F"
+            done
+          done
+
+      - name: Push to private backup repo
+        run: |
+          git clone --depth 1 \
+            "https://x-access-token:${{ secrets.BACKUP_REPO_TOKEN }}@github.com/optimisticjp/prangan-one-backups.git" repo
+          DEST="repo/${{ steps.stamp.outputs.date }}"
+          rm -rf "$DEST"
+          mkdir -p "$DEST"
+          cp -r out/* "$DEST/"
+          cd repo
+          ls -1d 20*/ 2>/dev/null | sort | head -n -7 | xargs -r rm -rf
+          git config user.name "backup-bot"
+          git config user.email "backup-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Backup ${{ steps.stamp.outputs.date }}" || echo "nothing changed"
+          git push
