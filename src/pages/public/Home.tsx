@@ -1,53 +1,41 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ArrowRight, Receipt, ShieldCheck, Users, RefreshCw, Wrench, Bell, Vote,
-  PartyPopper, Car, FolderOpen, BarChart3, IndianRupee,
+  ArrowRight, Receipt, ShieldCheck, Users, Wrench, Bell, Vote,
+  PartyPopper, Car, FolderOpen, BarChart3, Building2,
+  ClipboardCheck, Lock, Database, UploadCloud,
 } from 'lucide-react'
 import { PublicLayout } from './PublicLayout'
 import { usePublicLang } from './usePublicLang'
 import { usePageMeta } from './usePageMeta'
+import { isDemoModeEnabled } from '../../lib/demoMode'
 
 const copy = {
   en: {
-    metaTitle: 'The Society OS', metaDesc: 'One platform for every society workflow. Built for committees. Simple for residents.',
-    badge: 'Built for Gujarati housing societies',
-    h1a: 'One platform for every', h1b: 'society workflow.',
-    sub: 'Built for committees. Simple for residents.',
-    ctaPrimary: 'Request Society Setup', ctaSecondary: 'See How It Works',
-    committeeTitle: 'Runs fully on the committee side alone',
-    committeeBody: 'No resident needs to log in for your society to get value from day one. Generate bills, record payments, issue receipts, track complaints, all from one dashboard the treasurer actually lives in.',
-    residentTitle: 'Simple enough for every resident',
-    residentBody: 'When residents are ready, they get their own view: dues, receipts, notices, complaints, all in the language they actually speak, not a translated afterthought.',
-    transparencyTitle: 'Radical transparency, the real reason committees switch',
-    transparencyBody: 'Every resident can see total collected, total spent, category by category, anytime, including festival funds. That ends the WhatsApp arguments about where the money went, for good.',
-    handoverTitle: 'Committees change. Your records should not disappear when they do.',
-    handoverBody: 'Records live in a real database, not on any one committee member\'s phone or laptop. When the committee changes, the new admin gets access to everything, and nothing from before goes missing.',
-    modulesTitle: 'Everything a society actually needs',
-    pricingTeaser: '₹10 per flat a month, ₹499 minimum per society.',
-    pricingCta: 'See pricing',
-    faqTeaser: 'Have questions?', faqCta: 'Read the FAQ',
-    contactCta: 'Talk to us',
+    metaTitle: 'The Society OS', metaDesc: 'Gujarati-first society management for housing society committees and residents.',
+    badge: 'Gujarati-first society management',
+    h1: 'Run your housing society from one clear committee dashboard.',
+    sub: 'Prangan One helps committees manage bills, receipts, complaints, notices, documents, polls, events, parking, and reports — with a simple resident view when members are ready.',
+    ctaDemo: 'Open the demo', ctaContact: 'Request a demo', ctaSecondary: 'Log in',
+    previewEyebrow: 'Product preview', previewTitle: 'Committee control, resident clarity', previewBody: 'A practical workspace for daily society work, plus a resident home that keeps dues, notices, and complaints easy to understand.',
+    adminLabel: 'Committee dashboard', residentLabel: 'Resident view', dueThisMonth: 'Due this month', collected: 'Collected', complaints: 'Open complaints', notice: 'Water tank cleaning notice', receipt: 'Receipt RT-2026-0042', residentDue: 'Maintenance due', residentComplaint: 'Complaint status: In progress',
+    howTitle: 'How it works', howSub: 'The journey stays small enough for a real committee to adopt.',
+    trustTitle: 'Built for real society expectations',
+    modulesTitle: 'Everything a society actually uses',
+    pricingTeaser: '₹10 per flat a month, ₹499 minimum per society.', pricingCta: 'See pricing', faqTeaser: 'Need details?', faqCta: 'Read FAQ', contactCta: 'Request setup',
   },
   gu: {
-    metaTitle: 'The Society OS', metaDesc: 'સોસાયટીના દરેક કામ માટે એક જ પ્લેટફોર્મ. કમિટી માટે બનેલું. રહેવાસી માટે સરળ.',
-    badge: 'ગુજરાતી હાઉસિંગ સોસાયટીઓ માટે બનેલું',
-    h1a: 'સોસાયટીના દરેક કામ માટે', h1b: 'એક જ પ્લેટફોર્મ.',
-    sub: 'કમિટી માટે બનેલું. રહેવાસી માટે સરળ.',
-    ctaPrimary: 'સોસાયટી સેટઅપની વિનંતી કરો', ctaSecondary: 'કેવી રીતે ચાલે છે તે જુઓ',
-    committeeTitle: 'ફક્ત કમિટીથી જ પૂરું ચાલે',
-    committeeBody: 'એક પણ રહેવાસી લોગિન ના કરે તોય તમારી સોસાયટીને પહેલા દિવસથી ફાયદો મળે. બિલ બનાવો, ચુકવણી નોંધો, રસીદ આપો, ફરિયાદ ટ્રેક કરો, બધું એક જ ડેશબોર્ડ પરથી.',
-    residentTitle: 'દરેક રહેવાસી માટે એટલું સરળ',
-    residentBody: 'રહેવાસી તૈયાર હોય ત્યારે એમને પોતાનું વ્યૂ મળે: બાકી રકમ, રસીદ, નોટિસ, ફરિયાદ, બધું એમની પોતાની ભાષામાં.',
-    transparencyTitle: 'સંપૂર્ણ પારદર્શકતા, કમિટી બદલવાનું સાચું કારણ',
-    transparencyBody: 'દરેક રહેવાસી કુલ જમા, કુલ ખર્ચ, કેટેગરી પ્રમાણે, ગમે ત્યારે જોઈ શકે, તહેવારના ફંડ સહિત. "પૈસા ક્યાં ગયા" ના WhatsApp ઝઘડા કાયમ માટે બંધ.',
-    handoverTitle: 'કમિટી બદલાય છે. તમારો રેકોર્ડ ખોવાવો ના જોઈએ.',
-    handoverBody: 'રેકોર્ડ ખરેખરા ડેટાબેઝમાં રહે છે, કોઈ એક કમિટી મેમ્બરના ફોન કે લેપટોપ પર નહીં. કમિટી બદલાય ત્યારે નવા એડમિનને બધું મળે, અને પહેલાનું કંઈ ખોવાય નહીં.',
-    modulesTitle: 'સોસાયટીને જે જોઈએ એ બધું',
-    pricingTeaser: 'ફ્લેટ દીઠ મહિને ₹10, સોસાયટી દીઠ ઓછામાં ઓછું ₹499.',
-    pricingCta: 'કિંમત જુઓ',
-    faqTeaser: 'કોઈ પ્રશ્ન છે?', faqCta: 'FAQ વાંચો',
-    contactCta: 'અમારો સંપર્ક કરો',
+    metaTitle: 'The Society OS', metaDesc: 'હાઉસિંગ સોસાયટીની કમિટી અને રહેવાસીઓ માટે ગુજરાતી-પ્રથમ મેનેજમેન્ટ.',
+    badge: 'ગુજરાતી-પ્રથમ સોસાયટી મેનેજમેન્ટ',
+    h1: 'તમારી હાઉસિંગ સોસાયટી એક સાફ કમિટી ડેશબોર્ડથી ચલાવો.',
+    sub: 'Prangan One કમિટીને બિલ, રસીદ, ફરિયાદ, નોટિસ, દસ્તાવેજ, મતદાન, ઇવેન્ટ, પાર્કિંગ અને રિપોર્ટ સંભાળવામાં મદદ કરે છે — અને રહેવાસી તૈયાર હોય ત્યારે એમને સરળ વ્યૂ મળે છે.',
+    ctaDemo: 'ડેમો ખોલો', ctaContact: 'ડેમો માટે સંપર્ક કરો', ctaSecondary: 'લોગિન',
+    previewEyebrow: 'પ્રોડક્ટ પ્રિવ્યુ', previewTitle: 'કમિટી માટે કંટ્રોલ, રહેવાસી માટે સ્પષ્ટતા', previewBody: 'રોજિંદા સોસાયટી કામ માટે વ્યવહારુ વર્કસ્પેસ, અને બાકી રકમ, નોટિસ, ફરિયાદ સરળ દેખાય એવો રહેવાસી હોમ.',
+    adminLabel: 'કમિટી ડેશબોર્ડ', residentLabel: 'રહેવાસી વ્યૂ', dueThisMonth: 'આ મહિને બાકી', collected: 'જમા થયું', complaints: 'ખુલ્લી ફરિયાદ', notice: 'પાણીની ટાંકી સાફ કરવાની નોટિસ', receipt: 'રસીદ RT-2026-0042', residentDue: 'મેન્ટેનન્સ બાકી', residentComplaint: 'ફરિયાદ સ્થિતિ: ચાલુ',
+    howTitle: 'કેવી રીતે ચાલે છે', howSub: 'વાસ્તવિક કમિટી અપનાવી શકે એટલી સરળ યાત્રા.',
+    trustTitle: 'સોસાયટીની વાસ્તવિક અપેક્ષા માટે બનાવેલું',
+    modulesTitle: 'સોસાયટીને ખરેખર જે વપરાય એ બધું',
+    pricingTeaser: 'ફ્લેટ દીઠ મહિને ₹10, સોસાયટી દીઠ ઓછામાં ઓછું ₹499.', pricingCta: 'કિંમત જુઓ', faqTeaser: 'વિગત જોઈએ?', faqCta: 'FAQ વાંચો', contactCta: 'સેટઅપની વિનંતી',
   },
 }
 
@@ -62,126 +50,99 @@ const modules = [
   { icon: BarChart3, en: 'Reports', gu: 'રિપોર્ટ' },
 ]
 
+const steps = [
+  { icon: Building2, en: ['Set up the society', 'Create the society, choose modules, and start from one committee workspace.'], gu: ['સોસાયટી સેટ કરો', 'સોસાયટી બનાવો, જરૂરી સુવિધાઓ પસંદ કરો, અને એક કમિટી વર્કસ્પેસથી શરૂ કરો.'] },
+  { icon: Users, en: ['Add flats and members', 'Add flats one by one or import members with validation before saving.'], gu: ['ફ્લેટ અને સભ્યો ઉમેરો', 'એક પછી એક ફ્લેટ ઉમેરો અથવા ચકાસણી સાથે સભ્યો આયાત કરો.'] },
+  { icon: ClipboardCheck, en: ['Run daily work', 'Manage bills, payments, complaints, notices, documents, polls, events, parking, and reports.'], gu: ['રોજિંદું કામ ચલાવો', 'બિલ, ચુકવણી, ફરિયાદ, નોટિસ, દસ્તાવેજ, મતદાન, ઇવેન્ટ, પાર્કિંગ અને રિપોર્ટ સંભાળો.'] },
+  { icon: Users, en: ['Residents use their view', 'Residents can check dues, receipts, notices, complaints, events, polls, parking, and profile details.'], gu: ['રહેવાસી પોતાનું વ્યૂ વાપરે', 'રહેવાસી બાકી રકમ, રસીદ, નોટિસ, ફરિયાદ, ઇવેન્ટ, મતદાન, પાર્કિંગ અને પ્રોફાઇલ જોઈ શકે.'] },
+]
+
+const trust = [
+  { icon: ShieldCheck, en: 'Gujarati-first resident experience, not an English page translated later.', gu: 'ગુજરાતી-પ્રથમ રહેવાસી અનુભવ, પછીથી કરેલો અનુવાદ નહીં.' },
+  { icon: Database, en: 'Supabase-backed real sessions with tenant isolation through Row Level Security.', gu: 'Supabase આધારિત વાસ્તવિક સેશન અને Row Level Security દ્વારા સોસાયટી અલગાવ.' },
+  { icon: Lock, en: 'Private storage is used for supported uploads and permissioned documents.', gu: 'સપોર્ટેડ અપલોડ અને પરવાનગીવાળા દસ્તાવેજ માટે પ્રાઇવેટ સ્ટોરેજ વપરાય છે.' },
+]
+
+const demoTrust = {
+  enabled: {
+    icon: UploadCloud,
+    en: 'The public demo is a separate fictional environment, so visitors can explore safely.',
+    gu: 'પબ્લિક ડેમો અલગ કલ્પિત વાતાવરણ છે, એટલે નિરાંતે જોઈ શકાય.',
+  },
+  disabled: {
+    icon: UploadCloud,
+    en: 'Demo data is kept separate from real society sessions and records.',
+    gu: 'ડેમો ડેટા વાસ્તવિક સોસાયટીના સેશન અને રેકોર્ડથી સંપૂર્ણ અલગ રાખવામાં આવે છે.',
+  },
+}
+
 export default function Home() {
   const [lang, setLang] = usePublicLang()
   const t = copy[lang]
+  const demoEnabled = isDemoModeEnabled()
+  const primaryCta = demoEnabled ? { to: '/demo', label: t.ctaDemo } : { to: '/contact', label: t.ctaContact }
   usePageMeta(t.metaTitle, t.metaDesc)
 
   useEffect(() => {
     const appScript = document.createElement('script')
     appScript.type = 'application/ld+json'
-    appScript.text = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'SoftwareApplication',
-      name: 'Prangan One',
-      applicationCategory: 'BusinessApplication',
-      operatingSystem: 'Web',
-      description: 'Gujarati-first society management platform for housing society committees and residents.',
-      offers: { '@type': 'Offer', price: '10', priceCurrency: 'INR', description: 'Per flat, per month' },
-    })
+    appScript.text = JSON.stringify({ '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'Prangan One', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', description: 'Gujarati-first society management platform for housing society committees and residents.', offers: { '@type': 'Offer', price: '10', priceCurrency: 'INR', description: 'Per flat, per month' } })
     document.head.appendChild(appScript)
-
-    // Platform-level Organization schema, not tied to any one society -
-    // sameAs points search engines and social platforms at the official
-    // Prangan One channels. Do not add this to society-specific pages.
     const orgScript = document.createElement('script')
     orgScript.type = 'application/ld+json'
-    orgScript.text = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'Organization',
-      name: 'Prangan One',
-      url: 'https://pranganone.com',
-      email: 'care@pranganone.com',
-      sameAs: [
-        'https://www.facebook.com/pranganone/',
-        'https://www.instagram.com/pranganone/',
-        'https://www.youtube.com/@PranganOne',
-      ],
-    })
+    orgScript.text = JSON.stringify({ '@context': 'https://schema.org', '@type': 'Organization', name: 'Prangan One', url: 'https://pranganone.com', email: 'care@pranganone.com', sameAs: ['https://www.facebook.com/pranganone/', 'https://www.instagram.com/pranganone/', 'https://www.youtube.com/@PranganOne'] })
     document.head.appendChild(orgScript)
-
-    return () => {
-      document.head.removeChild(appScript)
-      document.head.removeChild(orgScript)
-    }
+    return () => { document.head.removeChild(appScript); document.head.removeChild(orgScript) }
   }, [])
 
   return (
     <PublicLayout lang={lang} setLang={setLang}>
-      <section className="px-5 pt-16 pb-14 text-center relative overflow-hidden">
-        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-saffron-500/10" aria-hidden />
-        <div className="max-w-3xl mx-auto relative">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-navy-50 border border-navy-100 px-3.5 py-1.5 text-[12.5px] font-semibold text-navy-600">
-            {t.badge}
-          </span>
-          <h1 className="mt-5 text-[34px] sm:text-[46px] font-bold leading-[1.15]">
-            {t.h1a}<br /><span className="text-saffron-600">{t.h1b}</span>
-          </h1>
-          <p className="mt-4 text-[17px] text-navy-500">{t.sub}</p>
-          <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <Link to="/contact" className="inline-flex items-center gap-2 rounded-xl bg-navy-900 text-cream-50 px-5 py-3 text-[15px] font-bold hover:bg-navy-800">
-              {t.ctaPrimary} <ArrowRight size={16} />
-            </Link>
-            <Link to="/features" className="inline-flex items-center gap-2 rounded-xl border border-navy-200 px-5 py-3 text-[15px] font-semibold text-navy-700 hover:bg-navy-50">
-              {t.ctaSecondary}
-            </Link>
+      <section className="px-5 pt-12 pb-12 sm:pt-16 sm:pb-14 relative overflow-hidden">
+        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-saffron-500/10" aria-hidden />
+        <div className="max-w-5xl mx-auto grid lg:grid-cols-[1.05fr_0.95fr] gap-8 items-center relative">
+          <div className="text-center lg:text-left">
+            <span className="inline-flex rounded-full bg-navy-50 border border-navy-100 px-3.5 py-1.5 text-[12.5px] font-semibold text-navy-600">{t.badge}</span>
+            <h1 className="mt-5 text-[34px] sm:text-[48px] font-bold leading-[1.12] text-balance">{t.h1}</h1>
+            <p className="mt-4 text-[16px] sm:text-[17px] text-navy-500 leading-relaxed max-w-2xl mx-auto lg:mx-0">{t.sub}</p>
+            <div className="mt-7 flex flex-col min-[380px]:flex-row justify-center lg:justify-start gap-3">
+              <Link to={primaryCta.to} className="inline-flex items-center justify-center gap-2 rounded-xl bg-navy-900 text-cream-50 px-5 py-3 text-[15px] font-bold hover:bg-navy-800">{primaryCta.label} <ArrowRight size={16} /></Link>
+              <Link to="/login" className="inline-flex items-center justify-center gap-2 rounded-xl border border-navy-200 px-5 py-3 text-[15px] font-semibold text-navy-700 hover:bg-navy-50">{t.ctaSecondary}</Link>
+            </div>
+          </div>
+
+          <div aria-label={t.previewTitle} className="rounded-3xl border border-cream-200 bg-white p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-cream-200 pb-3 mb-4"><div><div className="text-[11px] uppercase tracking-wide text-saffron-600 font-bold">{t.previewEyebrow}</div><h2 className="text-[18px] font-bold">{t.previewTitle}</h2></div><span className="h-3 w-3 rounded-full bg-paid" /></div>
+            <div className="grid sm:grid-cols-[1.15fr_0.85fr] gap-3">
+              <div className="rounded-2xl bg-cream-50 border border-cream-200 p-4"><div className="text-[12px] font-bold text-navy-400 mb-3">{t.adminLabel}</div><div className="grid grid-cols-2 gap-2"><PreviewStat label={t.dueThisMonth} value="₹72,400" /><PreviewStat label={t.collected} value="82%" /></div><PreviewRow icon={Receipt} text={t.receipt} /><PreviewRow icon={Wrench} text={`${t.complaints}: 3`} /><PreviewRow icon={Bell} text={t.notice} /></div>
+              <div className="rounded-2xl bg-navy-900 text-cream-50 p-4"><div className="text-[12px] font-bold text-cream-100/70 mb-3">{t.residentLabel}</div><div className="rounded-xl bg-cream-50 text-navy-900 p-3 mb-2"><div className="text-[11px] text-navy-400">{t.residentDue}</div><div className="text-[22px] font-bold num">₹1,200</div></div><div className="rounded-xl border border-cream-50/15 p-3 text-[12.5px]">{t.residentComplaint}</div></div>
+            </div>
+            <p className="text-[13px] text-navy-500 leading-relaxed mt-4">{t.previewBody}</p>
           </div>
         </div>
       </section>
 
-      <section className="px-5 py-10 max-w-5xl mx-auto grid sm:grid-cols-2 gap-5">
-        <div className="rounded-2xl border border-cream-200 bg-white p-6">
-          <ShieldCheck size={26} className="text-saffron-500 mb-3" />
-          <h2 className="font-bold text-[18px] mb-1.5">{t.committeeTitle}</h2>
-          <p className="text-[14.5px] text-navy-500 leading-relaxed">{t.committeeBody}</p>
-        </div>
-        <div className="rounded-2xl border border-cream-200 bg-white p-6">
-          <Users size={26} className="text-saffron-500 mb-3" />
-          <h2 className="font-bold text-[18px] mb-1.5">{t.residentTitle}</h2>
-          <p className="text-[14.5px] text-navy-500 leading-relaxed">{t.residentBody}</p>
-        </div>
-      </section>
-
-      <section className="px-5 py-10 bg-navy-900 text-cream-50">
-        <div className="max-w-3xl mx-auto text-center">
-          <IndianRupee size={26} className="text-saffron-400 mx-auto mb-3" />
-          <h2 className="font-bold text-[22px]">{t.transparencyTitle}</h2>
-          <p className="text-[15px] text-cream-100/80 mt-2 leading-relaxed">{t.transparencyBody}</p>
-        </div>
-      </section>
-
-      <section className="px-5 py-10 max-w-3xl mx-auto text-center">
-        <RefreshCw size={26} className="text-saffron-500 mx-auto mb-3" />
-        <h2 className="font-bold text-[22px]">{t.handoverTitle}</h2>
-        <p className="text-[15px] text-navy-500 mt-2 leading-relaxed">{t.handoverBody}</p>
-      </section>
-
       <section className="px-5 py-10 max-w-5xl mx-auto">
-        <h2 className="font-bold text-[22px] text-center mb-6">{t.modulesTitle}</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {modules.map(m => (
-            <div key={m.en} className="rounded-xl border border-cream-200 bg-white px-3 py-4 text-center">
-              <m.icon size={20} className="mx-auto text-saffron-500 mb-1.5" />
-              <div className="text-[12.5px] font-semibold text-navy-700">{lang === 'en' ? m.en : m.gu}</div>
-            </div>
-          ))}
-        </div>
+        <div className="text-center max-w-2xl mx-auto mb-6"><h2 className="font-bold text-[24px]">{t.howTitle}</h2><p className="text-[14.5px] text-navy-500 mt-2">{t.howSub}</p></div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">{steps.map((s, i) => { const [title, body] = lang === 'en' ? s.en : s.gu; return <div key={title} className="rounded-2xl border border-cream-200 bg-white p-5"><div className="flex items-center gap-3 mb-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-saffron-500/15 text-saffron-700 font-bold text-[13px]">{i + 1}</span><s.icon size={20} className="text-saffron-500" /></div><h3 className="font-bold text-[15.5px]">{title}</h3><p className="text-[13.5px] text-navy-500 leading-relaxed mt-1.5">{body}</p></div> })}</div>
       </section>
+
+      <section className="px-5 py-10 bg-navy-900 text-cream-50"><div className="max-w-5xl mx-auto"><h2 className="font-bold text-[24px] text-center mb-6">{t.trustTitle}</h2><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">{[...trust, demoEnabled ? demoTrust.enabled : demoTrust.disabled].map(item => <div key={item.en} className="rounded-2xl border border-cream-50/10 bg-cream-50/5 p-4"><item.icon size={20} className="text-saffron-400 mb-2" /><p className="text-[13.5px] leading-relaxed text-cream-100/85">{lang === 'en' ? item.en : item.gu}</p></div>)}</div></div></section>
+
+      <section className="px-5 py-10 max-w-5xl mx-auto"><h2 className="font-bold text-[22px] text-center mb-6">{t.modulesTitle}</h2><div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{modules.map(m => <div key={m.en} className="rounded-xl border border-cream-200 bg-white px-3 py-4 text-center"><m.icon size={20} className="mx-auto text-saffron-500 mb-1.5" /><div className="text-[12.5px] font-semibold text-navy-700">{lang === 'en' ? m.en : m.gu}</div></div>)}</div></section>
 
       <section className="px-5 py-10 max-w-4xl mx-auto grid sm:grid-cols-3 gap-4 text-center">
-        <Link to="/pricing" className="rounded-2xl border border-cream-200 bg-white p-5 hover:border-saffron-300">
-          <div className="font-bold text-navy-800">{t.pricingTeaser}</div>
-          <div className="text-[13px] text-saffron-600 font-semibold mt-1">{t.pricingCta} →</div>
-        </Link>
-        <Link to="/faq" className="rounded-2xl border border-cream-200 bg-white p-5 hover:border-saffron-300">
-          <div className="font-bold text-navy-800">{t.faqTeaser}</div>
-          <div className="text-[13px] text-saffron-600 font-semibold mt-1">{t.faqCta} →</div>
-        </Link>
-        <Link to="/contact" className="rounded-2xl bg-saffron-500 text-navy-900 p-5 hover:bg-saffron-400">
-          <div className="font-bold">{t.contactCta}</div>
-          <div className="text-[13px] font-semibold mt-1">→</div>
-        </Link>
+        <Link to="/pricing" className="rounded-2xl border border-cream-200 bg-white p-5 hover:border-saffron-300"><div className="font-bold text-navy-800">{t.pricingTeaser}</div><div className="text-[13px] text-saffron-600 font-semibold mt-1">{t.pricingCta} →</div></Link>
+        <Link to="/faq" className="rounded-2xl border border-cream-200 bg-white p-5 hover:border-saffron-300"><div className="font-bold text-navy-800">{t.faqTeaser}</div><div className="text-[13px] text-saffron-600 font-semibold mt-1">{t.faqCta} →</div></Link>
+        <Link to="/contact" className="rounded-2xl bg-saffron-500 text-navy-900 p-5 hover:bg-saffron-400"><div className="font-bold">{t.contactCta}</div><div className="text-[13px] font-semibold mt-1">→</div></Link>
       </section>
     </PublicLayout>
   )
+}
+
+function PreviewStat({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-xl bg-white border border-cream-200 p-3"><div className="text-[11px] text-navy-400">{label}</div><div className="text-[18px] font-bold num">{value}</div></div>
+}
+
+function PreviewRow({ icon: Icon, text }: { icon: typeof Receipt; text: string }) {
+  return <div className="mt-2 flex items-center gap-2 rounded-xl bg-white border border-cream-200 px-3 py-2 text-[12.5px] font-semibold text-navy-700"><Icon size={15} className="text-saffron-500 shrink-0" /> <span>{text}</span></div>
 }
