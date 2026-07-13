@@ -27,14 +27,14 @@ const copy = {
   gu: {
     metaTitle: 'The Society OS', metaDesc: 'હાઉસિંગ સોસાયટીની કમિટી અને રહેવાસીઓ માટે ગુજરાતી-પ્રથમ મેનેજમેન્ટ.',
     badge: 'ગુજરાતી-પ્રથમ સોસાયટી મેનેજમેન્ટ',
-    h1: 'તમારી હાઉસિંગ સોસાયટી એક સાફ કમિટી ડેશબોર્ડથી ચલાવો.',
-    sub: 'Prangan One કમિટીને બિલ, રસીદ, ફરિયાદ, નોટિસ, દસ્તાવેજ, મતદાન, ઇવેન્ટ, પાર્કિંગ અને રિપોર્ટ સંભાળવામાં મદદ કરે છે — અને રહેવાસી તૈયાર હોય ત્યારે એમને સરળ વ્યૂ મળે છે.',
+    h1: 'આપની હાઉસિંગ સોસાયટી એક સ્પષ્ટ કમિટી ડેશબોર્ડથી સંભાળો.',
+    sub: 'Prangan One કમિટીને બિલ, રસીદ, ફરિયાદ, નોટિસ, દસ્તાવેજ, મતદાન, ઇવેન્ટ, પાર્કિંગ અને રિપોર્ટ સંભાળવામાં મદદ કરે છે — અને રહેવાસીઓ માટે સરળ વ્યૂ આપે છે.',
     ctaDemo: 'ડેમો ખોલો', ctaContact: 'ડેમો માટે સંપર્ક કરો', ctaSecondary: 'લોગિન',
-    previewEyebrow: 'પ્રોડક્ટ પ્રિવ્યુ', previewTitle: 'કમિટી માટે કંટ્રોલ, રહેવાસી માટે સ્પષ્ટતા', previewBody: 'રોજિંદા સોસાયટી કામ માટે વ્યવહારુ વર્કસ્પેસ, અને બાકી રકમ, નોટિસ, ફરિયાદ સરળ દેખાય એવો રહેવાસી હોમ.',
+    previewEyebrow: 'પ્રોડક્ટ પ્રિવ્યુ', previewTitle: 'કમિટી માટે કંટ્રોલ, રહેવાસી માટે સ્પષ્ટતા', previewBody: 'રોજિંદા સોસાયટી કામ માટે વ્યવહારુ વર્કસ્પેસ, સાથે રહેવાસીને બાકી રકમ, નોટિસ અને ફરિયાદ સ્પષ્ટ દેખાય એવો હોમ.',
     adminLabel: 'કમિટી ડેશબોર્ડ', residentLabel: 'રહેવાસી વ્યૂ', dueThisMonth: 'આ મહિને બાકી', collected: 'જમા થયું', complaints: 'ખુલ્લી ફરિયાદ', notice: 'પાણીની ટાંકી સાફ કરવાની નોટિસ', receipt: 'રસીદ RT-2026-0042', residentDue: 'મેન્ટેનન્સ બાકી', residentComplaint: 'ફરિયાદ સ્થિતિ: ચાલુ',
-    howTitle: 'કેવી રીતે ચાલે છે', howSub: 'વાસ્તવિક કમિટી અપનાવી શકે એટલી સરળ યાત્રા.',
+    howTitle: 'કેવી રીતે ચાલે છે', howSub: 'વાસ્તવિક કમિટી સરળતાથી અપનાવી શકે એવી પ્રક્રિયા.',
     trustTitle: 'સોસાયટીની વાસ્તવિક અપેક્ષા માટે બનાવેલું',
-    modulesTitle: 'સોસાયટીને ખરેખર જે વપરાય એ બધું',
+    modulesTitle: 'સોસાયટીને રોજ ઉપયોગી થતી સુવિધાઓ',
     pricingTeaser: 'ફ્લેટ દીઠ મહિને ₹10, સોસાયટી દીઠ ઓછામાં ઓછું ₹499.', pricingCta: 'કિંમત જુઓ', faqTeaser: 'વિગત જોઈએ?', faqCta: 'FAQ વાંચો', contactCta: 'સેટઅપની વિનંતી',
   },
 }
@@ -58,9 +58,9 @@ const steps = [
 ]
 
 const trust = [
-  { icon: ShieldCheck, en: 'Gujarati-first resident experience, not an English page translated later.', gu: 'ગુજરાતી-પ્રથમ રહેવાસી અનુભવ, પછીથી કરેલો અનુવાદ નહીં.' },
-  { icon: Database, en: 'Supabase-backed real sessions with tenant isolation through Row Level Security.', gu: 'Supabase આધારિત વાસ્તવિક સેશન અને Row Level Security દ્વારા સોસાયટી અલગાવ.' },
-  { icon: Lock, en: 'Private storage is used for supported uploads and permissioned documents.', gu: 'સપોર્ટેડ અપલોડ અને પરવાનગીવાળા દસ્તાવેજ માટે પ્રાઇવેટ સ્ટોરેજ વપરાય છે.' },
+  { icon: ShieldCheck, en: 'Gujarati-first resident experience, not an English page translated later.', gu: 'રહેવાસી માટે ગુજરાતી-પ્રથમ અનુભવ; પછીથી કરેલો અનુવાદ નહીં.' },
+  { icon: Database, en: 'Supabase-backed real sessions with tenant isolation through Row Level Security.', gu: 'Supabase આધારિત સેશન અને Row Level Security વડે સોસાયટી-આધારિત ઍક્સેસ નિયંત્રણ.' },
+  { icon: Lock, en: 'Private storage is used for supported uploads and permissioned documents.', gu: 'સપોર્ટેડ અપલોડ અને પરવાનગીવાળા દસ્તાવેજ માટે નિયંત્રિત સ્ટોરેજ વપરાય છે.' },
 ]
 
 const demoTrust = {
@@ -72,7 +72,7 @@ const demoTrust = {
   disabled: {
     icon: UploadCloud,
     en: 'Demo data is kept separate from real society sessions and records.',
-    gu: 'ડેમો ડેટા વાસ્તવિક સોસાયટીના સેશન અને રેકોર્ડથી સંપૂર્ણ અલગ રાખવામાં આવે છે.',
+    gu: 'ડેમો ડેટા વાસ્તવિક સોસાયટીના સેશન અને રેકોર્ડથી અલગ રાખવામાં આવે છે.',
   },
 }
 

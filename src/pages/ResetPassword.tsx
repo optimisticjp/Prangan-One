@@ -54,7 +54,7 @@ export default function ResetPassword() {
       await setPasswordForCurrentUser(password)
       nav('/auth/callback', { replace: true })
     } catch {
-      setError('પાસવર્ડ સેટ કરવામાં ભૂલ થઈ. લિંક જૂની થઈ ગઈ હોઈ શકે છે, ફરી પ્રયત્ન કરો.')
+      setError('પાસવર્ડ સેટ થઈ શક્યો નથી. લિંક જૂની થઈ ગઈ હોઈ શકે છે; કૃપા કરીને નવી રીસેટ લિંક મંગાવો.')
       setSaving(false)
     }
   }
@@ -64,7 +64,7 @@ export default function ResetPassword() {
       <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
         <div className="text-center">
           <Loader2 size={28} className="animate-spin text-navy-400 mx-auto mb-3" />
-          <p className="text-[14px] text-navy-500">થોડી વાર રાહ જુઓ...</p>
+          <p className="text-[14px] text-navy-500">કૃપા કરીને થોડી વાર રાહ જુઓ...</p>
         </div>
       </div>
     )
@@ -89,7 +89,7 @@ export default function ResetPassword() {
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            <Input type={showPassword ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="ફરી નાખો" aria-label="પાસવર્ડ ફરી નાખો" autoComplete="new-password" required minLength={6} />
+            <Input type={showPassword ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="પાસવર્ડ ફરી નાખો" aria-label="પાસવર્ડ ફરી નાખો" autoComplete="new-password" required minLength={6} />
             <Button type="submit" variant="primary" full disabled={!password || !confirm || saving}>
               {saving ? 'સેવ થાય છે...' : 'પાસવર્ડ સેટ કરો'}
             </Button>

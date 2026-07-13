@@ -47,7 +47,7 @@ describe('public homepage', () => {
     expect(within(main).getByRole('link', { name: /ડેમો માટે સંપર્ક કરો/ })).toHaveAttribute('href', '/contact')
     expect(within(main).getByRole('link', { name: 'લોગિન' })).toHaveAttribute('href', '/login')
     expect(screen.queryByText(/પબ્લિક ડેમો અલગ કલ્પિત વાતાવરણ/)).not.toBeInTheDocument()
-    expect(screen.getByText('ડેમો ડેટા વાસ્તવિક સોસાયટીના સેશન અને રેકોર્ડથી સંપૂર્ણ અલગ રાખવામાં આવે છે.')).toBeInTheDocument()
+    expect(screen.getByText('ડેમો ડેટા વાસ્તવિક સોસાયટીના સેશન અને રેકોર્ડથી અલગ રાખવામાં આવે છે.')).toBeInTheDocument()
   })
 
   it('shows the enabled English demo trust message when demo mode is enabled', () => {
@@ -70,7 +70,7 @@ describe('public homepage', () => {
     expect(screen.getByRole('heading', { level: 2, name: /કમિટી માટે કંટ્રોલ/ })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: /કેવી રીતે ચાલે છે/ })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: /વાસ્તવિક અપેક્ષા/ })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: /ખરેખર જે વપરાય/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: /રોજ ઉપયોગી/ })).toBeInTheDocument()
     expect(screen.getByText(/Row Level Security/)).toBeInTheDocument()
     expect(screen.getByText(/પબ્લિક ડેમો અલગ કલ્પિત વાતાવરણ/)).toBeInTheDocument()
   })

@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { DemoDataProvider } from '../../../lib/demoStore'
 import Contact from '../Contact'
 import { reportError } from '../../../lib/monitoring'
+import { submitLeadToFormspree } from '../../../lib/formspree'
 
 // Formspree (the primary path) succeeds; the Supabase lead write (the extra,
 // shared record) fails - the exact case Contact's inner catch is written for.
@@ -41,4 +42,24 @@ describe('Contact reports the silent Supabase lead-write failure without breakin
     // The primary-path (Formspree) error report was NOT triggered - it succeeded.
     expect(reportError).not.toHaveBeenCalledWith(expect.anything(), { where: 'contact_formspree' })
   })
+
+  it('shows a concise Gujarati failure message when the primary contact path fails', async () => {
+    vi.mocked(submitLeadToFormspree).mockRejectedValueOnce(new Error('network internals should stay hidden'))
+    localStorage.setItem('prangan_public_lang', 'gu')
+    const { container } = render(
+      <MemoryRouter><DemoDataProvider><Contact /></DemoDataProvider></MemoryRouter>,
+    )
+    const set = (id: string, value: string) => fireEvent.change(container.querySelector(id)!, { target: { value } })
+    set('#contact-name', 'Test Person')
+    set('#contact-phone', '9000000000')
+    set('#contact-email', 'test@example.com')
+    set('#contact-society', 'Test Society')
+
+    fireEvent.submit(container.querySelector('form')!)
+
+    expect(await screen.findByText(/વિનંતી મોકલી શકાઈ નથી/)).toBeInTheDocument()
+    expect(screen.queryByText(/network internals/)).not.toBeInTheDocument()
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), { where: 'contact_formspree' })
+  })
+
 })

@@ -19,7 +19,7 @@ test.describe('public homepage', () => {
     await expect(page.getByRole('heading', { name: /કમિટી માટે કંટ્રોલ/i })).toBeVisible()
     await expect(page.getByRole('heading', { name: /કેવી રીતે ચાલે છે/i })).toBeVisible()
     await expect(page.getByRole('heading', { name: /વાસ્તવિક અપેક્ષા/i })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /ખરેખર જે વપરાય/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /રોજ ઉપયોગી/i })).toBeVisible()
   })
 
   test('switches to English and persists the public language preference', async ({ page }) => {

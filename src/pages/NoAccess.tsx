@@ -22,7 +22,7 @@ export default function NoAccess() {
       <div className="text-center max-w-sm">
         <PranganBrand variant="symbol-navy" height={40} className="mx-auto mb-4" />
         <h1 className="font-bold text-navy-900 text-[20px] leading-snug">આ ઈમેલ સાથે હજી કોઈ સોસાયટી જોડાયેલી નથી</h1>
-        <p className="text-[13.5px] text-navy-500 mt-2">તમારી સોસાયટી Prangan One પર હોઈ શકે છે, ફક્ત આ ઈમેલ હજી ઉમેરાયો નથી. અથવા તમારી સોસાયટી હજી જોડાઈ નથી.</p>
+        <p className="text-[13.5px] text-navy-500 mt-2">આપની સોસાયટી Prangan One પર હોઈ શકે છે, પરંતુ આ ઈમેલ હજી ઉમેરાયો નથી. અથવા સોસાયટી હજી જોડાઈ નથી.</p>
 
         <div className="mt-6 space-y-2.5">
           <button onClick={() => nav('/join')}
@@ -30,7 +30,7 @@ export default function NoAccess() {
             <div className="h-10 w-10 rounded-lg bg-saffron-50 text-saffron-600 flex items-center justify-center shrink-0"><KeyRound size={18} /></div>
             <div>
               <div className="font-semibold text-navy-900 text-[14.5px]">મારી પાસે સોસાયટી કોડ છે</div>
-              <div className="text-[12.5px] text-navy-400">કોડ નાખીને જોડાઓ</div>
+              <div className="text-[12.5px] text-navy-400">કોડ નાખીને જોડાવાની વિનંતી કરો</div>
             </div>
           </button>
 
@@ -38,7 +38,7 @@ export default function NoAccess() {
             className="w-full flex items-center gap-3 rounded-xl border border-cream-300 bg-white px-4 py-3.5 text-left hover:border-saffron-400">
             <div className="h-10 w-10 rounded-lg bg-navy-50 text-navy-700 flex items-center justify-center shrink-0"><MessageCircleQuestion size={18} /></div>
             <div>
-              <div className="font-semibold text-navy-900 text-[14.5px]">મારી સોસાયટી Prangan One પર લાવવી છે</div>
+              <div className="font-semibold text-navy-900 text-[14.5px]">મારી સોસાયટી માટે Prangan One જોઈએ છે</div>
               <div className="text-[12.5px] text-navy-400">સેટઅપ વિનંતી મોકલો</div>
             </div>
           </button>
