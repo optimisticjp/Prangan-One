@@ -22,7 +22,7 @@ export function ModuleGate({ module, fallback, children }: {
     return (
       <div className="p-4">
         <Card>
-          <EmptyState icon={<PackageX size={22} />} title="આ સુવિધા તમારી સોસાયટી માટે ચાલુ નથી"
+          <EmptyState icon={<PackageX size={22} />} title="આ સુવિધા આપની સોસાયટી માટે ચાલુ નથી"
             sub="કમિટીને અથવા Prangan One ને સંપર્ક કરો જો આ ચાલુ કરવું હોય." />
           <Link to={fallback} className="text-[13.5px] font-semibold text-saffron-600 mt-3 inline-block">પાછા જાઓ</Link>
         </Card>

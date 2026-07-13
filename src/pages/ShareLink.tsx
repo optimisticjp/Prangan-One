@@ -91,7 +91,7 @@ export default function ShareLink() {
             <SearchX size={26} />
           </div>
           <h1 className="font-bold text-navy-900 text-[19px]">આ સોસાયટીની લિંક મળી નહીં</h1>
-          <p className="text-[13.5px] text-navy-500 mt-1.5">લિંક ખોટી હોઈ શકે છે. તમારી કમિટીને સાચી લિંક માટે પૂછો.</p>
+          <p className="text-[13.5px] text-navy-500 mt-1.5">લિંક ખોટી હોઈ શકે છે. કૃપા કરીને આપની કમિટીને સાચી લિંક માટે પૂછો.</p>
           <Button variant="soft" className="mt-4" onClick={() => nav('/login')}>લોગિન પર જાઓ</Button>
         </div>
       </div>

@@ -35,7 +35,7 @@ export function SetPasswordCard() {
       await setPasswordForCurrentUser(password)
       setDone(true); setOpen(false); setPassword(''); setConfirm('')
     } catch {
-      setError('પાસવર્ડ સેટ કરવામાં ભૂલ થઈ, ફરી પ્રયત્ન કરો.')
+      setError('પાસવર્ડ સેટ થઈ શક્યો નથી. કૃપા કરીને ફરી પ્રયત્ન કરો.')
     } finally {
       setSaving(false)
     }
@@ -53,7 +53,7 @@ export function SetPasswordCard() {
       </div>
 
       {done && !open && (
-        <div className="mt-2.5 text-[12.5px] text-paid flex items-center gap-1.5"><CheckCircle2 size={14} /> પાસવર્ડ સેટ થઈ ગયો</div>
+        <div className="mt-2.5 text-[12.5px] text-paid flex items-center gap-1.5"><CheckCircle2 size={14} /> પાસવર્ડ સેટ થઈ ગયો છે</div>
       )}
 
       {open && (
@@ -64,7 +64,7 @@ export function SetPasswordCard() {
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-          <Input type={showPassword ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="ફરી નાખો" aria-label="પાસવર્ડ ફરી નાખો" autoComplete="new-password" required minLength={6} />
+          <Input type={showPassword ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="પાસવર્ડ ફરી નાખો" aria-label="પાસવર્ડ ફરી નાખો" autoComplete="new-password" required minLength={6} />
           <div className="flex gap-2">
             <Button type="button" variant="soft" full onClick={() => { setOpen(false); setError('') }}>રદ કરો</Button>
             <Button type="submit" variant="primary" full disabled={!password || !confirm || saving}>{saving ? 'સેવ થાય છે...' : 'સેવ કરો'}</Button>

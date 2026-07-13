@@ -53,7 +53,7 @@ export function FetchErrorBanner() {
       <div role="alert" className={wrongBanner}>
         <WifiOff size={16} className="text-over shrink-0" />
         <span className="flex-1 text-over font-medium">
-          તમે ઓફલાઇન છો, ડેટા અપડેટ થઈ શકતો નથી.
+          આપ ઓફલાઇન છો, ડેટા અપડેટ થઈ શકતો નથી.
           {pendingWriteCount > 0 && ` ${pendingWriteCount} ફેરફાર ઇન્ટરનેટ પાછું આવે ત્યારે સેવ થશે.`}
         </span>
       </div>

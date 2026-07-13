@@ -92,7 +92,7 @@ export default function AuthCallback() {
       <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
         <div className="text-center max-w-sm w-full">
           <PranganBrand variant="symbol-navy" height={36} className="mx-auto mb-4" />
-          <h1 className="font-bold text-navy-900 text-[19px]">કઈ સોસાયટીમાં જવું છે?</h1>
+          <h1 className="font-bold text-navy-900 text-[19px]">કઈ સોસાયટી ખોલવી છે?</h1>
           <p className="text-[13.5px] text-navy-500 mt-1.5 mb-5">તમારો ઈમેલ એક કરતાં વધુ સોસાયટીમાં નોંધાયેલો છે.</p>
           <div className="space-y-2.5">
             {choices.map(c => (
@@ -118,8 +118,8 @@ export default function AuthCallback() {
           <div className="mx-auto mb-3 h-14 w-14 rounded-2xl bg-navy-50 border border-navy-100 flex items-center justify-center text-navy-400">
             <AlertCircle size={26} />
           </div>
-          <h1 className="font-bold text-navy-900 text-[19px]">લિંક કામ ન કરી</h1>
-          <p className="text-[13.5px] text-navy-500 mt-1.5">લિંક જૂની થઈ ગઈ હોઈ શકે છે. ફરી લોગિન કરવાનો પ્રયત્ન કરો.</p>
+          <h1 className="font-bold text-navy-900 text-[19px]">લિંક માન્ય નથી અથવા સમય પૂરો થયો છે</h1>
+          <p className="text-[13.5px] text-navy-500 mt-1.5">કૃપા કરીને લોગિન પેજ પરથી નવી લિંક મંગાવો.</p>
           <Button variant="soft" className="mt-4" onClick={() => nav('/login')}>લોગિન પર જાઓ</Button>
         </div>
       </div>
@@ -130,7 +130,7 @@ export default function AuthCallback() {
     <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
       <div className="text-center">
         <Loader2 size={28} className="animate-spin text-navy-400 mx-auto mb-3" />
-        <p className="text-[14px] text-navy-500">લોગિન થઈ રહ્યું છે...</p>
+        <p className="text-[14px] text-navy-500">લોગિન ચકાસી રહ્યા છીએ...</p>
       </div>
     </div>
   )

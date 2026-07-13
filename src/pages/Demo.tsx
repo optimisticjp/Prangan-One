@@ -170,7 +170,7 @@ export default function Demo() {
           ))}
 
           <p className="text-center text-[12.5px] text-navy-400 pt-2">
-            આ ડેમો છે: પાસવર્ડની જરૂર નથી, બધો ડેટા તમારા બ્રાઉઝરમાં જ સચવાય છે.<br />
+            આ ડેમો છે: પાસવર્ડની જરૂર નથી, બધો ડેટા આપના બ્રાઉઝરમાં જ સચવાય છે.<br />
             {/* exitDemo, not nav('/login'): if a demo session is active, a
                 client-side nav would land on /login still inside
                 DemoDataProvider, where a real login silently does nothing.

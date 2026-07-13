@@ -52,7 +52,7 @@ export default function Login() {
       await sendMagicLink(email.trim())
       setSent(true)
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : 'લિંક મોકલવામાં ભૂલ થઈ, ફરી પ્રયત્ન કરો.')
+      setSendError('લિંક મોકલી શકાઈ નથી. કૃપા કરીને ફરી પ્રયત્ન કરો.')
     } finally {
       setSending(false)
     }
@@ -70,7 +70,7 @@ export default function Login() {
       // that logic here.
       nav('/auth/callback')
     } catch {
-      setSendError('ઈમેલ અથવા પાસવર્ડ ખોટો છે, ફરી પ્રયત્ન કરો.')
+      setSendError('લોગિન થઈ શક્યું નથી. કૃપા કરીને ઈમેલ અને પાસવર્ડ તપાસીને ફરી પ્રયત્ન કરો.')
       setSending(false)
     }
   }
@@ -84,13 +84,13 @@ export default function Login() {
       // navigate away to Google's own login page, there's nothing left
       // for this component to show in the meantime
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : 'Google લોગિનમાં ભૂલ થઈ, ફરી પ્રયત્ન કરો.')
+      setSendError('Google લોગિન શરૂ થઈ શક્યું નથી. કૃપા કરીને ફરી પ્રયત્ન કરો.')
       setSending(false)
     }
   }
 
   const forgotPassword = async () => {
-    if (!email.trim()) { setSendError('પહેલા તમારો ઈમેલ નાખો.'); return }
+    if (!email.trim()) { setSendError('કૃપા કરીને પહેલા આપનો ઈમેલ નાખો.'); return }
     setSending(true); setSendError('')
     try {
       await sendPasswordResetEmail(email.trim())
@@ -124,7 +124,7 @@ export default function Login() {
           )}
           <p className="mt-5 text-[17px] leading-relaxed text-cream-100/90 animate-fadeUp" style={{ animationDelay: '80ms' }}>
             આપણી સોસાયટીનું બધું કામ,<br />
-            <span className="text-saffron-400 font-bold">સરળ ગુજરાતી માં, એક જ જગ્યાએ.</span>
+            <span className="text-saffron-400 font-bold">સરળ ગુજરાતીમાં, એક જ જગ્યાએ.</span>
           </p>
         </div>
       </div>
@@ -136,7 +136,7 @@ export default function Login() {
               <div className="h-11 w-11 rounded-xl bg-navy-50 border border-navy-100 text-navy-700 flex items-center justify-center shrink-0">{usePassword ? <Lock size={20} /> : <Mail size={21} />}</div>
               <div>
                 <div className="font-bold text-navy-900 text-[16.5px]">લોગિન</div>
-                <div className="text-[13px] text-navy-400">{usePassword ? 'ઈમેલ અને પાસવર્ડ નાખો' : 'તમારો ઈમેલ નાખો, અમે લોગિન લિંક મોકલીશું'}</div>
+                <div className="text-[13px] text-navy-400">{usePassword ? 'ઈમેલ અને પાસવર્ડ નાખો' : 'આપનો ઈમેલ નાખો, અમે લોગિન લિંક મોકલીશું'}</div>
               </div>
             </div>
 
@@ -149,7 +149,7 @@ export default function Login() {
               </div>
             ) : resetSent ? (
               <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3.5">
-                <div className="flex items-center gap-2 text-paid font-semibold text-[14.5px]"><CheckCircle2 size={17} /> રીસેટ લિંક મોકલી દીધી છે</div>
+                <div className="flex items-center gap-2 text-paid font-semibold text-[14.5px]"><CheckCircle2 size={17} /> રીસેટ લિંક મોકલી છે</div>
                 <p className="text-[13.5px] text-navy-500 mt-1">{email} પર જુઓ, ત્યાંની લિંક પર ટેપ કરીને નવો પાસવર્ડ સેટ કરી શકાશે.</p>
                 <button onClick={() => { setResetSent(false); setUsePassword(true) }} className="text-[12.5px] font-semibold text-navy-400 inline-flex items-center gap-1 mt-2.5"><ArrowLeft size={13} /> પાછા લોગિન પર</button>
               </div>
@@ -173,7 +173,7 @@ export default function Login() {
 
                 {usePassword ? (
                   <form className="space-y-2" onSubmit={e => { e.preventDefault(); submitPassword() }}>
-                    <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="તમારો ઈમેલ" aria-label="ઈમેલ" autoComplete="email" required />
+                    <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="આપનો ઈમેલ" aria-label="ઈમેલ" autoComplete="email" required />
                     <div className="relative">
                       <Input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="પાસવર્ડ" aria-label="પાસવર્ડ" className="pr-10" autoComplete="current-password" required />
                       <button type="button" onClick={() => setShowPassword(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-300" aria-label="પાસવર્ડ બતાવો">
@@ -191,7 +191,7 @@ export default function Login() {
                 ) : (
                   <form onSubmit={e => { e.preventDefault(); submitEmail() }}>
                     <div className="flex gap-2">
-                      <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="તમારો ઈમેલ" className="flex-1" aria-label="ઈમેલ" autoComplete="email" required />
+                      <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="આપનો ઈમેલ" className="flex-1" aria-label="ઈમેલ" autoComplete="email" required />
                       <Button type="submit" variant="primary" disabled={!email.trim() || sending}>
                         {sending ? 'મોકલાય છે...' : 'લિંક મોકલો'}
                       </Button>
@@ -203,7 +203,7 @@ export default function Login() {
               </div>
             ) : (
               <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3.5">
-                <div className="flex items-center gap-2 text-paid font-semibold text-[14.5px]"><CheckCircle2 size={17} /> લિંક મોકલી દીધી છે</div>
+                <div className="flex items-center gap-2 text-paid font-semibold text-[14.5px]"><CheckCircle2 size={17} /> લિંક મોકલી છે</div>
                 <p className="text-[13.5px] text-navy-500 mt-1">{email} પર જુઓ, ત્યાંની લિંક પર ટેપ કરવાથી લોગિન થઈ જશે.</p>
                 <button onClick={() => setSent(false)} className="text-[12.5px] font-semibold text-navy-400 inline-flex items-center gap-1 mt-2.5"><ArrowLeft size={13} /> બદલો</button>
               </div>

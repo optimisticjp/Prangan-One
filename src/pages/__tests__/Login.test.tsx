@@ -26,13 +26,13 @@ describe('Login never shows demo shortcuts, regardless of demo mode', () => {
 
   it('shows the real email login form when Supabase is configured', async () => {
     await renderLoginWith(true)
-    expect(await screen.findByPlaceholderText('તમારો ઈમેલ')).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText('આપનો ઈમેલ')).toBeInTheDocument()
   })
 
   it('shows an honest not-configured message instead of a fake email form when Supabase is not configured', async () => {
     await renderLoginWith(false)
     expect(await screen.findByText(/લોગિન સેવા હાલમાં સેટ થઈ રહી છે/)).toBeInTheDocument()
-    expect(screen.queryByPlaceholderText('તમારો ઈમેલ')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('આપનો ઈમેલ')).not.toBeInTheDocument()
   })
 })
 

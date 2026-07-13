@@ -9,11 +9,11 @@ import { PranganBrand } from '../components/PranganBrand'
 import { useAppLang } from '../lib/useAppLang'
 
 const errorCopy: Record<string, string> = {
-  society_not_found: 'આ કોડ સાચો લાગતો નથી. તમારી કમિટી પાસે સાચો કોડ ચેક કરો.',
-  flat_not_found: 'આ ફ્લેટ નંબર આ સોસાયટીમાં મળ્યો નહીં. નંબર ફરી ચેક કરો.',
-  tenant_access_disabled: 'આ સોસાયટીમાં ભાડૂત માટે એક્સેસ હાલમાં બંધ છે. તમારી કમિટીનો સંપર્ક કરો.',
-  already_enrolled: 'આ ઈમેલ પહેલેથી જ આ સોસાયટીમાં નોંધાયેલો છે. લોગિન કરવાનો પ્રયત્ન કરો.',
-  unknown: 'કંઈક ખોટું થયું, ફરી પ્રયત્ન કરો.',
+  society_not_found: 'આ કોડ મળ્યો નથી. કૃપા કરીને આપની કમિટી પાસેથી સાચો કોડ તપાસો.',
+  flat_not_found: 'આ ફ્લેટ નંબર આ સોસાયટીમાં મળ્યો નથી. કૃપા કરીને નંબર તપાસીને ફરી પ્રયત્ન કરો.',
+  tenant_access_disabled: 'આ સોસાયટીમાં ભાડુઆત માટે એક્સેસ હાલમાં બંધ છે. કૃપા કરીને આપની કમિટીનો સંપર્ક કરો.',
+  already_enrolled: 'આ ઈમેલ પહેલેથી આ સોસાયટીમાં નોંધાયેલો છે. કૃપા કરીને લોગિન કરો.',
+  unknown: 'વિનંતી મોકલી શકાઈ નથી. કૃપા કરીને ફરી પ્રયત્ન કરો.',
 }
 
 /**
@@ -75,23 +75,23 @@ export default function Join() {
       <div className="max-w-sm w-full">
         <div className="text-center mb-5">
           <PranganBrand variant="symbol-navy" height={38} className="mx-auto mb-3" />
-          <h1 className="font-bold text-navy-900 text-[20px]">તમારી સોસાયટીમાં જોડાઓ</h1>
-          <p className="text-[13.5px] text-navy-500 mt-1">તમારી કમિટી પાસેથી મળેલો કોડ અને તમારો ફ્લેટ નંબર નાખો.</p>
+          <h1 className="font-bold text-navy-900 text-[20px]">આપની સોસાયટીમાં જોડાવાની વિનંતી મોકલો</h1>
+          <p className="text-[13.5px] text-navy-500 mt-1">આપની કમિટી પાસેથી મળેલો કોડ અને આપનો ફ્લેટ નંબર નાખો.</p>
         </div>
 
         <Card>
           {result === 'active' ? (
             <div className="text-center py-2">
               <CheckCircle2 size={30} className="text-paid mx-auto mb-2" />
-              <p className="text-[15px] text-navy-700 font-semibold">તમે જોડાઈ ગયા છો!</p>
-              <p className="text-[13px] text-navy-500 mt-1">હવે લોગિન કરીને તમારો ડેશબોર્ડ જુઓ.</p>
+              <p className="text-[15px] text-navy-700 font-semibold">આપ જોડાઈ ગયા છો!</p>
+              <p className="text-[13px] text-navy-500 mt-1">હવે લોગિન કરીને આપનો ડેશબોર્ડ જુઓ.</p>
               <Button variant="primary" className="mt-4 w-full" onClick={() => nav('/login')}>લોગિન કરો</Button>
             </div>
           ) : result === 'pending' ? (
             <div className="text-center py-2">
               <Clock3 size={30} className="text-pend mx-auto mb-2" />
-              <p className="text-[15px] text-navy-700 font-semibold">તમારી વિનંતી કમિટી પાસે મોકલી છે</p>
-              <p className="text-[13px] text-navy-500 mt-1">તમારી વિગતો ફ્લેટના રેકોર્ડ સાથે સીધી મળી નથી, એટલે કમિટી મંજૂરી આપશે. મંજૂરી મળ્યા પછી લોગિન કરી શકશો.</p>
+              <p className="text-[15px] text-navy-700 font-semibold">આપની વિનંતી કમિટી પાસે મોકલી છે</p>
+              <p className="text-[13px] text-navy-500 mt-1">આપની વિગતો ફ્લેટના રેકોર્ડ સાથે સીધી મળી નથી, એટલે કમિટી મંજૂરી આપશે. મંજૂરી મળ્યા પછી લોગિન કરી શકશો.</p>
               <Button variant="soft" className="mt-4 w-full" onClick={() => nav('/login')}>લોગિન પર જાઓ</Button>
             </div>
           ) : (
@@ -100,14 +100,14 @@ export default function Join() {
               <Input id="join-code" value={form.joinCode} onChange={e => setForm({ ...form, joinCode: e.target.value })} placeholder="સોસાયટી કોડ (દા.ત. RAJHANS24)" className={inputClass} required />
               <label htmlFor="join-flat" className="sr-only">ફ્લેટ નંબર</label>
               <Input id="join-flat" value={form.flatNumber} onChange={e => setForm({ ...form, flatNumber: e.target.value })} placeholder="ફ્લેટ નંબર" className={inputClass} required />
-              <label htmlFor="join-name" className="sr-only">તમારું નામ</label>
-              <Input id="join-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="તમારું નામ" className={inputClass} autoComplete="name" required />
+              <label htmlFor="join-name" className="sr-only">આપનું નામ</label>
+              <Input id="join-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="આપનું નામ" className={inputClass} autoComplete="name" required />
               <label htmlFor="join-phone" className="sr-only">ફોન નંબર</label>
               <Input id="join-phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="ફોન નંબર" className={inputClass} autoComplete="tel" required />
               <label htmlFor="join-email" className="sr-only">ઈમેલ</label>
               <Input id="join-email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="ઈમેલ" className={inputClass} autoComplete="email" required />
               {error && <p className="text-[13px] text-over flex items-start gap-1.5"><AlertCircle size={15} className="shrink-0 mt-0.5" /> {error}</p>}
-              <Button type="submit" variant="primary" className="w-full" disabled={!canSubmit || sending}>{sending ? 'મોકલાય છે...' : 'જોડાઓ'}</Button>
+              <Button type="submit" variant="primary" className="w-full" disabled={!canSubmit || sending}>{sending ? 'મોકલાય છે...' : 'જોડાવાની વિનંતી મોકલો'}</Button>
             </form>
           )}
         </Card>
