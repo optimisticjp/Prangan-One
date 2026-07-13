@@ -1,6 +1,6 @@
 # Claude Code — Web Builder Template
 
-This repo is a reusable starter template for building websites, web apps, landing pages, dashboards, e-commerce stores, and marketing tools with Claude Code. It comes pre-loaded with 311 skills from 10 curated third-party sources.
+This repo is a reusable starter template for building websites, web apps, landing pages, dashboards, e-commerce stores, and marketing tools with Claude Code. It comes pre-loaded with 321 skills — 311 from 10 curated third-party sources plus the 10-skill official GitHub Spec Kit workflow — and a project constitution that governs how work is done.
 
 ---
 
@@ -22,7 +22,7 @@ Clone or fork this template, then start building. The skills in `.claude/skills/
 
 ## How to Use the Installed Skills
 
-311 skills are installed under `.claude/skills/`. **Do not activate all skills blindly.** Read the task first, then invoke only the skills that are directly relevant.
+321 skills are installed under `.claude/skills/`. **Do not activate all skills blindly.** Read the task first, then invoke only the skills that are directly relevant.
 
 To invoke a skill, type `/skill-name` in the Claude Code chat. For example:
 
@@ -35,6 +35,44 @@ To invoke a skill, type `/skill-name` in the Claude Code chat. For example:
 - `/create-pr` — structured pull request creation
 
 Run `/status` or `/analyse` when you need a broad overview before diving in.
+
+---
+
+## Spec Kit Workflow
+
+The official [GitHub Spec Kit](https://github.com/github/spec-kit) is installed as 10 `speckit-*` skills. **Spec Kit is the default workflow** for:
+
+- new production websites
+- new web apps
+- significant features
+- any work with meaningful ambiguity
+
+### Default sequence
+
+Run the stages in order, each via its `/speckit-<stage>` skill:
+
+```
+constitution → specify → clarify → plan → checklist → tasks → analyze → implement → converge
+```
+
+| Stage | Skill | Purpose |
+|---|---|---|
+| constitution | `/speckit-constitution` | Establish or amend the governing project principles |
+| specify | `/speckit-specify` | Capture the feature spec: outcome, users, requirements, success criteria |
+| clarify | `/speckit-clarify` | Resolve ambiguity with targeted questions before planning |
+| plan | `/speckit-plan` | Produce the implementation plan and design artifacts |
+| checklist | `/speckit-checklist` | Validate requirement completeness, clarity, and consistency |
+| tasks | `/speckit-tasks` | Generate dependency-ordered, actionable tasks |
+| analyze | `/speckit-analyze` | Cross-artifact consistency check across spec, plan, and tasks |
+| implement | `/speckit-implement` | Execute the tasks |
+| converge | `/speckit-converge` | Assess the build against spec/plan and append any remaining work |
+
+### Rules
+
+- **Very small, low-risk changes may use a leaner workflow** when the requirement is already clear — a full spec-and-plan cycle is not required for a one-line copy fix.
+- **Implementation must not begin before the spec and plan are sufficiently clear.** Never run `/speckit-implement` on an ambiguous or unplanned feature.
+- **Select supporting skills during the relevant Spec Kit stages, not all at once.** For example: design, frontend, and SEO skills during `specify`/`plan`; security, TDD, and testing skills during `plan`/`implement`; context, research, and memory skills throughout. Do not activate all 321 skills blindly.
+- **The constitution at `.specify/memory/constitution.md` is the governing source of project principles.** Every plan must pass its Constitution Check; documented exceptions go in the plan's Complexity Tracking.
 
 ---
 
@@ -100,7 +138,7 @@ Some skills have external dependencies that are not bundled in this template:
 
 ## Installed Skills Reference
 
-311 skills are installed from 10 sources. Full details are in `INSTALL_REPORT.md`.
+321 skills are installed from 10 curated third-party sources plus the official GitHub Spec Kit. Full details are in `INSTALL_REPORT.md`.
 
 | Source | Count | Key skills |
 |---|---|---|
@@ -114,3 +152,4 @@ Some skills have external dependencies that are not bundled in this template:
 | Context Engineering Kit | 67 | `context-engineering`, `make-plan`, `brainstorm`, `create-pr`, `commit`, `write-tests`, + 61 more |
 | Claude Scientific Skills | 147 | Scientific computing, bioinformatics, ML, quantum, data analysis (use only when relevant) |
 | Claude Mem | 17 | `babysit`, `timeline-report`, `make-plan`, `version-bump`, `wowerpoint`, + memory tools |
+| GitHub Spec Kit | 10 | `speckit-constitution`, `speckit-specify`, `speckit-clarify`, `speckit-plan`, `speckit-tasks`, `speckit-implement`, + 4 more |
