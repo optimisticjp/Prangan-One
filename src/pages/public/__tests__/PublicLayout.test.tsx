@@ -28,6 +28,7 @@ describe('PublicLayout mobile menu accessibility', () => {
     expect(screen.getByRole('button', { name: 'Close menu' })).toHaveAttribute('aria-expanded', 'true')
     const menu = document.getElementById(button.getAttribute('aria-controls')!)!
     expect(within(menu).getByText('Features')).toBeInTheDocument()
+    expect(within(menu).getByRole('link', { name: 'Demo' })).toHaveAttribute('href', '/demo')
 
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.getByRole('button', { name: 'Open menu' })).toHaveAttribute('aria-expanded', 'false')
@@ -46,5 +47,7 @@ describe('PublicLayout mobile menu accessibility', () => {
     renderLayout('gu')
     expect(screen.getAllByRole('button', { name: 'ગુ' })[0]).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByRole('button', { name: 'EN' })[0]).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getAllByRole('link', { name: 'ડેમો' })[0]).toHaveAttribute('href', '/demo')
+    expect(screen.getAllByRole('link', { name: 'લોગિન' })[0]).toHaveAttribute('href', '/login')
   })
 })

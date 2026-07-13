@@ -13,12 +13,14 @@ const socialLinks = [
 const navByLang: Record<PublicLang, { to: string; label: string }[]> = {
   en: [
     { to: '/features', label: 'Features' },
+    { to: '/demo', label: 'Demo' },
     { to: '/pricing', label: 'Pricing' },
     { to: '/faq', label: 'FAQ' },
     { to: '/contact', label: 'Contact' },
   ],
   gu: [
     { to: '/features', label: 'સુવિધાઓ' },
+    { to: '/demo', label: 'ડેમો' },
     { to: '/pricing', label: 'કિંમત' },
     { to: '/faq', label: 'FAQ' },
     { to: '/contact', label: 'સંપર્ક' },
