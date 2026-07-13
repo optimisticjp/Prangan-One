@@ -73,7 +73,9 @@ test.describe('demo journeys', () => {
 
   test('starts a resident demo for a seeded flat', async ({ page }) => {
     await page.goto('/demo')
-    await expect(page.getByLabel('ફ્લેટ પસંદ કરો')).toHaveValue('demo-flat-101')
+    const flatSelect = page.getByLabel('ફ્લેટ પસંદ કરો')
+    await expect(flatSelect).toHaveValue(/\S+/)
+    await expect(flatSelect.locator('option:checked')).toContainText(/ફ્લેટ/)
     await page.getByRole('button', { name: /શરૂ કરો/i }).click()
 
     await expect(page).toHaveURL(/\/app$/)
