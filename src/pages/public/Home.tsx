@@ -61,8 +61,20 @@ const trust = [
   { icon: ShieldCheck, en: 'Gujarati-first resident experience, not an English page translated later.', gu: 'ગુજરાતી-પ્રથમ રહેવાસી અનુભવ, પછીથી કરેલો અનુવાદ નહીં.' },
   { icon: Database, en: 'Supabase-backed real sessions with tenant isolation through Row Level Security.', gu: 'Supabase આધારિત વાસ્તવિક સેશન અને Row Level Security દ્વારા સોસાયટી અલગાવ.' },
   { icon: Lock, en: 'Private storage is used for supported uploads and permissioned documents.', gu: 'સપોર્ટેડ અપલોડ અને પરવાનગીવાળા દસ્તાવેજ માટે પ્રાઇવેટ સ્ટોરેજ વપરાય છે.' },
-  { icon: UploadCloud, en: 'The public demo is a separate fictional environment, so visitors can explore safely.', gu: 'પબ્લિક ડેમો અલગ કલ્પિત વાતાવરણ છે, એટલે નિરાંતે જોઈ શકાય.' },
 ]
+
+const demoTrust = {
+  enabled: {
+    icon: UploadCloud,
+    en: 'The public demo is a separate fictional environment, so visitors can explore safely.',
+    gu: 'પબ્લિક ડેમો અલગ કલ્પિત વાતાવરણ છે, એટલે નિરાંતે જોઈ શકાય.',
+  },
+  disabled: {
+    icon: UploadCloud,
+    en: 'Demo data is kept separate from real society sessions and records.',
+    gu: 'ડેમો ડેટા વાસ્તવિક સોસાયટીના સેશન અને રેકોર્ડથી સંપૂર્ણ અલગ રાખવામાં આવે છે.',
+  },
+}
 
 export default function Home() {
   const [lang, setLang] = usePublicLang()
@@ -114,7 +126,7 @@ export default function Home() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">{steps.map((s, i) => { const [title, body] = lang === 'en' ? s.en : s.gu; return <div key={title} className="rounded-2xl border border-cream-200 bg-white p-5"><div className="flex items-center gap-3 mb-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-saffron-500/15 text-saffron-700 font-bold text-[13px]">{i + 1}</span><s.icon size={20} className="text-saffron-500" /></div><h3 className="font-bold text-[15.5px]">{title}</h3><p className="text-[13.5px] text-navy-500 leading-relaxed mt-1.5">{body}</p></div> })}</div>
       </section>
 
-      <section className="px-5 py-10 bg-navy-900 text-cream-50"><div className="max-w-5xl mx-auto"><h2 className="font-bold text-[24px] text-center mb-6">{t.trustTitle}</h2><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">{trust.map(item => <div key={item.en} className="rounded-2xl border border-cream-50/10 bg-cream-50/5 p-4"><item.icon size={20} className="text-saffron-400 mb-2" /><p className="text-[13.5px] leading-relaxed text-cream-100/85">{lang === 'en' ? item.en : item.gu}</p></div>)}</div></div></section>
+      <section className="px-5 py-10 bg-navy-900 text-cream-50"><div className="max-w-5xl mx-auto"><h2 className="font-bold text-[24px] text-center mb-6">{t.trustTitle}</h2><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">{[...trust, demoEnabled ? demoTrust.enabled : demoTrust.disabled].map(item => <div key={item.en} className="rounded-2xl border border-cream-50/10 bg-cream-50/5 p-4"><item.icon size={20} className="text-saffron-400 mb-2" /><p className="text-[13.5px] leading-relaxed text-cream-100/85">{lang === 'en' ? item.en : item.gu}</p></div>)}</div></div></section>
 
       <section className="px-5 py-10 max-w-5xl mx-auto"><h2 className="font-bold text-[22px] text-center mb-6">{t.modulesTitle}</h2><div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{modules.map(m => <div key={m.en} className="rounded-xl border border-cream-200 bg-white px-3 py-4 text-center"><m.icon size={20} className="mx-auto text-saffron-500 mb-1.5" /><div className="text-[12.5px] font-semibold text-navy-700">{lang === 'en' ? m.en : m.gu}</div></div>)}</div></section>
 
