@@ -4,8 +4,8 @@
  * Big tap targets (44px+), rounded-2xl cards, soft shadows, fade-up entrances.
  * Semantic: green = paid/done, amber = pending, red = overdue/urgent.
  */
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
-import { useId, useRef } from 'react'
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactElement, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import { cloneElement, isValidElement, useId, useRef } from 'react'
 import { X } from 'lucide-react'
 import { useDialogA11y } from '../lib/useDialogA11y'
 
@@ -74,13 +74,44 @@ export function Badge({ tone = 'gray', children }: { tone?: Tone; children: Reac
 }
 
 /* ---------------- Form controls ---------------- */
-export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+type FieldProps = {
+  label: string
+  children: ReactNode
+  hint?: string
+  error?: string
+  id?: string
+  htmlFor?: string
+  hintId?: string
+  errorId?: string
+}
+
+const describableControls = new Set(['input', 'select', 'textarea'])
+const joinIds = (...ids: (string | undefined)[]) => Array.from(new Set(ids.flatMap(id => id?.split(/\s+/).filter(Boolean) ?? []))).join(' ') || undefined
+
+export function Field({ label, children, hint, error, id, htmlFor, hintId, errorId }: FieldProps) {
+  const generated = useId()
+  const canConnectControl = isValidElement(children) && (typeof children.type === 'function' || (typeof children.type === 'string' && describableControls.has(children.type)))
+  const child = canConnectControl ? children as ReactElement<Record<string, unknown>> : null
+  const childId = typeof child?.props.id === 'string' ? child.props.id : undefined
+  const controlId = childId ?? id ?? htmlFor ?? `field-${generated}`
+  const resolvedHintId = hint ? (hintId ?? `${controlId}-hint`) : undefined
+  const resolvedErrorId = error ? (errorId ?? `${controlId}-error`) : undefined
+  const describedBy = joinIds(typeof child?.props['aria-describedby'] === 'string' ? child.props['aria-describedby'] : undefined, resolvedHintId, resolvedErrorId)
+  const control = child
+    ? cloneElement(child, {
+        id: controlId,
+        'aria-describedby': describedBy,
+        'aria-invalid': error ? true : child.props['aria-invalid'],
+      })
+    : children
+
   return (
-    <label className="block">
-      <span className="block text-[13.5px] font-semibold text-navy-600 mb-1">{label}</span>
-      {children}
-      {hint && <span className="block text-[12px] text-navy-400 mt-1">{hint}</span>}
-    </label>
+    <div className="block">
+      <label htmlFor={canConnectControl ? controlId : undefined} className="block text-[13.5px] font-semibold text-navy-600 mb-1">{label}</label>
+      {control}
+      {hint && <p id={resolvedHintId} className="block text-[12px] text-navy-400 mt-1">{hint}</p>}
+      {error && <p id={resolvedErrorId} className="block text-[12.5px] text-over mt-1">{error}</p>}
+    </div>
   )
 }
 const ctrl = 'w-full rounded-xl border border-cream-300 bg-white px-3.5 min-h-[46px] text-[15.5px] text-navy-800 placeholder:text-navy-300 focus:outline-none focus:ring-2 focus:ring-saffron-400/60 focus:border-saffron-400'
@@ -152,11 +183,13 @@ export function SectionTitle({ children, action }: { children: ReactNode; action
 }
 
 /* ---------------- Progress bar ---------------- */
-export function Progress({ value, tone = 'saffron' }: { value: number; tone?: 'saffron' | 'green' | 'navy' }) {
+export function Progress({ value, label, tone = 'saffron' }: { value: number; label: string; tone?: 'saffron' | 'green' | 'navy' }) {
   const colors = { saffron: 'bg-saffron-500', green: 'bg-paid', navy: 'bg-navy-600' }
+  const normalized = Number.isFinite(value) ? value : 0
+  const clamped = Math.min(100, Math.max(0, normalized))
   return (
-    <div className="h-2.5 w-full rounded-full bg-cream-200 overflow-hidden">
-      <div className={`h-full rounded-full ${colors[tone]} transition-all duration-500`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    <div className="h-2.5 w-full rounded-full bg-cream-200 overflow-hidden" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={clamped}>
+      <div className={`h-full rounded-full ${colors[tone]} transition-all duration-500`} style={{ width: `${clamped}%` }} />
     </div>
   )
 }
