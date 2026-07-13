@@ -14,7 +14,7 @@ type BtnVariant = 'primary' | 'accent' | 'soft' | 'ghost' | 'danger'
 export function Button({
   variant = 'primary', full, className = '', children, ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant; full?: boolean }) {
-  const base = 'inline-flex items-center justify-center gap-2 rounded-xl font-semibold px-4 min-h-[44px] text-[15px] transition-all duration-150 active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-saffron-500'
+  const base = 'inline-flex items-center justify-center gap-2 rounded-xl font-semibold px-4 min-h-[44px] text-[15px] transition-all duration-150 active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none'
   const styles: Record<BtnVariant, string> = {
     primary: 'bg-navy-800 text-cream-50 hover:bg-navy-700 shadow-soft',
     accent: 'bg-saffron-500 text-navy-900 hover:bg-saffron-400 shadow-soft',
@@ -114,7 +114,7 @@ export function Field({ label, children, hint, error, id, htmlFor, hintId, error
     </div>
   )
 }
-const ctrl = 'w-full rounded-xl border border-cream-300 bg-white px-3.5 min-h-[46px] text-[15.5px] text-navy-800 placeholder:text-navy-300 focus:outline-none focus:ring-2 focus:ring-saffron-400/60 focus:border-saffron-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-saffron-500'
+const ctrl = 'w-full rounded-xl border border-cream-300 bg-white px-3.5 min-h-[46px] text-[15.5px] text-navy-800 placeholder:text-navy-300 focus:outline-none focus:ring-2 focus:ring-saffron-400/60 focus:border-saffron-400'
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${ctrl} ${props.className ?? ''}`} />
 }
@@ -140,7 +140,7 @@ export function Modal({ open, onClose, title, children, wide }: {
       <div ref={dialogRef} className={`relative w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'} bg-cream-50 rounded-t-3xl sm:rounded-2xl shadow-lift animate-fadeUp max-h-[92vh] overflow-y-auto`}>
         <div className="sticky top-0 glass rounded-t-3xl sm:rounded-t-2xl px-5 py-4 flex items-center justify-between">
           <h3 id={titleId} className="font-bold text-[17px] text-navy-800">{title}</h3>
-          <button onClick={onClose} aria-label="બંધ કરો" className="h-9 w-9 rounded-full hover:bg-navy-50 flex items-center justify-center text-navy-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-saffron-500">
+          <button onClick={onClose} aria-label="બંધ કરો" className="h-9 w-9 rounded-full hover:bg-navy-50 flex items-center justify-center text-navy-500">
             <X size={19} />
           </button>
         </div>
@@ -183,11 +183,12 @@ export function SectionTitle({ children, action }: { children: ReactNode; action
 }
 
 /* ---------------- Progress bar ---------------- */
-export function Progress({ value, tone = 'saffron' }: { value: number; tone?: 'saffron' | 'green' | 'navy' }) {
+export function Progress({ value, label, tone = 'saffron' }: { value: number; label: string; tone?: 'saffron' | 'green' | 'navy' }) {
   const colors = { saffron: 'bg-saffron-500', green: 'bg-paid', navy: 'bg-navy-600' }
-  const clamped = Math.min(100, Math.max(0, value))
+  const normalized = Number.isFinite(value) ? value : 0
+  const clamped = Math.min(100, Math.max(0, normalized))
   return (
-    <div className="h-2.5 w-full rounded-full bg-cream-200 overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={clamped}>
+    <div className="h-2.5 w-full rounded-full bg-cream-200 overflow-hidden" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={clamped}>
       <div className={`h-full rounded-full ${colors[tone]} transition-all duration-500`} style={{ width: `${clamped}%` }} />
     </div>
   )

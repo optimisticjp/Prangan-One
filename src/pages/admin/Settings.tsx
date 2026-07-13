@@ -77,7 +77,7 @@ export default function Settings() {
               <span className="text-[14px] text-navy-600 capitalize">{society.plan} પ્લાન</span>
               <span className="num text-[13.5px] font-semibold text-navy-700">{used} / {society.flatsLimit} ફ્લેટ</span>
             </div>
-            <Progress value={pct} tone={pct > 90 ? 'saffron' : 'navy'} />
+            <Progress value={pct} label="ફ્લેટ પ્લાન ક્ષમતા વપરાશ" tone={pct > 90 ? 'saffron' : 'navy'} />
             <p className="text-[12.5px] text-navy-400 mt-2">₹10/ફ્લેટ/મહિનો, Prangan One ઓનર દ્વારા મેન્યુઅલી ટ્રેક થાય છે.</p>
           </Card>
 

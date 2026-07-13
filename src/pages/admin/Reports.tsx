@@ -67,7 +67,7 @@ export default function Reports() {
           <SectionTitle>{fmtMonth(cur)} કલેક્શન</SectionTitle>
           <Card>
             <div className="flex items-center gap-3">
-              <Progress value={rate} tone={rate >= 80 ? 'green' : 'saffron'} />
+              <Progress value={rate} label="આ મહિનાનો કલેક્શન દર" tone={rate >= 80 ? 'green' : 'saffron'} />
               <span className="num font-bold text-navy-800 shrink-0">{rate}%</span>
             </div>
             <div className="text-[13px] text-navy-400 mt-2">₹{collected.toLocaleString('en-IN')} વસૂલ થયા, કુલ બિલ ₹{billed.toLocaleString('en-IN')}</div>

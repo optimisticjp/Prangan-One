@@ -109,7 +109,7 @@ export default function Billing() {
             <div><span className="text-[13px] text-navy-400">જમા</span> <b className="num ml-1 text-paid">{inr(collected)}</b></div>
             <div><span className="text-[13px] text-navy-400">ચૂકવેલ ફ્લેટ</span> <b className="num ml-1">{paidCount}/{bills.length}</b></div>
             <div className="flex-1 min-w-40 flex items-center gap-2">
-              <Progress value={pct} tone={pct >= 80 ? 'green' : 'saffron'} />
+              <Progress value={pct} label="પસંદ કરેલા મહિનાનું કલેક્શન પ્રગતિ" tone={pct >= 80 ? 'green' : 'saffron'} />
               <span className="num text-[13.5px] font-bold text-navy-700">{pct}%</span>
             </div>
           </div>

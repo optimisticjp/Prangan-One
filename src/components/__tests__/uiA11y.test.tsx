@@ -3,13 +3,20 @@ import { render, screen } from '@testing-library/react'
 import { Field, Input, Progress } from '../ui'
 
 describe('shared UI accessibility polish', () => {
-  it('Progress exposes the same clamped value visually and to assistive tech', () => {
-    render(<Progress value={140} />)
-    const progress = screen.getByRole('progressbar')
+  it('Progress exposes its accessible name and the same clamped value visually and to assistive tech', () => {
+    render(<Progress value={140} label="આ મહિનાનો કલેક્શન દર" />)
+    const progress = screen.getByRole('progressbar', { name: 'આ મહિનાનો કલેક્શન દર' })
     expect(progress).toHaveAttribute('aria-valuemin', '0')
     expect(progress).toHaveAttribute('aria-valuemax', '100')
     expect(progress).toHaveAttribute('aria-valuenow', '100')
     expect(progress.firstElementChild).toHaveStyle({ width: '100%' })
+  })
+
+  it('Progress normalizes non-finite values before announcing or displaying them', () => {
+    render(<Progress value={Number.NaN} label="ફ્લેટ પ્લાન ક્ષમતા વપરાશ" />)
+    const progress = screen.getByRole('progressbar', { name: 'ફ્લેટ પ્લાન ક્ષમતા વપરાશ' })
+    expect(progress).toHaveAttribute('aria-valuenow', '0')
+    expect(progress.firstElementChild).toHaveStyle({ width: '0%' })
   })
 
   it('Field connects the label, hint, and error to a compatible control without changing call sites', () => {
