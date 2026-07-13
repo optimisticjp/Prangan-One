@@ -1,12 +1,16 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'
 import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { DataProvider } from '../../lib/store'
 import Home from '../public/Home'
 
+const demoMode = vi.hoisted(() => ({ enabled: true }))
+vi.mock('../../lib/demoMode', () => ({ isDemoModeEnabled: () => demoMode.enabled }))
+
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  demoMode.enabled = true
 })
 
 function renderHome() {
@@ -18,7 +22,8 @@ function renderHome() {
 }
 
 describe('public homepage', () => {
-  it('renders Gujarati-first hero copy with one primary demo action and a login action', () => {
+  it('renders Gujarati-first hero copy with one primary demo action and a login action when demo mode is enabled', () => {
+    demoMode.enabled = true
     renderHome()
     expect(screen.getByRole('heading', { level: 1, name: /હાઉસિંગ સોસાયટી/ })).toBeInTheDocument()
     expect(screen.getByText(/બિલ, રસીદ, ફરિયાદ/)).toBeInTheDocument()
@@ -27,6 +32,17 @@ describe('public homepage', () => {
     const demoLinks = within(main).getAllByRole('link', { name: /ડેમો ખોલો/ })
     expect(demoLinks).toHaveLength(1)
     expect(demoLinks[0]).toHaveAttribute('href', '/demo')
+    expect(within(main).getByRole('link', { name: 'લોગિન' })).toHaveAttribute('href', '/login')
+  })
+
+  it('replaces the primary demo link with contact when demo mode is disabled', () => {
+    demoMode.enabled = false
+    renderHome()
+
+    const main = screen.getByRole('main')
+    expect(within(main).queryByRole('link', { name: /ડેમો ખોલો/ })).not.toBeInTheDocument()
+    expect(within(main).queryByRole('link', { name: /Demo|ડેમો$/ })).not.toBeInTheDocument()
+    expect(within(main).getByRole('link', { name: /ડેમો માટે સંપર્ક કરો/ })).toHaveAttribute('href', '/contact')
     expect(within(main).getByRole('link', { name: 'લોગિન' })).toHaveAttribute('href', '/login')
   })
 

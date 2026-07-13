@@ -3,6 +3,7 @@ import { Menu, X, Facebook, Instagram, Youtube, LogIn } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { PranganBrand } from '../../components/PranganBrand'
 import type { PublicLang } from './usePublicLang'
+import { isDemoModeEnabled } from '../../lib/demoMode'
 
 const socialLinks = [
   { href: 'https://www.facebook.com/pranganone/', icon: Facebook, label: 'Prangan One on Facebook' },
@@ -10,17 +11,17 @@ const socialLinks = [
   { href: 'https://www.youtube.com/@PranganOne', icon: Youtube, label: 'Prangan One on YouTube' },
 ]
 
-const navByLang: Record<PublicLang, { to: string; label: string }[]> = {
+const baseNavByLang: Record<PublicLang, { to: string; label: string; needsDemo?: boolean }[]> = {
   en: [
     { to: '/features', label: 'Features' },
-    { to: '/demo', label: 'Demo' },
+    { to: '/demo', label: 'Demo', needsDemo: true },
     { to: '/pricing', label: 'Pricing' },
     { to: '/faq', label: 'FAQ' },
     { to: '/contact', label: 'Contact' },
   ],
   gu: [
     { to: '/features', label: 'સુવિધાઓ' },
-    { to: '/demo', label: 'ડેમો' },
+    { to: '/demo', label: 'ડેમો', needsDemo: true },
     { to: '/pricing', label: 'કિંમત' },
     { to: '/faq', label: 'FAQ' },
     { to: '/contact', label: 'સંપર્ક' },
@@ -32,7 +33,8 @@ export function PublicLayout({ lang, setLang, children }: {
 }) {
   const [open, setOpen] = useState(false)
   const menuId = useId()
-  const nav = navByLang[lang]
+  const demoEnabled = isDemoModeEnabled()
+  const nav = baseNavByLang[lang].filter(item => demoEnabled || !item.needsDemo)
   const menuLabel = open ? (lang === 'en' ? 'Close menu' : 'મેનુ બંધ કરો') : (lang === 'en' ? 'Open menu' : 'મેનુ ખોલો')
 
   useEffect(() => {

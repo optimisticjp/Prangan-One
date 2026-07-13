@@ -8,6 +8,7 @@ import {
 import { PublicLayout } from './PublicLayout'
 import { usePublicLang } from './usePublicLang'
 import { usePageMeta } from './usePageMeta'
+import { isDemoModeEnabled } from '../../lib/demoMode'
 
 const copy = {
   en: {
@@ -15,7 +16,7 @@ const copy = {
     badge: 'Gujarati-first society management',
     h1: 'Run your housing society from one clear committee dashboard.',
     sub: 'Prangan One helps committees manage bills, receipts, complaints, notices, documents, polls, events, parking, and reports — with a simple resident view when members are ready.',
-    ctaPrimary: 'Open the demo', ctaSecondary: 'Log in',
+    ctaDemo: 'Open the demo', ctaContact: 'Request a demo', ctaSecondary: 'Log in',
     previewEyebrow: 'Product preview', previewTitle: 'Committee control, resident clarity', previewBody: 'A practical workspace for daily society work, plus a resident home that keeps dues, notices, and complaints easy to understand.',
     adminLabel: 'Committee dashboard', residentLabel: 'Resident view', dueThisMonth: 'Due this month', collected: 'Collected', complaints: 'Open complaints', notice: 'Water tank cleaning notice', receipt: 'Receipt RT-2026-0042', residentDue: 'Maintenance due', residentComplaint: 'Complaint status: In progress',
     howTitle: 'How it works', howSub: 'The journey stays small enough for a real committee to adopt.',
@@ -28,7 +29,7 @@ const copy = {
     badge: 'ગુજરાતી-પ્રથમ સોસાયટી મેનેજમેન્ટ',
     h1: 'તમારી હાઉસિંગ સોસાયટી એક સાફ કમિટી ડેશબોર્ડથી ચલાવો.',
     sub: 'Prangan One કમિટીને બિલ, રસીદ, ફરિયાદ, નોટિસ, દસ્તાવેજ, મતદાન, ઇવેન્ટ, પાર્કિંગ અને રિપોર્ટ સંભાળવામાં મદદ કરે છે — અને રહેવાસી તૈયાર હોય ત્યારે એમને સરળ વ્યૂ મળે છે.',
-    ctaPrimary: 'ડેમો ખોલો', ctaSecondary: 'લોગિન',
+    ctaDemo: 'ડેમો ખોલો', ctaContact: 'ડેમો માટે સંપર્ક કરો', ctaSecondary: 'લોગિન',
     previewEyebrow: 'પ્રોડક્ટ પ્રિવ્યુ', previewTitle: 'કમિટી માટે કંટ્રોલ, રહેવાસી માટે સ્પષ્ટતા', previewBody: 'રોજિંદા સોસાયટી કામ માટે વ્યવહારુ વર્કસ્પેસ, અને બાકી રકમ, નોટિસ, ફરિયાદ સરળ દેખાય એવો રહેવાસી હોમ.',
     adminLabel: 'કમિટી ડેશબોર્ડ', residentLabel: 'રહેવાસી વ્યૂ', dueThisMonth: 'આ મહિને બાકી', collected: 'જમા થયું', complaints: 'ખુલ્લી ફરિયાદ', notice: 'પાણીની ટાંકી સાફ કરવાની નોટિસ', receipt: 'રસીદ RT-2026-0042', residentDue: 'મેન્ટેનન્સ બાકી', residentComplaint: 'ફરિયાદ સ્થિતિ: ચાલુ',
     howTitle: 'કેવી રીતે ચાલે છે', howSub: 'વાસ્તવિક કમિટી અપનાવી શકે એટલી સરળ યાત્રા.',
@@ -66,6 +67,8 @@ const trust = [
 export default function Home() {
   const [lang, setLang] = usePublicLang()
   const t = copy[lang]
+  const demoEnabled = isDemoModeEnabled()
+  const primaryCta = demoEnabled ? { to: '/demo', label: t.ctaDemo } : { to: '/contact', label: t.ctaContact }
   usePageMeta(t.metaTitle, t.metaDesc)
 
   useEffect(() => {
@@ -90,7 +93,7 @@ export default function Home() {
             <h1 className="mt-5 text-[34px] sm:text-[48px] font-bold leading-[1.12] text-balance">{t.h1}</h1>
             <p className="mt-4 text-[16px] sm:text-[17px] text-navy-500 leading-relaxed max-w-2xl mx-auto lg:mx-0">{t.sub}</p>
             <div className="mt-7 flex flex-col min-[380px]:flex-row justify-center lg:justify-start gap-3">
-              <Link to="/demo" className="inline-flex items-center justify-center gap-2 rounded-xl bg-navy-900 text-cream-50 px-5 py-3 text-[15px] font-bold hover:bg-navy-800">{t.ctaPrimary} <ArrowRight size={16} /></Link>
+              <Link to={primaryCta.to} className="inline-flex items-center justify-center gap-2 rounded-xl bg-navy-900 text-cream-50 px-5 py-3 text-[15px] font-bold hover:bg-navy-800">{primaryCta.label} <ArrowRight size={16} /></Link>
               <Link to="/login" className="inline-flex items-center justify-center gap-2 rounded-xl border border-navy-200 px-5 py-3 text-[15px] font-semibold text-navy-700 hover:bg-navy-50">{t.ctaSecondary}</Link>
             </div>
           </div>

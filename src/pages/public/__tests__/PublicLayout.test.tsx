@@ -3,7 +3,13 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom'
 import { PublicLayout } from '../PublicLayout'
 
-afterEach(cleanup)
+const demoMode = vi.hoisted(() => ({ enabled: true }))
+vi.mock('../../../lib/demoMode', () => ({ isDemoModeEnabled: () => demoMode.enabled }))
+
+afterEach(() => {
+  cleanup()
+  demoMode.enabled = true
+})
 
 function renderLayout(lang: 'en' | 'gu' = 'en') {
   const setLang = vi.fn()
@@ -18,7 +24,8 @@ function renderLayout(lang: 'en' | 'gu' = 'en') {
 }
 
 describe('PublicLayout mobile menu accessibility', () => {
-  it('announces expansion state and closes with Escape', () => {
+  it('announces expansion state and closes with Escape when demo navigation is enabled', () => {
+    demoMode.enabled = true
     renderLayout('en')
     const button = screen.getByRole('button', { name: 'Open menu' })
     expect(button).toHaveAttribute('aria-expanded', 'false')
@@ -43,11 +50,25 @@ describe('PublicLayout mobile menu accessibility', () => {
     expect(screen.getByRole('button', { name: 'Open menu' })).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('marks the selected language as pressed', () => {
+  it('marks the selected language as pressed and keeps Gujarati demo/login links when demo is enabled', () => {
+    demoMode.enabled = true
     renderLayout('gu')
     expect(screen.getAllByRole('button', { name: 'ગુ' })[0]).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByRole('button', { name: 'EN' })[0]).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getAllByRole('link', { name: 'ડેમો' })[0]).toHaveAttribute('href', '/demo')
     expect(screen.getAllByRole('link', { name: 'લોગિન' })[0]).toHaveAttribute('href', '/login')
+  })
+
+  it('removes demo from desktop, mobile, and footer navigation when demo is disabled', () => {
+    demoMode.enabled = false
+    renderLayout('en')
+
+    expect(screen.queryByRole('link', { name: 'Demo' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Log in' })[0]).toHaveAttribute('href', '/login')
+
+    const button = screen.getByRole('button', { name: 'Open menu' })
+    fireEvent.click(button)
+    const menu = document.getElementById(button.getAttribute('aria-controls')!)!
+    expect(within(menu).queryByRole('link', { name: 'Demo' })).not.toBeInTheDocument()
   })
 })
