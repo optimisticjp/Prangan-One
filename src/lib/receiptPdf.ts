@@ -14,6 +14,30 @@
  * their weight until then.
  */
 
+/**
+ * Reads a PNG's true pixel dimensions straight from its IHDR header in the data
+ * URL - no Image decode, so it works in every environment (including jsdom).
+ * The PDF page is sized from THIS, not from the DOM node's measured size, so the
+ * page is guaranteed to match the image and can never crop it. Returns null if
+ * the data isn't a parseable PNG (then we fall back to the capture size).
+ */
+function readPngPixelSize(dataUrl: string): { width: number; height: number } | null {
+  const comma = dataUrl.indexOf(',')
+  if (comma === -1) return null
+  let bin: string
+  try {
+    // 8-byte signature + 8-byte IHDR length/type + width(4) + height(4) = the
+    // first 24 bytes, i.e. 32 base64 chars; decode a little extra to be safe.
+    bin = atob(dataUrl.slice(comma + 1, comma + 1 + 44))
+  } catch { return null }
+  if (bin.length < 24) return null
+  const u32 = (o: number) =>
+    ((bin.charCodeAt(o) << 24) | (bin.charCodeAt(o + 1) << 16) | (bin.charCodeAt(o + 2) << 8) | bin.charCodeAt(o + 3)) >>> 0
+  const width = u32(16)
+  const height = u32(20)
+  return width && height ? { width, height } : null
+}
+
 /** Loads the heavy libs on demand and renders `node` into a receipt PDF file. */
 export async function generateReceiptPdf(
   node: HTMLElement,
@@ -30,26 +54,43 @@ export async function generateReceiptPdf(
     import('jspdf'),
   ])
 
-  // Capture at the node's own rendered size (so nothing is clipped) but at a
-  // high pixel ratio so the raster is crisp on retina screens and in print.
-  const width = node.offsetWidth || 400
-  const height = node.offsetHeight || 560
+  const pixelRatio = 2.5
+  // The receipt's FULL rendered size. scrollWidth/scrollHeight include the whole
+  // content even where an ancestor might otherwise clip it; getBoundingClientRect
+  // is the fallback, and a sane default covers a not-yet-laid-out node.
+  const rect = node.getBoundingClientRect()
+  const width = Math.ceil(node.scrollWidth || rect.width || 400)
+  const height = Math.ceil(node.scrollHeight || rect.height || 560)
+
   const dataUrl = await toPng(node, {
-    pixelRatio: 2.5,
+    pixelRatio,
     cacheBust: true,
     backgroundColor: '#ffffff',
     width,
     height,
+    // Force the clone to render at exactly the measured box. Without this, the
+    // receipt's own `mx-auto` centering and `max-w-[400px]` cap can reflow the
+    // detached clone narrower than intended and clip its right edge during
+    // capture (the header, amount box, and treasurer line ran off the page).
+    style: { margin: '0', maxWidth: 'none', width: `${width}px`, height: `${height}px` },
   })
 
-  // A PDF page the exact shape of the receipt, not A4 with whitespace.
+  // Size the PDF page to the CAPTURED IMAGE's own pixels - never the DOM node's
+  // measured size - so the page can never be narrower than the image and the
+  // whole receipt always fits. Fall back to capture-size * pixelRatio (same
+  // aspect ratio) only if the PNG header somehow can't be read.
+  const img = readPngPixelSize(dataUrl) ?? { width: Math.round(width * pixelRatio), height: Math.round(height * pixelRatio) }
+
+  // A PDF page the exact shape (and pixel size) of the captured receipt, not A4
+  // with whitespace. Page width == image width, page height == image height *
+  // (pageWidth / imageWidth) == image height: scale to fit, never crop.
   const pdf = new jsPDF({
-    orientation: height >= width ? 'portrait' : 'landscape',
+    orientation: img.height >= img.width ? 'portrait' : 'landscape',
     unit: 'px',
-    format: [width, height],
+    format: [img.width, img.height],
     compress: true,
   })
-  pdf.addImage(dataUrl, 'PNG', 0, 0, width, height)
+  pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height)
 
   const filename = `receipt-${receiptNo}.pdf`
   const blob = pdf.output('blob')
