@@ -12,10 +12,10 @@ import { isDemoModeEnabled } from '../../lib/demoMode'
 
 const copy = {
   en: {
-    metaTitle: 'The Society OS', metaDesc: 'Prangan One — Gujarati-first society management software for housing societies in Surat and Gujarat: billing, receipts, complaints, and notices.',
+    metaTitle: 'The Society OS', metaDesc: 'Prangan One, Gujarati-first society management software for housing societies in Surat and Gujarat: billing, receipts, complaints, and notices.',
     badge: 'Gujarati-first society management',
     h1: 'Run your housing society from one clear committee dashboard.',
-    sub: 'Prangan One helps committees manage bills, receipts, complaints, notices, documents, polls, events, parking, and reports — with a simple resident view when members are ready.',
+    sub: 'Prangan One helps committees manage bills, receipts, complaints, notices, documents, polls, events, parking, and reports, with a simple resident view when members are ready.',
     ctaDemo: 'Open the demo', ctaContact: 'Request a demo', ctaSecondary: 'Log in',
     previewEyebrow: 'Product preview', previewTitle: 'Committee control, resident clarity', previewBody: 'A practical workspace for daily society work, plus a resident home that keeps dues, notices, and complaints easy to understand.',
     adminLabel: 'Committee dashboard', residentLabel: 'Resident view', dueThisMonth: 'Due this month', collected: 'Collected', complaints: 'Open complaints', notice: 'Water tank cleaning notice', receipt: 'Receipt RT-2026-0042', residentDue: 'Maintenance due', residentComplaint: 'Complaint status: In progress',
@@ -25,10 +25,10 @@ const copy = {
     pricingTeaser: '₹10 per flat a month, ₹499 minimum per society.', pricingCta: 'See pricing', faqTeaser: 'Need details?', faqCta: 'Read FAQ', contactCta: 'Request setup',
   },
   gu: {
-    metaTitle: 'The Society OS', metaDesc: 'Prangan One — સુરત અને ગુજરાતની હાઉસિંગ સોસાયટી માટે ગુજરાતી-પ્રથમ સોસાયટી મેનેજમેન્ટ: બિલિંગ, રસીદ, ફરિયાદ, નોટિસ.',
+    metaTitle: 'The Society OS', metaDesc: 'Prangan One, સુરત અને ગુજરાતની હાઉસિંગ સોસાયટી માટે ગુજરાતી-પ્રથમ સોસાયટી મેનેજમેન્ટ: બિલિંગ, રસીદ, ફરિયાદ, નોટિસ.',
     badge: 'ગુજરાતી-પ્રથમ સોસાયટી મેનેજમેન્ટ',
     h1: 'આપની હાઉસિંગ સોસાયટી એક સ્પષ્ટ કમિટી ડેશબોર્ડથી સંભાળો.',
-    sub: 'Prangan One કમિટીને બિલ, રસીદ, ફરિયાદ, નોટિસ, દસ્તાવેજ, મતદાન, ઇવેન્ટ, પાર્કિંગ અને રિપોર્ટ સંભાળવામાં મદદ કરે છે — અને રહેવાસીઓ માટે સરળ વ્યૂ આપે છે.',
+    sub: 'Prangan One કમિટીને બિલ, રસીદ, ફરિયાદ, નોટિસ, દસ્તાવેજ, મતદાન, ઇવેન્ટ, પાર્કિંગ અને રિપોર્ટ સંભાળવામાં મદદ કરે છે. રહેવાસીઓ માટે સરળ વ્યૂ પણ આપે છે.',
     ctaDemo: 'ડેમો ખોલો', ctaContact: 'ડેમો માટે સંપર્ક કરો', ctaSecondary: 'લોગિન',
     previewEyebrow: 'પ્રોડક્ટ પ્રિવ્યુ', previewTitle: 'કમિટી માટે કંટ્રોલ, રહેવાસી માટે સ્પષ્ટતા', previewBody: 'રોજિંદા સોસાયટી કામ માટે વ્યવહારુ વર્કસ્પેસ, સાથે રહેવાસીને બાકી રકમ, નોટિસ અને ફરિયાદ સ્પષ્ટ દેખાય એવો હોમ.',
     adminLabel: 'કમિટી ડેશબોર્ડ', residentLabel: 'રહેવાસી વ્યૂ', dueThisMonth: 'આ મહિને બાકી', collected: 'જમા થયું', complaints: 'ખુલ્લી ફરિયાદ', notice: 'પાણીની ટાંકી સાફ કરવાની નોટિસ', receipt: 'રસીદ RT-2026-0042', residentDue: 'મેન્ટેનન્સ બાકી', residentComplaint: 'ફરિયાદ સ્થિતિ: ચાલુ',
