@@ -23,6 +23,7 @@
 | Support-session logging | `open_support_session` and `impersonation_logs` record who/when/why. | verified | Privacy | `સપોર્ટ સેશન કોણે, ક્યારે અને શા માટે ખોલ્યું તે લોગ થાય છે.` |
 | Support sessions are read-only | Schema/tests enforce owner write blocking during active support sessions. | verified | Privacy | `સપોર્ટ સેશન દરમિયાન લખાણ અટકાવવા ડેટાબેઝ લેવલે સુરક્ષા છે.` |
 | Advertising | No advertising implementation found; no approved policy found. | needs business confirmation | Avoid in live copy | Avoid broad no-ad promise unless policy confirms. |
+| Marketing use of resident contact details | No approved marketing/consent policy found in the repository. | needs business confirmation | Privacy | Describe service-related use without making an unapproved marketing-list promise. |
 | Sale or sharing of data | No repository business policy proving never-sell/never-share. | needs business confirmation | Avoid in live copy | Do not claim `ક્યારેય વેચતા નથી` unless policy confirms. |
 | AI training | No repository policy found. | needs business confirmation | Avoid in live copy | Do not mention AI training. |
 | Data exports | CSV/PDF/export utilities exist for selected records; scope varies by module. | verified | Pricing, Terms, Privacy, Features | `ઉપલબ્ધ એક્સપોર્ટ` or module-specific export wording. |

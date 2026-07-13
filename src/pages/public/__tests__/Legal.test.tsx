@@ -26,6 +26,18 @@ describe('Privacy page', () => {
     expect(screen.getByText(/આપની સોસાયટીના ડેટામાં કંઈ લખવાની મંજૂરી નથી ધરાવતું/)).toBeInTheDocument()
   })
 
+
+  it('describes service-related use without an unapproved marketing-list promise', () => {
+    renderPublic(<Privacy />, 'en')
+    expect(screen.getByText(/provide, maintain, secure, support, and communicate about Prangan One for the society/)).toBeInTheDocument()
+    expect(screen.queryByText(/marketing list/)).not.toBeInTheDocument()
+    cleanup()
+
+    renderPublic(<Privacy />)
+    expect(screen.getByText(/સેવા આપવા, જાળવવા, સુરક્ષિત રાખવા, સપોર્ટ આપવા અને સેવા સંબંધિત જરૂરી સંપર્ક/)).toBeInTheDocument()
+    expect(screen.queryByText(/માર્કેટિંગ યાદી/)).not.toBeInTheDocument()
+  })
+
   it('uses conservative Gujarati deletion/export process wording without promising completion', () => {
     renderPublic(<Privacy />)
     expect(screen.getByText(/ઉપલબ્ધ રેકોર્ડના એક્સપોર્ટ અથવા ડેટા હટાવવાની વિનંતી/)).toBeInTheDocument()
@@ -87,10 +99,24 @@ describe('Terms page', () => {
     expect(screen.getByText(/તબક્કાવાર બને છે/)).toBeInTheDocument()
   })
 
+
+  it('keeps Terms-change notification conservative and equivalent', () => {
+    renderPublic(<Terms />, 'en')
+    expect(screen.getByText(/Where appropriate and operationally available/)).toBeInTheDocument()
+    expect(screen.getByText(/may also notify the society admin through an available contact channel/)).toBeInTheDocument()
+    expect(screen.queryByText(/tell your society’s admin directly/)).not.toBeInTheDocument()
+    cleanup()
+
+    renderPublic(<Terms />)
+    expect(screen.getByText(/યોગ્ય અને વ્યવહારિક રીતે શક્ય હોય ત્યારે/)).toBeInTheDocument()
+    expect(screen.getByText(/ઉપલબ્ધ સંપર્ક માધ્યમથી સોસાયટીના એડમિનને પણ જાણ કરી શકીએ છીએ/)).toBeInTheDocument()
+    expect(screen.queryByText(/જાણ કરવાનો પ્રયત્ન કરીશું/)).not.toBeInTheDocument()
+  })
+
   it('keeps English section coverage and softened data-control wording', () => {
     renderPublic(<Terms />, 'en')
     for (const heading of [
-      'The service', 'Trial and pricing', 'What happens if payment lapses', 'Your data is yours',
+      'The service', 'Trial and pricing', 'What happens if payment lapses', 'Your society’s records',
       'What you agree to', 'What we are still building', 'Limits on our liability',
       'Changes to these terms', 'Contact',
     ]) {
@@ -99,5 +125,7 @@ describe('Terms page', () => {
     }
     expect(screen.getAllByText(/available exports/).length).toBeGreaterThan(0)
     expect(screen.getByText(/deletion and retention are handled under the Privacy Policy/)).toBeInTheDocument()
+    expect(screen.queryByText('Your data is yours')).not.toBeInTheDocument()
+    expect(screen.queryByText(/belongs to you/i)).not.toBeInTheDocument()
   })
 })
