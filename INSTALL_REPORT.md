@@ -1,8 +1,8 @@
 # Skill Installation Report
 
-**Date:** 2026-06-23  
+**Date:** 2026-06-23 (original 10-source install) · 2026-07-10 (GitHub Spec Kit addition)  
 **Target:** `.claude/skills/` (project scope)  
-**Total skills installed:** 311  
+**Total skills installed:** 321 (311 original from 10 sources + 10 from GitHub Spec Kit)  
 
 ---
 
@@ -20,6 +20,7 @@
 | 8 | [Context Engineering Kit](https://github.com/NeoLabHQ/context-engineering-kit) | 67 | ✅ Full |
 | 9 | [Claude Scientific Skills](https://github.com/K-Dense-AI/claude-scientific-skills) | 147 | ✅ Full |
 | 10 | [Claude Mem](https://github.com/thedotmack/claude-mem) | 17 | ⚠️ Some skills require running service |
+| 11 | [GitHub Spec Kit](https://github.com/github/spec-kit) | 10 | ✅ Full (pinned `v0.12.9`) |
 
 ---
 
@@ -218,6 +219,41 @@ To install the full claude-mem service:
 npm install -g claude-mem
 # or follow Docker setup at https://github.com/thedotmack/claude-mem
 ```
+
+---
+
+## 11. GitHub Spec Kit
+**Source:** `github.com/github/spec-kit`  
+**Pinned version:** `v0.12.9`  
+**Installed via:** `uvx --from git+https://github.com/github/spec-kit.git@v0.12.9 specify init . --integration claude --script sh --ignore-agent-tools --force`  
+**Installed to:** `.claude/skills/speckit-*` (10 skill folders)  
+**Added on:** 2026-07-10
+
+The official GitHub Spec Kit adds a spec-driven development workflow as 10 Claude Code skills, plus a `.specify/` scaffold and a project constitution.
+
+**10 skills added:**
+
+| Skill | Purpose |
+|-------|---------|
+| `speckit-constitution` | Create or update the governing project principles |
+| `speckit-specify` | Create the feature specification |
+| `speckit-clarify` | Ask targeted questions to de-risk ambiguity before planning |
+| `speckit-plan` | Generate the implementation plan and design artifacts |
+| `speckit-checklist` | Generate quality checklists for requirement completeness |
+| `speckit-tasks` | Generate dependency-ordered, actionable tasks |
+| `speckit-taskstoissues` | Convert tasks into GitHub issues |
+| `speckit-analyze` | Cross-artifact consistency check across spec, plan, and tasks |
+| `speckit-implement` | Execute the implementation plan |
+| `speckit-converge` | Assess the codebase and append remaining work as tasks |
+
+**Scaffold added:**
+- `.specify/` — Spec Kit project scaffold (bash scripts, templates, workflows, integration manifests, and `memory/`).
+- `.specify/memory/constitution.md` — the project constitution (v1.0.0), the governing source of project principles.
+
+**Safety notes:**
+- Original 311 skills preserved — none deleted, renamed, or overwritten.
+- The 10 `speckit-*` skills are new folders with a distinct prefix; there were no name collisions.
+- **Total skill count now 321** (311 original + 10 Spec Kit).
 
 ---
 
