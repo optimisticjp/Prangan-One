@@ -76,7 +76,7 @@ export default function Members() {
       {pendingResidents.length > 0 && (
         <Card className="mb-4 border-saffron-300 bg-saffron-50/40">
           <h2 className="font-bold text-navy-800 mb-1 inline-flex items-center gap-2"><Clock3 size={17} className="text-pend" /> મંજૂરીની રાહ જોતા રહેવાસી ({pendingResidents.length})</h2>
-          <p className="text-[12.5px] text-navy-400 mb-3">આ લોકોએ /join પર કોડ નાખીને જોડાવાનો પ્રયત્ન કર્યો, પણ તેમની વિગતો ફ્લેટના રેકોર્ડ સાથે સીધી મળી નથી.</p>
+          <p className="text-[12.5px] text-navy-400 mb-3">આ લોકોએ /join પર કોડ નાખીને જોડાવાનો પ્રયાસ કર્યો, પણ તેમની વિગતો ફ્લેટના રેકોર્ડ સાથે સીધી મળી નથી.</p>
           <div className="space-y-2">
             {pendingResidents.map(m => (
               <div key={m.id} className="flex items-center justify-between bg-white rounded-xl border border-cream-200 px-3.5 py-2.5">

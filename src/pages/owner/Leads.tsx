@@ -47,8 +47,8 @@ export default function OwnerLeads() {
 
       {unmatchedByEmail.length > 0 && (
         <Card className="mb-4">
-          <h2 className="font-bold text-navy-800 mb-1 inline-flex items-center gap-2"><KeyRound size={17} /> લોગિન પ્રયત્નો, કોઈ સોસાયટી મળી નહીં ({unmatchedByEmail.length})</h2>
-          <p className="text-[12.5px] text-navy-400 mb-3">આ લોકોએ સાચો ઈમેલ વેરિફાય કરીને લોગિનનો પ્રયત્ન કર્યો, પણ કોઈ સોસાયટી સાથે જોડાયેલા નથી. કંઈ પણ સંપર્ક વિનંતી નથી, ફક્ત રસનું સંકેત છે.</p>
+          <h2 className="font-bold text-navy-800 mb-1 inline-flex items-center gap-2"><KeyRound size={17} /> લોગિન પ્રયાસો, કોઈ સોસાયટી મળી નહીં ({unmatchedByEmail.length})</h2>
+          <p className="text-[12.5px] text-navy-400 mb-3">આ લોકોએ સાચો ઈમેલ વેરિફાય કરીને લોગિનનો પ્રયાસ કર્યો, પણ કોઈ સોસાયટી સાથે જોડાયેલા નથી. કંઈ પણ સંપર્ક વિનંતી નથી, ફક્ત રસનું સંકેત છે.</p>
           <div className="space-y-1.5">
             {unmatchedByEmail.map(g => (
               <div key={g.email} className="flex items-center justify-between text-[13.5px] border-b border-cream-100 pb-1.5 last:border-0">

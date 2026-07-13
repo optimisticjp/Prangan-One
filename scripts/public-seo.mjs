@@ -14,7 +14,7 @@ export const PUBLIC_ROUTES = [
   {
     path: '/',
     title: 'The Society OS | Prangan One',
-    description: 'Prangan One — Gujarati-first society management software for housing societies in Surat and Gujarat: billing, receipts, complaints, and notices.',
+    description: 'Prangan One, Gujarati-first society management software for housing societies in Surat and Gujarat: billing, receipts, complaints, and notices.',
   },
   {
     path: '/features',
