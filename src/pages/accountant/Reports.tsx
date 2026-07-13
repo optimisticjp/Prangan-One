@@ -27,7 +27,7 @@ export default function Reports() {
 
   const csvPayments = () => exportCsv('audit-payments.csv',
     ['રસીદ નં', 'તારીખ', 'ફ્લેટ', 'નામ', 'રકમ', 'પ્રકાર', 'રેફરન્સ', 'સ્થિતિ'],
-    db.payments.map(p => { const f = flatById(p.flatId); return [p.receiptNo ?? '', p.date, f?.number, f?.ownerName, p.amount, payModeLabel[p.mode], p.refNo ?? '', p.status === 'success' ? 'સફળ' : 'ફેલ'] }))
+    db.payments.map(p => { const f = flatById(p.flatId); return [p.receiptNo ?? '', p.date, f?.number, f?.ownerName, p.amount, payModeLabel[p.mode], p.refNo ?? '', p.status === 'success' ? 'સફળ' : 'નિષ્ફળ'] }))
   const csvExpenses = () => exportCsv('audit-expenses.csv',
     ['તારીખ', 'કેટેગરી', 'વેન્ડર', 'રકમ', 'પ્રકાર', 'નોંધ'],
     db.expenses.map(e => [e.date, e.category, db.vendors.find(v => v.id === e.vendorId)?.name ?? '', e.amount, payModeLabel[e.mode], e.note ?? '']))

@@ -9,11 +9,13 @@ const copy = {
     title: 'Features', desc: 'Core tools for housing society committees and residents, in one place.',
     h1: 'Built around what runs a society', sub: 'Deep where it matters most: billing, payments, receipts, complaints, and notices. Clean and correct everywhere else.',
     cta: 'Request Society Setup',
+    ctaSupport: 'Tell us about your society; we set it up with you, directly.',
   },
   gu: {
     title: 'સુવિધાઓ', desc: 'સોસાયટીની કમિટી અને રહેવાસીઓ માટે મુખ્ય સાધનો, એક જ જગ્યાએ.',
     h1: 'સોસાયટી ચલાવવા માટે જ બનેલું', sub: 'સૌથી વધુ વપરાતું ઊંડાણથી: બિલિંગ, ચુકવણી, રસીદ, ફરિયાદ, નોટિસ. બાકી બધું સાફ અને સાચું.',
-    cta: 'સોસાયટી સેટઅપની વિનંતી કરો',
+    cta: 'સેટઅપ વિનંતી કરો',
+    ctaSupport: 'આપની સોસાયટી વિશે જણાવો; અમે સીધા આપની સાથે સેટઅપ કરી આપીશું.',
   },
 }
 
@@ -54,6 +56,7 @@ export default function Features() {
         })}
       </section>
       <section className="px-5 pb-16 text-center">
+        <p className="text-[13.5px] text-navy-500 max-w-md mx-auto mb-4">{t.ctaSupport}</p>
         <Link to="/contact" className="inline-flex items-center gap-2 rounded-xl bg-navy-900 text-cream-50 px-5 py-3 text-[15px] font-bold hover:bg-navy-800">
           {t.cta} <ArrowRight size={16} />
         </Link>

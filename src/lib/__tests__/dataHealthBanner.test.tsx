@@ -72,7 +72,7 @@ describe('the data-health banner renders each state distinguishably', () => {
     const alert = screen.getByRole('alert')
     expect(alert.textContent).toContain('છેલ્લે અપડેટ: 3 કલાક પહેલાં')
     // and a retry is offered
-    expect(screen.getByText('ફરી પ્રયત્ન')).toBeInTheDocument()
+    expect(screen.getByText('ફરી પ્રયાસ')).toBeInTheDocument()
   })
 
   it('the same failure shows a different age when the cached data is only minutes old, proving the timestamp is real', () => {

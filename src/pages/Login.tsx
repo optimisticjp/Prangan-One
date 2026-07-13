@@ -52,7 +52,7 @@ export default function Login() {
       await sendMagicLink(email.trim())
       setSent(true)
     } catch (err) {
-      setSendError('લિંક મોકલી શકાઈ નથી. કૃપા કરીને ફરી પ્રયત્ન કરો.')
+      setSendError('લિંક મોકલી શકાઈ નથી. કૃપા કરીને ફરી પ્રયાસ કરો.')
     } finally {
       setSending(false)
     }
@@ -70,7 +70,7 @@ export default function Login() {
       // that logic here.
       nav('/auth/callback')
     } catch {
-      setSendError('લોગિન થઈ શક્યું નથી. કૃપા કરીને ઈમેલ અને પાસવર્ડ તપાસીને ફરી પ્રયત્ન કરો.')
+      setSendError('લોગિન થઈ શક્યું નથી. કૃપા કરીને ઈમેલ અને પાસવર્ડ તપાસીને ફરી પ્રયાસ કરો.')
       setSending(false)
     }
   }
@@ -84,7 +84,7 @@ export default function Login() {
       // navigate away to Google's own login page, there's nothing left
       // for this component to show in the meantime
     } catch (err) {
-      setSendError('Google લોગિન શરૂ થઈ શક્યું નથી. કૃપા કરીને ફરી પ્રયત્ન કરો.')
+      setSendError('Google લોગિન શરૂ થઈ શક્યું નથી. કૃપા કરીને ફરી પ્રયાસ કરો.')
       setSending(false)
     }
   }
@@ -96,7 +96,7 @@ export default function Login() {
       await sendPasswordResetEmail(email.trim())
       setResetSent(true)
     } catch {
-      setSendError('લિંક મોકલવામાં ભૂલ થઈ, ફરી પ્રયત્ન કરો.')
+      setSendError('લિંક મોકલવામાં ભૂલ થઈ. ફરી પ્રયાસ કરો.')
     } finally {
       setSending(false)
     }

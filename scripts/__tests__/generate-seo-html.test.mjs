@@ -78,9 +78,9 @@ describe('generate-seo-html', () => {
 
   it('keeps static SEO route metadata aligned with runtime public-page English copy', () => {
     const byPath = Object.fromEntries(PUBLIC_ROUTES.map(route => [route.path, route]))
-    expect(byPath['/'].description).toBe('Gujarati-first society management for housing society committees and residents.')
+    expect(byPath['/'].description).toBe('Prangan One — Gujarati-first society management software for housing societies in Surat and Gujarat: billing, receipts, complaints, and notices.')
     expect(byPath['/features'].description).toBe('Core tools for housing society committees and residents, in one place.')
-    expect(byPath['/pricing'].description).toBe('90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed to start.')
+    expect(byPath['/pricing'].description).toBe('Society maintenance software pricing: 90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed to start.')
     expect(byPath['/faq'].description).toBe('Real answers to the questions a committee actually has before switching.')
     expect(byPath['/contact'].description).toBe('Request a society setup, or ask a question. We respond directly, no ticket queue.')
     expect(byPath['/privacy'].description).toBe('What data Prangan One collects, how it is protected, and what control you have over it.')

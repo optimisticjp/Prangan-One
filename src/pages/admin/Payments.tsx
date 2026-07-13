@@ -42,14 +42,14 @@ export default function Payments() {
     if (!pay) { setFailMsg('સોસાયટીની સબ્સ્ક્રિપ્શન સ્થિતિના કારણે નવી ચુકવણી નોંધી શકાતી નથી.'); return }
     setBillId(''); setAmount(''); setRefNo(''); setNote(''); setFailed(false)
     if (pay.status === 'success') setReceiptFor(pay)
-    else setFailMsg('ફેલ થયેલી ચુકવણી નોંધાઈ. બિલ પર અસર નહીં થાય, રસીદ નહીં બને.')
+    else setFailMsg('નિષ્ફળ ગયેલી ચુકવણી નોંધાઈ. બિલ પર અસર નહીં થાય, રસીદ નહીં બને.')
   }
 
   // Cancelled overrides whatever the underlying status says - the old
   // binary check here (success vs everything-else-is-"ફેલ") meant a
   // cancelled receipt still showed as successful, and a payment still
   // awaiting confirmation showed as failed, neither of which is true.
-  const csvStatusLabel = (p: Payment) => p.cancelled ? 'રદ થયેલ' : p.status === 'success' ? 'સફળ' : p.status === 'pending_confirmation' ? 'મંજૂરી બાકી' : 'ફેલ'
+  const csvStatusLabel = (p: Payment) => p.cancelled ? 'રદ થયેલ' : p.status === 'success' ? 'સફળ' : p.status === 'pending_confirmation' ? 'મંજૂરી બાકી' : 'નિષ્ફળ'
 
   const csv = () => exportCsv('payments.csv',
     ['રસીદ નં', 'તારીખ', 'ફ્લેટ', 'નામ', 'રકમ', 'પ્રકાર', 'રેફરન્સ', 'સ્થિતિ', 'નોંધ'],
@@ -116,7 +116,7 @@ export default function Payments() {
           </div>
           <label className="mt-3 flex items-center gap-2.5 text-[14px] text-navy-600 cursor-pointer">
             <input type="checkbox" checked={failed} onChange={e => setFailed(e.target.checked)} className="h-4.5 w-4.5 accent-saffron-500" style={{ width: 18, height: 18 }} />
-            ફેલ થયેલી ચુકવણી તરીકે નોંધો (ડેમો: પેમેન્ટ ફેલ થાય તો કેવું દેખાય)
+            નિષ્ફળ ચુકવણી તરીકે નોંધો (ડેમો: પેમેન્ટ નિષ્ફળ થાય તો કેવું દેખાય)
           </label>
           {failMsg && <div className="mt-2 text-[13.5px] text-over bg-red-50 border border-red-100 rounded-lg px-3 py-2 flex items-center gap-2"><XCircle size={15} /> {failMsg}</div>}
           <Button type="submit" className="mt-4" variant="accent" disabled={!Number(amount)}>ચુકવણી નોંધો</Button>
@@ -134,7 +134,7 @@ export default function Payments() {
               return (
                 <tr key={p.id} className={`hover:bg-cream-50 ${p.cancelled ? 'opacity-50' : ''}`}>
                   <td className={`${td} num`}>
-                    {p.status === 'failed' ? <Badge tone="red">ફેલ</Badge>
+                    {p.status === 'failed' ? <Badge tone="red">નિષ્ફળ</Badge>
                       : p.cancelled ? <span className="line-through text-navy-400">{p.receiptNo}</span>
                       : <span className="font-semibold">{p.receiptNo}</span>}
                     {p.cancelled && <Badge tone="red">રદ</Badge>}

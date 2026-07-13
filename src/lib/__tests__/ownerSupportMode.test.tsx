@@ -132,6 +132,6 @@ describe('every kind of write stays genuinely blocked throughout a real support 
   it('the read-only reason surfaces to the UI when a write is attempted', async () => {
     const result = await enterRealSupportSession()
     act(() => { result.current.recordPayment({ flatId: 'flat_101', amount: 1200, mode: 'upi' }) })
-    expect(result.current.lastBlockedReason).toContain('Read-only')
+    expect(result.current.lastBlockedReason).toContain('ફક્ત જોવા માટે')
   })
 })

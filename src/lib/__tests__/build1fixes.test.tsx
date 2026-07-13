@@ -145,7 +145,7 @@ describe('lastBlockedReason surfaces why a write was blocked (previously only a 
     const result = setup()
     act(() => { result.current.enterSociety('soc_rajhans', 'society_admin', 'checking something') })
     act(() => { result.current.recordPayment({ flatId: 'flat_101', amount: 1200, mode: 'upi' }) })
-    expect(result.current.lastBlockedReason).toContain('Read-only')
+    expect(result.current.lastBlockedReason).toContain('ફક્ત જોવા માટે')
   })
 
   it('clears back to null after a write actually succeeds', () => {

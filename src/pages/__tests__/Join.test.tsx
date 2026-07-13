@@ -59,6 +59,6 @@ describe('Join page', () => {
     fireEvent.change(screen.getByPlaceholderText('ફોન નંબર'), { target: { value: '9000000010' } })
     fireEvent.change(screen.getByPlaceholderText('ઈમેલ'), { target: { value: 'x@example.com' } })
     fireEvent.click(screen.getByText('જોડાવાની વિનંતી મોકલો'))
-    expect(screen.getByText(/કૃપા કરીને નંબર તપાસીને ફરી પ્રયત્ન કરો/)).toBeInTheDocument()
+    expect(screen.getByText(/કૃપા કરીને નંબર તપાસીને ફરી પ્રયાસ કરો/)).toBeInTheDocument()
   })
 })

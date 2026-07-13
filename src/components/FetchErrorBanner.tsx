@@ -68,10 +68,10 @@ export function FetchErrorBanner() {
         <span className="flex-1 text-over font-medium">
           {lastRefreshSuccessAt != null
             ? `ડેટા અપડેટ ના થયો. છેલ્લે અપડેટ: ${formatAge(Date.now() - lastRefreshSuccessAt)}.`
-            : 'ડેટા લોડ ના થયો, જે દેખાય છે તે જૂનું હોઈ શકે છે.'}
+            : 'ડેટા લોડ ના થયો. જે દેખાય છે તે જૂનું હોઈ શકે છે.'}
         </span>
         <button onClick={retryFetch} className="shrink-0 flex items-center gap-1 text-[12.5px] font-semibold bg-white text-over border border-red-200 rounded-lg px-2.5 py-1.5">
-          <RotateCw size={13} /> ફરી પ્રયત્ન
+          <RotateCw size={13} /> ફરી પ્રયાસ
         </button>
       </div>
     )
