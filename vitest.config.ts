@@ -7,6 +7,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
     // Explicit, bounded worker pool. Vitest 4 defaults the fork count to the
     // detected CPU count, which a CI or container runner can over-report while
     // actually having tight memory, and that is the shape of "workers exiting
