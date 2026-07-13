@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import type { ImpersonationLog } from '../../../lib/types'
 
 // The Activity screen only needs the raw DB; mock useData so we can drive it
 // with both a historical write-capable session and a current view-only one.
+// The fixture is `satisfies ImpersonationLog[]`, so a future invalid mode
+// (e.g. 'read' instead of the real 'readonly' | 'write') fails to compile.
 vi.mock('../../../lib/store', () => ({
   useData: () => ({
     rawDb: {
@@ -11,8 +14,8 @@ vi.mock('../../../lib/store', () => ({
       auditLogs: [],
       impersonationLogs: [
         { id: 'imp_write', societyId: 'soc_1', mode: 'write', reason: 'જૂનું સેશન', enteredAt: '2026-01-01T10:00:00.000Z', exitedAt: '2026-01-01T10:05:00.000Z' },
-        { id: 'imp_read', societyId: 'soc_1', mode: 'read', reason: 'સપોર્ટ', enteredAt: '2026-02-01T10:00:00.000Z', exitedAt: null },
-      ],
+        { id: 'imp_read', societyId: 'soc_1', mode: 'readonly', reason: 'સપોર્ટ', enteredAt: '2026-02-01T10:00:00.000Z' },
+      ] satisfies ImpersonationLog[],
     },
   }),
 }))
