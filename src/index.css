@@ -78,6 +78,10 @@
   .print-area {
     position: absolute; inset: 0; width: 100%;
     box-shadow: none !important; border: none !important;
+    /* Keep the navy header and colored boxes when printed, instead of the
+       browser stripping backgrounds to save ink. */
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
   .no-print { display: none !important; }
 }
