@@ -46,7 +46,7 @@ export function DemoGuideBanner() {
             {nextStep ? `આગળનું પગલું · ${doneCount}/${steps.length}` : 'જર્ની પૂરી થઈ 🎉'}
           </div>
           <div className="text-[13.5px] font-semibold mt-0.5">
-            {nextStep ? nextStep.text : 'તમે આખી જર્ની જોઈ લીધી.'}
+            {nextStep ? nextStep.text : 'આપે આખી જર્ની જોઈ લીધી.'}
           </div>
         </div>
         <button onClick={dismiss} aria-label="ગાઇડ બંધ કરો" className="shrink-0 text-navy-300 hover:text-cream-50 p-1">

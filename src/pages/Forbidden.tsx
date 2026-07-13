@@ -11,7 +11,7 @@ export default function Forbidden() {
           <ShieldAlert size={26} />
         </div>
         <h1 className="font-bold text-navy-900 text-[20px]">આ પાનું જોવાની પરવાનગી નથી</h1>
-        <p className="text-[13.5px] text-navy-500 mt-1.5">તમારો રોલ આ પાનું જોવા માટે યોગ્ય નથી. જો આ ભૂલ લાગે તો કમિટીનો સંપર્ક કરો.</p>
+        <p className="text-[13.5px] text-navy-500 mt-1.5">આપનો રોલ આ પાનું જોવા માટે યોગ્ય નથી. જો આ ભૂલ લાગે તો કૃપા કરીને કમિટીનો સંપર્ક કરો.</p>
         <Link to="/login" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-navy-800 text-cream-50 px-4 py-2.5 text-[14px] font-semibold hover:bg-navy-700">
           લોગિન પર જાઓ
         </Link>

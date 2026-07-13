@@ -6,23 +6,23 @@ import { usePageMeta } from './usePageMeta'
 
 const copy = {
   en: {
-    title: 'Pricing', desc: '90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed, no hidden setup fee.',
+    title: 'Pricing', desc: '90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed to start.',
     h1: 'Simple pricing', sub: '90 days free. No card required to start.',
     perFlat: 'per flat / month, after your free trial',
     minimumNote: '₹499 minimum per society, per month, whichever is higher.',
-    features: ['Every module included', 'Unlimited residents and committee members', 'Billing, receipts, and one-tap WhatsApp reminder sharing', 'Complaints, notices, polls, and events', 'Export your data anytime, no lock-in', 'Setup handled personally, no self-serve signup form'],
+    features: ['Available modules included', 'Residents and committee members can use their assigned access', 'Billing, receipts, and one-tap WhatsApp reminder sharing', 'Complaints, notices, polls, and events', 'Use available exports when you need records', 'Setup handled personally, no self-serve signup form'],
     note: 'Setup is manual and personal: we onboard your society directly, no card and no online payment gateway required to get started. Your 90-day trial begins once your society is actually set up and ready to use, not the day you fill out this form.',
     cta: 'Request Society Setup',
     examplesTitle: 'What that actually costs, after the trial',
     examples: [['30-flat society', '\u20b9499 / month (minimum applies)'], ['100-flat society', '\u20b91,000 / month']],
   },
   gu: {
-    title: 'કિંમત', desc: '90 દિવસ મફત, કોઈ કાર્ડની જરૂર નથી. પછી, ફ્લેટ દીઠ મહિને ₹10, સોસાયટી દીઠ ઓછામાં ઓછું ₹499. કોઈ ઓનલાઈન ચુકવણી ગેટવે જરૂરી નથી, કોઈ છુપો સેટઅપ ચાર્જ નથી.',
+    title: 'કિંમત', desc: '90 દિવસ મફત, કોઈ કાર્ડની જરૂર નથી. પછી, ફ્લેટ દીઠ મહિને ₹10, સોસાયટી દીઠ ઓછામાં ઓછું ₹499. શરૂ કરવા ઓનલાઈન ચુકવણી ગેટવે જરૂરી નથી.',
     h1: 'સાદી કિંમત', sub: '90 દિવસ મફત. શરૂ કરવા કાર્ડની જરૂર નથી.',
     perFlat: 'ફ્લેટ દીઠ / મહિનો, ટ્રાયલ પછી',
     minimumNote: 'સોસાયટી દીઠ ઓછામાં ઓછું ₹499 મહિને, બેમાંથી જે વધારે હોય તે.',
-    features: ['ઉપલબ્ધ દરેક મોડ્યુલ સામેલ', 'રહેવાસી અને કમિટી સભ્યો માટે મર્યાદા વગરનો ઉપયોગ', 'બિલિંગ, રસીદ અને WhatsApp પર રિમાઇન્ડર શેર', 'ફરિયાદ, નોટિસ, મતદાન, ઇવેન્ટ', 'ગમે ત્યારે તમારો ડેટા એક્સપોર્ટ કરો', 'સેટઅપ અમે સીધું કરીએ, સેલ્ફ-સર્વ ફોર્મ નહીં'],
-    note: 'સેટઅપ મેન્યુઅલી અને સીધું થાય છે: અમે તમારી સોસાયટીને સીધા ઓનબોર્ડ કરીએ છીએ, શરૂ કરવા માટે કાર્ડ કે ઓનલાઈન ચુકવણી ગેટવેની જરૂર નથી. તમારો 90-દિવસનો ટ્રાયલ ત્યારે શરૂ થાય છે જ્યારે તમારી સોસાયટી ખરેખર સેટ થઈને વાપરવા તૈયાર થાય, આ ફોર્મ ભરો એ દિવસે નહીં.',
+    features: ['ઉપલબ્ધ મોડ્યુલ સામેલ', 'રહેવાસી અને કમિટી સભ્યો માટે આપેલી એક્સેસ મુજબ ઉપયોગ', 'બિલિંગ, રસીદ અને WhatsApp પર રિમાઇન્ડર શેર', 'ફરિયાદ, નોટિસ, મતદાન, ઇવેન્ટ', 'જરૂર પડે ત્યારે ઉપલબ્ધ એક્સપોર્ટ વાપરો', 'સેટઅપ અમે સીધું કરીએ, સેલ્ફ-સર્વ ફોર્મ નહીં'],
+    note: 'સેટઅપ મેન્યુઅલી અને સીધું થાય છે: અમે આપની સોસાયટીને સીધા ઓનબોર્ડ કરીએ છીએ, શરૂ કરવા માટે કાર્ડ કે ઓનલાઈન ચુકવણી ગેટવેની જરૂર નથી. આપનો 90-દિવસનો ટ્રાયલ ત્યારે શરૂ થાય છે જ્યારે આપની સોસાયટી ખરેખર સેટ થઈને વાપરવા તૈયાર થાય, આ ફોર્મ ભરો એ દિવસે નહીં.',
     cta: 'સોસાયટી સેટઅપની વિનંતી કરો',
     examplesTitle: 'ટ્રાયલ પછી ખરેખર કેટલો ખર્ચ થાય',
     examples: [['30 ફ્લેટની સોસાયટી', '₹499 / મહિનો (ન્યૂનતમ કિંમત લાગુ)'], ['100 ફ્લેટની સોસાયટી', '₹1,000 / મહિનો']],

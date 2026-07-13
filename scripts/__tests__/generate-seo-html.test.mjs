@@ -72,6 +72,18 @@ describe('generate-seo-html', () => {
     const rootHtml = await readFile(join(distDir, 'index.html'), 'utf8')
     const home = PUBLIC_ROUTES.find(r => r.path === '/')
     expect(rootHtml).toContain(`<title>${home.title}</title>`)
+    expect(rootHtml).toContain(`content="${home.description}"`)
     expect(rootHtml).toMatch(/name="robots"\s+content="index, follow"/)
+  })
+
+  it('keeps static SEO route metadata aligned with runtime public-page English copy', () => {
+    const byPath = Object.fromEntries(PUBLIC_ROUTES.map(route => [route.path, route]))
+    expect(byPath['/'].description).toBe('Gujarati-first society management for housing society committees and residents.')
+    expect(byPath['/features'].description).toBe('Core tools for housing society committees and residents, in one place.')
+    expect(byPath['/pricing'].description).toBe('90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed to start.')
+    expect(byPath['/faq'].description).toBe('Real answers to the questions a committee actually has before switching.')
+    expect(byPath['/contact'].description).toBe('Request a society setup, or ask a question. We respond directly, no ticket queue.')
+    expect(byPath['/privacy'].description).toBe('What data Prangan One collects, how it is protected, and what control you have over it.')
+    expect(byPath['/terms'].description).toBe('The plain-language terms for using Prangan One.')
   })
 })

@@ -33,7 +33,7 @@ export function DemoIdentityBanner() {
 
       <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)} title="ડેમો રીસ્ટાર્ટ કરો?">
         <p className="text-[13.5px] text-navy-500 mb-4">
-          આ સેશનમાં તમે જે પણ કર્યું છે (ચુકવણી, ફરિયાદ, નોટિસ) બધું ભૂંસાઈ જશે અને ડેમો શરૂઆતની સ્થિતિમાં પાછું જશે.
+          આ સેશનમાં આપ કરેલા ફેરફારો (ચુકવણી, ફરિયાદ, નોટિસ) ભૂંસાઈ જશે અને ડેમો શરૂઆતની સ્થિતિમાં પાછું જશે.
         </p>
         <div className="flex gap-2">
           <Button variant="soft" full onClick={() => setConfirmOpen(false)}>રહેવા દો</Button>

@@ -14,17 +14,17 @@ export const PUBLIC_ROUTES = [
   {
     path: '/',
     title: 'The Society OS | Prangan One',
-    description: 'One platform for every society workflow. Built for committees. Simple for residents.',
+    description: 'Gujarati-first society management for housing society committees and residents.',
   },
   {
     path: '/features',
     title: 'Features | Prangan One',
-    description: 'Everything a housing society committee and its residents actually need, in one place.',
+    description: 'Core tools for housing society committees and residents, in one place.',
   },
   {
     path: '/pricing',
     title: 'Pricing | Prangan One',
-    description: '90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed, no hidden setup fee.',
+    description: '90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed to start.',
   },
   {
     path: '/faq',
