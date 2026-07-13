@@ -14,14 +14,14 @@ export default function OwnerActivity() {
 
       <Card className="mb-4">
         <h2 className="font-bold text-navy-800 mb-3">ઓનર 'કમિટી તરીકે જુઓ' સેશન</h2>
-        <p className="text-[12.5px] text-navy-400 mb-3">દરેક "કમિટી તરીકે જુઓ" સેશન અહીં લોગ થાય છે. હવે બધા સપોર્ટ સેશન ફક્ત જોવા માટે છે; નીચે 'write' એન્ટ્રી હોય તો એ જૂની હિસ્ટ્રી છે, હાલનો વિકલ્પ નથી.</p>
+        <p className="text-[12.5px] text-navy-400 mb-3">દરેક "કમિટી તરીકે જુઓ" સેશન અહીં લોગ થાય છે. હવે બધા સપોર્ટ સેશન ફક્ત જોવા માટે છે; નીચે લખવાની એક્સેસવાળી એન્ટ્રી હોય તો એ જૂની હિસ્ટ્રી છે, હાલનો વિકલ્પ નથી.</p>
         <TableWrap>
           <thead><tr><th className={th}>સોસાયટી</th><th className={th}>મોડ</th><th className={th}>કારણ</th><th className={th}>શરૂ</th><th className={th}>પૂરું</th></tr></thead>
           <tbody>
             {impersonations.map(l => (
               <tr key={l.id} className="hover:bg-cream-50">
                 <td className={td}>{societyName(l.societyId)}</td>
-                <td className={td}><Badge tone={l.mode === 'write' ? 'red' : 'gray'}>{l.mode === 'write' ? 'જૂની (write)' : 'ફક્ત જોવા'}</Badge></td>
+                <td className={td}><Badge tone={l.mode === 'write' ? 'red' : 'gray'}>{l.mode === 'write' ? 'જૂની લખવાની એક્સેસ' : 'ફક્ત જોવા'}</Badge></td>
                 <td className={td}>{l.reason ?? <span className="text-navy-300">-</span>}</td>
                 <td className={td}>{new Date(l.enteredAt).toLocaleString('en-IN')}</td>
                 <td className={td}>{l.exitedAt ? new Date(l.exitedAt).toLocaleString('en-IN') : <span className="text-saffron-600 font-semibold">ચાલુ છે</span>}</td>

@@ -36,8 +36,11 @@ already strong — this guide keeps it consistent as the product grows.
   `ચુકવણી નોંધો`, `ડેમો ખોલો`.
 - Use a verb the user is doing: `બિલ બનાવો`, `નોટિસ મૂકો`.
 - **If a button turns into a sentence, move the detail into helper text** below it.
-  Example: the public + onboarding CTA is the short **`સેટઅપ વિનંતી કરો`**, with the
-  full invitation kept as nearby supporting text.
+  Example: the **Features** CTA (and the owner **onboarding** flow) uses the short
+  **`સેટઅપ વિનંતી કરો`**, with the full invitation kept as nearby supporting text. The
+  **Pricing** page keeps its full CTA `સોસાયટી સેટઅપની વિનંતી કરો` — its explanatory note
+  already supplies the context, so shortening it there is neither needed nor part of
+  the audit.
 - Loading states mirror the action: `સાચવો` → `સેવ થાય છે…`, `મોકલો` → `મોકલાય છે…`.
 
 ## 4. Error messages

@@ -57,6 +57,17 @@ describe('ReceiptView PDF download', () => {
   })
 })
 
+describe('ReceiptView preserves the high-risk financial content', () => {
+  it('renders the amount, receipt number, date and the no-signature line unchanged', () => {
+    render(<ReceiptView payment={payment} flat={flat} society={society} month="2026-07" />)
+    expect(screen.getByText('TS-2026-0001')).toBeInTheDocument()
+    expect(screen.getByText('₹1,200')).toBeInTheDocument()
+    expect(screen.getByText('11 જુલાઈ 2026')).toBeInTheDocument()
+    expect(screen.getByText(/આ કમ્પ્યુટર-જનરેટેડ રસીદ છે\. કોઈ સહીની જરૂર નથી\./)).toBeInTheDocument()
+    expect(screen.getByText(/ખજાનચી, Test Society/)).toBeInTheDocument()
+  })
+})
+
 describe('ReceiptView WhatsApp share', () => {
   it('shares the actual PDF file via navigator.share when canShare(files) is true', async () => {
     const share = vi.fn().mockResolvedValue(undefined)

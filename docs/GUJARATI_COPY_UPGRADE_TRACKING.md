@@ -68,10 +68,10 @@ line.
 | Item | Status |
 |---|---|
 | FAQ FAQPage JSON-LD (reuse page data, valid, no visible duplication) | **Already present** — `Faq.tsx` injects `FAQPage` JSON-LD from `t.items` in a `useEffect` (same pattern as Home's SoftwareApplication/Organization schema). New test locks it |
-| Home pricing line as non-interactive/appropriate element (not a no-op button) | **Verified, no change** — the `₹10/₹499` line is the headline of a navigational `<Link to="/pricing">` card with its own `કિંમત જુઓ →` CTA (a real action). Figures preserved. New test asserts it's a link, not a bare button |
-| Short CTA + supporting context (Features + onboarding) | **Implemented** (Features; also Pricing for the identical CTA). Onboarding N/A — no such CTA there |
+| Home pricing line as non-interactive element (not tappable content) | **Implemented** — the `₹10/₹499` sentence is a plain `<p>` caption inside a non-interactive `<article>`; only the separate `કિંમત જુઓ →` CTA is a `<Link to="/pricing">`. No nested interactive elements; figures preserved. Tests assert the sentence has no link/button ancestor and the CTA links to `/pricing` |
+| Short CTA + supporting context (Features + owner onboarding) | **Implemented for Features** (short `સેટઅપ વિનંતી કરો` + supporting text). Onboarding N/A — no such CTA there. **Pricing is NOT shortened** — the audit's short-CTA rows target Features + onboarding only, and the Pricing section says its copy needs no wording change |
 | SEO: Home description (brand/region/terms) | **Implemented** — `Home.tsx` (gu+en) and `scripts/public-seo.mjs` `/` |
-| SEO: Pricing metadata (society-maintenance-software pricing keywords) | **Implemented** — `Pricing.tsx` (gu+en) and `scripts/public-seo.mjs` `/pricing` |
+| SEO: Pricing metadata (society-maintenance-software pricing keywords) | **Implemented** — `Pricing.tsx` (gu+en) and `scripts/public-seo.mjs` `/pricing`. The visible Pricing CTA keeps its full audit wording `સોસાયટી સેટઅપની વિનંતી કરો` |
 | SEO: true source of generated metadata updated | **Implemented** — updated `scripts/public-seo.mjs` (build-time shells) alongside the runtime `usePageMeta` copy; SEO alignment test updated |
 | Public title/description concise (`Prangan One — ગુજરાતી-પ્રથમ સોસાયટી મેનેજમેન્ટ`) | **Implemented** (index.html) |
 | PWA manifest name/short_name/icons | **Verified, no change** — `name`/`short_name` = "Prangan One", Gujarati description present, all icons exist (`icon-192/512/maskable-512`, favicons, apple-touch, og-image) |
@@ -98,8 +98,10 @@ line.
 ## Extra user-facing cleanups found by the required searches
 
 - `owner/Activity.tsx`: `impersonation` (heading + empty state) → `'કમિટી તરીકે જુઓ'`;
-  `read-only` → `ફક્ત જોવા માટે`; `(legacy)` dropped; `Legacy write session`/`read-only`
-  badges → `જૂની (write)` / `ફક્ત જોવા`. **Implemented.**
+  `read-only` → `ફક્ત જોવા માટે`; `(legacy)` dropped; the raw displayed `write` is gone —
+  the historical badge/description reads `જૂની લખવાની એક્સેસ` / `લખવાની એક્સેસવાળી એન્ટ્રી`, and
+  the view-only badge reads `ફક્ત જોવા`. The internal `l.mode === 'write'` comparison is
+  unchanged. **Implemented** (Activity screen test added).
 - `owner/Dashboard.tsx`: stat label `કુલ સભ્ય (memberships)` → `કુલ સભ્ય`. **Implemented.**
 
 ## Intentional non-changes / exceptions
@@ -115,6 +117,24 @@ line.
   deliberate idiom; kept (Features marked no-change beyond the CTA).
 - Privacy/Terms `(read-only)`-style bracketed English in the owner console — allowed
   by the glossary for that technical audience.
+
+## Deployment status
+
+- **Nothing was merged into `main`.** All work lives on
+  `claude/gujarati-copy-upgrade-4xn7ef`.
+- **Nothing was deployed to production.**
+- Cloudflare Pages **automatically generated a non-production branch/PR preview
+  deployment** for PR #8 (its normal per-PR behaviour). That preview is not
+  production and was not disabled or altered.
+
+## Post-review corrections (PR #8 follow-up)
+
+- Home pricing line is now a plain non-interactive caption; only the `કિંમત જુઓ`
+  CTA is a link (was previously the headline of a fully-clickable card).
+- Pricing CTA restored to the full audit wording `સોસાયટી સેટઅપની વિનંતી કરો`
+  (the short CTA applies to Features + onboarding only); Pricing SEO metadata kept.
+- Owner Activity: removed the last raw displayed `write`; historical write
+  sessions now read `જૂની લખવાની એક્સેસ`.
 
 ## Blockers
 

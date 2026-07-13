@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, renderHook, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { DataProvider } from '../../../lib/store'
+import { DataProvider, useData } from '../../../lib/store'
+import { TestDataProvider } from '../../../lib/__tests__/testUtils'
+import type { Payment } from '../../../lib/types'
 import Payments from '../Payments'
 
 afterEach(() => {
@@ -36,5 +38,25 @@ describe('failed-payment wording uses નિષ્ફળ, not the colloquial ફ
     expect(msg.textContent).toContain('બિલ પર અસર નહીં થાય')
     expect(msg.textContent).toContain('રસીદ નહીં બને')
     expect(msg.textContent).not.toContain('ફેલ')
+  })
+})
+
+describe('a failed payment creates no receipt and leaves the bill untouched (high-risk meaning)', () => {
+  it('recordPayment with failed:true yields a failed status, no receipt number, and an unchanged bill', () => {
+    const { result } = renderHook(() => useData(), { wrapper: TestDataProvider })
+
+    const bill = result.current.db.bills.find(b => b.paidAmount < b.amount) ?? result.current.db.bills[0]
+    expect(bill).toBeDefined()
+    const paidBefore = bill.paidAmount
+
+    let pay: Payment | null = null
+    act(() => {
+      pay = result.current.recordPayment({ flatId: bill.flatId, billId: bill.id, amount: bill.amount, mode: 'upi', failed: true })
+    })
+
+    expect((pay as Payment | null)?.status).toBe('failed')
+    expect((pay as Payment | null)?.receiptNo).toBeUndefined() // no receipt for a failed payment
+    const billAfter = result.current.db.bills.find(b => b.id === bill.id)
+    expect(billAfter?.paidAmount).toBe(paidBefore) // bill is unaffected
   })
 })

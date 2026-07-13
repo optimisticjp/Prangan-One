@@ -60,19 +60,25 @@ describe('Home SEO metadata carries brand, Surat/Gujarat relevance and product t
   })
 })
 
-describe('Home pricing line is informational, shown as a navigational card, not a bare no-op button', () => {
-  it('renders the exact pricing figures inside a link that actually navigates to /pricing', () => {
+describe('Home pricing line is an informational caption, not tappable content', () => {
+  it('renders the pricing sentence as plain text with no link or button ancestor', () => {
     renderPublic(<Home />, 'gu')
     const line = screen.getByText(/ફ્લેટ દીઠ મહિને ₹10, સોસાયટી દીઠ ઓછામાં ઓછું ₹499\./)
-    // The figures are preserved verbatim.
+    // The exact figures are preserved verbatim.
     expect(line.textContent).toContain('₹10')
     expect(line.textContent).toContain('₹499')
-    // It performs a real action (navigates to the pricing page) rather than
-    // being a tappable <button> that does nothing.
-    const anchor = line.closest('a')
-    expect(anchor).not.toBeNull()
-    expect(anchor?.getAttribute('href')).toBe('/pricing')
+    // The informational sentence must NOT be inside any interactive element.
+    expect(line.closest('a')).toBeNull()
     expect(line.closest('button')).toBeNull()
+  })
+
+  it('exposes a single separate CTA that links to /pricing, without the pricing figures in its name', () => {
+    renderPublic(<Home />, 'gu')
+    const cta = screen.getByRole('link', { name: /કિંમત જુઓ/ })
+    expect(cta).toHaveAttribute('href', '/pricing')
+    // The pricing sentence is not part of the link's accessible name.
+    expect(cta.textContent).not.toContain('₹10')
+    expect(cta.textContent).not.toContain('₹499')
   })
 })
 
@@ -85,11 +91,12 @@ describe('Pricing metadata and CTA', () => {
     expect(desc).toContain('₹10')
   })
 
-  it('uses the short setup CTA, with the full explanatory note kept as supporting text', () => {
+  it('keeps the full pricing CTA wording unchanged (the audit did not shorten Pricing), with the note intact', () => {
     renderPublic(<Pricing />, 'gu')
-    expect(screen.getByText('સેટઅપ વિનંતી કરો')).toBeInTheDocument()
-    expect(screen.queryByText('સોસાયટી સેટઅપની વિનંતી કરો')).not.toBeInTheDocument()
-    // The longer meaning is preserved nearby as the pricing note.
+    expect(screen.getByText('સોસાયટી સેટઅપની વિનંતી કરો')).toBeInTheDocument()
+    // Pricing must NOT adopt the Features/onboarding short CTA.
+    expect(screen.queryByText('સેટઅપ વિનંતી કરો')).not.toBeInTheDocument()
+    // The explanatory pricing note is preserved.
     expect(screen.getByText(/અમે આપની સોસાયટીને સીધા ઓનબોર્ડ કરીએ છીએ/)).toBeInTheDocument()
   })
 })

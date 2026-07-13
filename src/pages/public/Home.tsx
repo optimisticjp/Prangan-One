@@ -131,7 +131,13 @@ export default function Home() {
       <section className="px-5 py-10 max-w-5xl mx-auto"><h2 className="font-bold text-[22px] text-center mb-6">{t.modulesTitle}</h2><div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{modules.map(m => <div key={m.en} className="rounded-xl border border-cream-200 bg-white px-3 py-4 text-center"><m.icon size={20} className="mx-auto text-saffron-500 mb-1.5" /><div className="text-[12.5px] font-semibold text-navy-700">{lang === 'en' ? m.en : m.gu}</div></div>)}</div></section>
 
       <section className="px-5 py-10 max-w-4xl mx-auto grid sm:grid-cols-3 gap-4 text-center">
-        <Link to="/pricing" className="rounded-2xl border border-cream-200 bg-white p-5 hover:border-saffron-300"><div className="font-bold text-navy-800">{t.pricingTeaser}</div><div className="text-[13px] text-saffron-600 font-semibold mt-1">{t.pricingCta} →</div></Link>
+        {/* Informational pricing copy is a plain, non-interactive caption; only
+            the "See pricing" CTA below it is a link, so screen readers and
+            keyboard users get one real action, not a whole tappable sentence. */}
+        <article className="rounded-2xl border border-cream-200 bg-white p-5">
+          <p className="font-bold text-navy-800">{t.pricingTeaser}</p>
+          <Link to="/pricing" className="inline-block text-[13px] text-saffron-600 font-semibold mt-1 hover:text-saffron-700 hover:underline">{t.pricingCta} →</Link>
+        </article>
         <Link to="/faq" className="rounded-2xl border border-cream-200 bg-white p-5 hover:border-saffron-300"><div className="font-bold text-navy-800">{t.faqTeaser}</div><div className="text-[13px] text-saffron-600 font-semibold mt-1">{t.faqCta} →</div></Link>
         <Link to="/contact" className="rounded-2xl bg-saffron-500 text-navy-900 p-5 hover:bg-saffron-400"><div className="font-bold">{t.contactCta}</div><div className="text-[13px] font-semibold mt-1">→</div></Link>
       </section>
