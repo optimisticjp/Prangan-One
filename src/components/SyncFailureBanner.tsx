@@ -42,9 +42,9 @@ export function SyncFailureBanner() {
           </div>
           <button onClick={() => retryFailedWrite(f.id)}
             className="shrink-0 flex items-center gap-1 text-[12.5px] font-semibold bg-saffron-500 text-navy-900 rounded-lg px-2.5 py-1.5">
-            <RotateCw size={13} /> ફરી પ્રયત્ન
+            <RotateCw size={13} /> ફરી પ્રયાસ
           </button>
-          <button onClick={() => dismissFailedWrite(f.id)} className="shrink-0 text-cream-100/60" aria-label="છોડી દો, ફરી પ્રયત્ન નહીં કરાય">
+          <button onClick={() => dismissFailedWrite(f.id)} className="shrink-0 text-cream-100/60" aria-label="છોડી દો, ફરી પ્રયાસ નહીં કરાય">
             <X size={16} />
           </button>
         </div>

@@ -35,7 +35,7 @@ export function SetPasswordCard() {
       await setPasswordForCurrentUser(password)
       setDone(true); setOpen(false); setPassword(''); setConfirm('')
     } catch {
-      setError('પાસવર્ડ સેટ થઈ શક્યો નથી. કૃપા કરીને ફરી પ્રયત્ન કરો.')
+      setError('પાસવર્ડ સેટ થઈ શક્યો નથી. કૃપા કરીને ફરી પ્રયાસ કરો.')
     } finally {
       setSaving(false)
     }

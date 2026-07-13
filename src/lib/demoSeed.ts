@@ -214,9 +214,9 @@ const expenses: Expense[] = [
 ]
 
 const notices: Notice[] = [
-  { id: 'demo-notice-001', societyId: SOCIETY_ID, title: 'જુલાઈ મેન્ટેનન્સ બિલ જનરેટ થયું', body: 'જુલાઈ મહિનાનું બિલ બની ગયું છે. કૃપા કરી તા. ૧૦ સુધીમાં ચૂકવો.', date: '2026-07-01', category: 'બિલિંગ', pinned: true },
-  { id: 'demo-notice-002', societyId: SOCIETY_ID, title: 'લિફ્ટ મેન્ટેનન્સ - શનિવારે', body: 'આ શનિવારે સવારે ૧૦ થી ૧૨ લિફ્ટ મેન્ટેનન્સ ચાલશે, થોડી અગવડ બદલ ક્ષમા.', date: '2026-07-06', category: 'સામાન્ય', pinned: false },
-  { id: 'demo-notice-003', societyId: SOCIETY_ID, title: 'સ્વતંત્રતા દિવસ ઉજવણી', body: '૧૫ ઓગસ્ટે સવારે ધ્વજવંદન, બધા સભ્યો પધારે.', date: '2026-06-30', category: 'ઇવેન્ટ', pinned: false },
+  { id: 'demo-notice-001', societyId: SOCIETY_ID, title: 'જુલાઈ મેન્ટેનન્સ બિલ જનરેટ થયું', body: 'જુલાઈ મહિનાનું બિલ બની ગયું છે. કૃપા કરીને તા. 10 સુધીમાં ચૂકવો.', date: '2026-07-01', category: 'બિલિંગ', pinned: true },
+  { id: 'demo-notice-002', societyId: SOCIETY_ID, title: 'લિફ્ટ મેન્ટેનન્સ - શનિવારે', body: 'આ શનિવારે સવારે 10 થી 12 લિફ્ટ મેન્ટેનન્સ ચાલશે, થોડી અગવડ બદલ ક્ષમા.', date: '2026-07-06', category: 'સામાન્ય', pinned: false },
+  { id: 'demo-notice-003', societyId: SOCIETY_ID, title: 'સ્વતંત્રતા દિવસ ઉજવણી', body: '15 ઓગસ્ટે સવારે ધ્વજવંદન, બધા સભ્યો પધારે.', date: '2026-06-30', category: 'ઇવેન્ટ', pinned: false },
 ]
 
 const polls: Poll[] = [

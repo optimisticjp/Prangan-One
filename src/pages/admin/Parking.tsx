@@ -42,7 +42,7 @@ export default function Parking() {
         <div className="mb-3 flex items-start gap-2.5 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[14px] text-over">
           <AlertTriangle size={18} className="shrink-0 mt-0.5" />
           <div>
-            <b>ધ્યાન આપો:</b> આ સ્લોટમાં એકથી વધુ વાહન નોંધાયેલા છે: <b className="num">{[...dupSlots].join(', ')}</b>. કૃપા કરી ચકાસો.
+            <b>ધ્યાન આપો:</b> આ સ્લોટમાં એકથી વધુ વાહન નોંધાયેલા છે: <b className="num">{[...dupSlots].join(', ')}</b>. કૃપા કરીને ચકાસો.
           </div>
         </div>
       )}

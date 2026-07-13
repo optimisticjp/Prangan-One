@@ -11,7 +11,7 @@ export const roleLabel: Record<Role, string> = {
   accountant: 'એકાઉન્ટન્ટ',
   resident_owner: 'રહેવાસી (માલિક)',
   resident_tenant: 'રહેવાસી (ભાડૂત)',
-  auditor: 'ઓડિટર (માત્ર જોવા માટે)',
+  auditor: 'ઓડિટર (ફક્ત જોવા માટે)',
 }
 
 // Where a real, resolved login lands someone - see src/pages/AuthCallback.tsx.

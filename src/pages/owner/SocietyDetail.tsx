@@ -137,7 +137,7 @@ export default function SocietyDetail() {
       </button>
 
       <PageHeader title={soc.name} sub={soc.nameEn}
-        actions={<Button variant="soft" onClick={enterAsAdmin} disabled={entering}><ArrowLeftRight size={16} /> Read-only સપોર્ટ વ્યુ</Button>} />
+        actions={<Button variant="soft" onClick={enterAsAdmin} disabled={entering}><ArrowLeftRight size={16} /> કમિટી તરીકે જુઓ</Button>} />
 
       {enterError && (
         <div role="alert" className="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[13px] font-semibold px-4 py-2.5">
@@ -261,7 +261,7 @@ export default function SocietyDetail() {
       </Card>
 
       <Card className="mt-4">
-        <h2 className="font-bold text-navy-800 mb-3">સભ્યો (memberships)</h2>
+        <h2 className="font-bold text-navy-800 mb-3">સભ્યો</h2>
         <div className="space-y-2 mb-3">
           {memberships.map(m => (
             <div key={m.id} className="flex items-center justify-between text-[13.5px] border-b border-cream-100 pb-2 last:border-0">

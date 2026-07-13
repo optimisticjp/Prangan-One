@@ -245,7 +245,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
           <div className="bg-saffron-500 text-navy-900 px-4 py-2 flex items-center justify-between gap-3 text-[13.5px] font-semibold sticky top-0 z-40">
             <span className="inline-flex items-center gap-1.5">
               <ShieldAlert size={16} />
-              Read-only સપોર્ટ વ્યુ · {society?.name ?? 'સોસાયટી'} - કંઈ સેવ નહીં થાય
+              ફક્ત જોવા માટે સપોર્ટ વ્યૂ · {society?.name ?? 'સોસાયટી'} · કંઈ સેવ નહીં થાય
             </span>
             <span className="inline-flex items-center gap-2 shrink-0">
               {exitFailed && <span className="text-red-800">બંધ ન થયું</span>}
@@ -257,7 +257,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
         )}
         {!session.actingAsOwner && session.role === 'auditor' && (
           <div className="bg-navy-100 text-navy-700 px-4 py-2 flex items-center gap-1.5 text-[13px] font-semibold sticky top-0 z-40">
-            <ShieldAlert size={15} /> ઓડિટર એક્સેસ - ફક્ત જોવા માટે, કંઈ સેવ કે બદલાય નહીં
+            <ShieldAlert size={15} /> ઓડિટર એક્સેસ · ફક્ત જોવા માટે, કંઈ સેવ કે બદલી શકાશે નહીં
           </div>
         )}
         <SubscriptionBanner audience="admin" />

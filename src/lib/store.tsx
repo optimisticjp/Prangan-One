@@ -511,7 +511,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const reason = session.role === 'auditor'
           ? 'ઓડિટર એક્સેસ ફક્ત જોવા માટે છે, કંઈ સેવ થતું નથી.'
           : session.actingAsOwner && session.supportMode === 'readonly'
-            ? 'તમે Read-only સપોર્ટ મોડમાં છો, કંઈ સેવ થતું નથી.'
+            ? 'તમે ફક્ત જોવા માટે સપોર્ટ મોડમાં છો, કંઈ સેવ થતું નથી.'
             : `${society?.name ?? 'આ સોસાયટી'} હાલમાં લખવા માટે ખુલ્લી નથી (સબ્સ્ક્રિપ્શન સ્થિતિ).`
         setLastBlockedReason(reason)
         // eslint-disable-next-line no-console

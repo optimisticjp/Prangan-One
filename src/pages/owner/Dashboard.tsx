@@ -50,7 +50,7 @@ export default function OwnerDashboard() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
         <StatCard label="કુલ ફ્લેટ" value={String(totalFlats)} icon={<Building2 size={19} />} />
-        <StatCard label="કુલ સભ્ય (memberships)" value={String(totalMembers)} icon={<Users size={19} />} />
+        <StatCard label="કુલ સભ્ય" value={String(totalMembers)} icon={<Users size={19} />} />
         <StatCard label="અંદાજિત માસિક આવક" value={inr(expectedMonthly)} tone="saffron" icon={<IndianRupee size={19} />} />
         <StatCard label="બાકી પ્લેટફોર્મ ચુકવણી" value={String(pendingPlatformPayments)} tone={pendingPlatformPayments ? 'red' : 'green'} icon={<AlertTriangle size={19} />} />
       </div>

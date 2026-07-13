@@ -6,7 +6,7 @@ import { usePageMeta } from './usePageMeta'
 
 const copy = {
   en: {
-    title: 'Pricing', desc: '90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed to start.',
+    title: 'Pricing', desc: 'Society maintenance software pricing: 90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed to start.',
     h1: 'Simple pricing', sub: '90 days free. No card required to start.',
     perFlat: 'per flat / month, after your free trial',
     minimumNote: '₹499 minimum per society, per month, whichever is higher.',
@@ -17,7 +17,7 @@ const copy = {
     examples: [['30-flat society', '\u20b9499 / month (minimum applies)'], ['100-flat society', '\u20b91,000 / month']],
   },
   gu: {
-    title: 'કિંમત', desc: '90 દિવસ મફત, કોઈ કાર્ડની જરૂર નથી. પછી, ફ્લેટ દીઠ મહિને ₹10, સોસાયટી દીઠ ઓછામાં ઓછું ₹499. શરૂ કરવા ઓનલાઈન ચુકવણી ગેટવે જરૂરી નથી.',
+    title: 'કિંમત', desc: 'સોસાયટી મેન્ટેનન્સ સોફ્ટવેરની કિંમત: 90 દિવસ મફત, કોઈ કાર્ડની જરૂર નથી. પછી ફ્લેટ દીઠ મહિને ₹10, સોસાયટી દીઠ ઓછામાં ઓછું ₹499. શરૂ કરવા ઓનલાઈન ચુકવણી ગેટવે જરૂરી નથી.',
     h1: 'સાદી કિંમત', sub: '90 દિવસ મફત. શરૂ કરવા કાર્ડની જરૂર નથી.',
     perFlat: 'ફ્લેટ દીઠ / મહિનો, ટ્રાયલ પછી',
     minimumNote: 'સોસાયટી દીઠ ઓછામાં ઓછું ₹499 મહિને, બેમાંથી જે વધારે હોય તે.',

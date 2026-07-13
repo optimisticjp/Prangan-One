@@ -14,7 +14,7 @@ export const PUBLIC_ROUTES = [
   {
     path: '/',
     title: 'The Society OS | Prangan One',
-    description: 'Gujarati-first society management for housing society committees and residents.',
+    description: 'Prangan One — Gujarati-first society management software for housing societies in Surat and Gujarat: billing, receipts, complaints, and notices.',
   },
   {
     path: '/features',
@@ -24,7 +24,7 @@ export const PUBLIC_ROUTES = [
   {
     path: '/pricing',
     title: 'Pricing | Prangan One',
-    description: '90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed to start.',
+    description: 'Society maintenance software pricing: 90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed to start.',
   },
   {
     path: '/faq',
