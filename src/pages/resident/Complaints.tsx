@@ -99,10 +99,10 @@ export default function Complaints() {
             {complaintCategories.map(c => <option key={c}>{c}</option>)}
           </Select>
         </Field>
-        <Field label="ટૂંકમાં લખો">
+        <Field label="ટૂંકમાં લખો" hint="સમસ્યા એક વાક્યમાં લખો.">
           <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="દા.ત. લિફ્ટ અવાજ કરે છે" required />
         </Field>
-        <Field label="થોડી વધુ વિગત (વૈકલ્પિક)">
+        <Field label="થોડી વધુ વિગત (વૈકલ્પિક)" hint="ક્યારે, ક્યાં, શું થાય છે તે ઉમેરશો તો કમિટી ઝડપથી સમજી શકશે.">
           <Textarea value={detail} onChange={e => setDetail(e.target.value)} placeholder="ક્યારે, ક્યાં, શું થાય છે..." />
         </Field>
         <Field label="કેટલું અગત્યનું છે?">

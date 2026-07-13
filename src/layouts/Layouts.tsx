@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { NavLink, Outlet, Link } from 'react-router-dom'
 import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, LogOut, ShieldAlert, Loader2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -124,6 +124,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
   const { society, session, logout, moduleEnabled, exitImpersonation, financialsLoading, lastBlockedReason } = useData()
   const [open, setOpen] = useState(false)
   const drawerRef = useRef<HTMLElement>(null)
+  const drawerId = useId()
   useDialogA11y(open, () => setOpen(false), drawerRef)
   const [blockedToast, setBlockedToast] = useState<string | null>(null)
   useEffect(() => {
@@ -231,8 +232,8 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
       {open && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-navy-950/50" onClick={() => setOpen(false)} />
-          <aside ref={drawerRef} role="dialog" aria-modal="true" aria-label="મેનુ" className="absolute inset-y-0 left-0 w-72 bg-navy-900 flex flex-col animate-fadeUp">
-            <button onClick={() => setOpen(false)} aria-label="બંધ કરો" className="absolute top-3 right-3 text-cream-100 h-9 w-9 flex items-center justify-center rounded-full hover:bg-navy-800"><X size={19} /></button>
+          <aside id={drawerId} ref={drawerRef} role="dialog" aria-modal="true" aria-label="મેનુ" className="absolute inset-y-0 left-0 w-72 bg-navy-900 flex flex-col animate-fadeUp">
+            <button onClick={() => setOpen(false)} aria-label="બંધ કરો" className="absolute top-3 right-3 text-cream-100 h-9 w-9 flex items-center justify-center rounded-full hover:bg-navy-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-saffron-500"><X size={19} /></button>
             {sidebarInner}
           </aside>
         </div>
@@ -261,7 +262,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
         )}
         <SubscriptionBanner audience="admin" />
         <header className="glass sticky top-0 z-40 px-4 py-3 flex items-center gap-3 md:hidden">
-          <button onClick={() => setOpen(true)} aria-label="મેનુ" className="h-10 w-10 rounded-xl bg-navy-800 text-cream-50 flex items-center justify-center"><Menu size={19} /></button>
+          <button onClick={() => setOpen(true)} aria-label="મેનુ ખોલો" aria-expanded={open} aria-controls={drawerId} className="h-10 w-10 rounded-xl bg-navy-800 text-cream-50 flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-saffron-500"><Menu size={19} /></button>
           <div className="font-bold text-navy-900 flex-1">{title}</div>
           <PranganBrand variant="wordmark-navy" height={16} className="opacity-70" />
         </header>

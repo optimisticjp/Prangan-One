@@ -45,7 +45,11 @@
     line-height: 1.6;
   }
   ::selection { @apply bg-saffron-100 text-navy-900; }
+  :where(a, button, [role='button'], input, select, textarea):focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-saffron-500;
+  }
 }
+
 
 @layer components {
   /* light glassmorphism: headers/cards only, readability first */

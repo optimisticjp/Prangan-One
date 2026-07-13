@@ -4,8 +4,8 @@
  * Big tap targets (44px+), rounded-2xl cards, soft shadows, fade-up entrances.
  * Semantic: green = paid/done, amber = pending, red = overdue/urgent.
  */
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
-import { useId, useRef } from 'react'
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactElement, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import { cloneElement, isValidElement, useId, useRef } from 'react'
 import { X } from 'lucide-react'
 import { useDialogA11y } from '../lib/useDialogA11y'
 
@@ -14,7 +14,7 @@ type BtnVariant = 'primary' | 'accent' | 'soft' | 'ghost' | 'danger'
 export function Button({
   variant = 'primary', full, className = '', children, ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant; full?: boolean }) {
-  const base = 'inline-flex items-center justify-center gap-2 rounded-xl font-semibold px-4 min-h-[44px] text-[15px] transition-all duration-150 active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none'
+  const base = 'inline-flex items-center justify-center gap-2 rounded-xl font-semibold px-4 min-h-[44px] text-[15px] transition-all duration-150 active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-saffron-500'
   const styles: Record<BtnVariant, string> = {
     primary: 'bg-navy-800 text-cream-50 hover:bg-navy-700 shadow-soft',
     accent: 'bg-saffron-500 text-navy-900 hover:bg-saffron-400 shadow-soft',
@@ -74,16 +74,47 @@ export function Badge({ tone = 'gray', children }: { tone?: Tone; children: Reac
 }
 
 /* ---------------- Form controls ---------------- */
-export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+type FieldProps = {
+  label: string
+  children: ReactNode
+  hint?: string
+  error?: string
+  id?: string
+  htmlFor?: string
+  hintId?: string
+  errorId?: string
+}
+
+const describableControls = new Set(['input', 'select', 'textarea'])
+const joinIds = (...ids: (string | undefined)[]) => Array.from(new Set(ids.flatMap(id => id?.split(/\s+/).filter(Boolean) ?? []))).join(' ') || undefined
+
+export function Field({ label, children, hint, error, id, htmlFor, hintId, errorId }: FieldProps) {
+  const generated = useId()
+  const canConnectControl = isValidElement(children) && (typeof children.type === 'function' || (typeof children.type === 'string' && describableControls.has(children.type)))
+  const child = canConnectControl ? children as ReactElement<Record<string, unknown>> : null
+  const childId = typeof child?.props.id === 'string' ? child.props.id : undefined
+  const controlId = childId ?? id ?? htmlFor ?? `field-${generated}`
+  const resolvedHintId = hint ? (hintId ?? `${controlId}-hint`) : undefined
+  const resolvedErrorId = error ? (errorId ?? `${controlId}-error`) : undefined
+  const describedBy = joinIds(typeof child?.props['aria-describedby'] === 'string' ? child.props['aria-describedby'] : undefined, resolvedHintId, resolvedErrorId)
+  const control = child
+    ? cloneElement(child, {
+        id: controlId,
+        'aria-describedby': describedBy,
+        'aria-invalid': error ? true : child.props['aria-invalid'],
+      })
+    : children
+
   return (
-    <label className="block">
-      <span className="block text-[13.5px] font-semibold text-navy-600 mb-1">{label}</span>
-      {children}
-      {hint && <span className="block text-[12px] text-navy-400 mt-1">{hint}</span>}
-    </label>
+    <div className="block">
+      <label htmlFor={canConnectControl ? controlId : undefined} className="block text-[13.5px] font-semibold text-navy-600 mb-1">{label}</label>
+      {control}
+      {hint && <p id={resolvedHintId} className="block text-[12px] text-navy-400 mt-1">{hint}</p>}
+      {error && <p id={resolvedErrorId} className="block text-[12.5px] text-over mt-1">{error}</p>}
+    </div>
   )
 }
-const ctrl = 'w-full rounded-xl border border-cream-300 bg-white px-3.5 min-h-[46px] text-[15.5px] text-navy-800 placeholder:text-navy-300 focus:outline-none focus:ring-2 focus:ring-saffron-400/60 focus:border-saffron-400'
+const ctrl = 'w-full rounded-xl border border-cream-300 bg-white px-3.5 min-h-[46px] text-[15.5px] text-navy-800 placeholder:text-navy-300 focus:outline-none focus:ring-2 focus:ring-saffron-400/60 focus:border-saffron-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-saffron-500'
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${ctrl} ${props.className ?? ''}`} />
 }
@@ -109,7 +140,7 @@ export function Modal({ open, onClose, title, children, wide }: {
       <div ref={dialogRef} className={`relative w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'} bg-cream-50 rounded-t-3xl sm:rounded-2xl shadow-lift animate-fadeUp max-h-[92vh] overflow-y-auto`}>
         <div className="sticky top-0 glass rounded-t-3xl sm:rounded-t-2xl px-5 py-4 flex items-center justify-between">
           <h3 id={titleId} className="font-bold text-[17px] text-navy-800">{title}</h3>
-          <button onClick={onClose} aria-label="બંધ કરો" className="h-9 w-9 rounded-full hover:bg-navy-50 flex items-center justify-center text-navy-500">
+          <button onClick={onClose} aria-label="બંધ કરો" className="h-9 w-9 rounded-full hover:bg-navy-50 flex items-center justify-center text-navy-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-saffron-500">
             <X size={19} />
           </button>
         </div>
@@ -154,9 +185,10 @@ export function SectionTitle({ children, action }: { children: ReactNode; action
 /* ---------------- Progress bar ---------------- */
 export function Progress({ value, tone = 'saffron' }: { value: number; tone?: 'saffron' | 'green' | 'navy' }) {
   const colors = { saffron: 'bg-saffron-500', green: 'bg-paid', navy: 'bg-navy-600' }
+  const clamped = Math.min(100, Math.max(0, value))
   return (
-    <div className="h-2.5 w-full rounded-full bg-cream-200 overflow-hidden">
-      <div className={`h-full rounded-full ${colors[tone]} transition-all duration-500`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    <div className="h-2.5 w-full rounded-full bg-cream-200 overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={clamped}>
+      <div className={`h-full rounded-full ${colors[tone]} transition-all duration-500`} style={{ width: `${clamped}%` }} />
     </div>
   )
 }
