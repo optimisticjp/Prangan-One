@@ -71,7 +71,7 @@ describe('public homepage', () => {
     expect(screen.getByRole('heading', { level: 2, name: /કેવી રીતે ચાલે છે/ })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: /વાસ્તવિક અપેક્ષા/ })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: /રોજ ઉપયોગી/ })).toBeInTheDocument()
-    expect(screen.getByText(/Row Level Security/)).toBeInTheDocument()
+    expect(screen.getByText(/દરેક સોસાયટીની માહિતી અલગ/)).toBeInTheDocument()
     expect(screen.getByText(/પબ્લિક ડેમો અલગ કલ્પિત વાતાવરણ/)).toBeInTheDocument()
   })
 })

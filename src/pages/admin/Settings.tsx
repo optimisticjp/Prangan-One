@@ -78,15 +78,15 @@ export default function Settings() {
               <span className="num text-[13.5px] font-semibold text-navy-700">{used} / {society.flatsLimit} ફ્લેટ</span>
             </div>
             <Progress value={pct} label="ફ્લેટ પ્લાન ક્ષમતા વપરાશ" tone={pct > 90 ? 'saffron' : 'navy'} />
-            <p className="text-[12.5px] text-navy-400 mt-2">₹10/ફ્લેટ/મહિનો, Prangan One ઓનર દ્વારા મેન્યુઅલી ટ્રેક થાય છે.</p>
+            <p className="text-[12.5px] text-navy-400 mt-2">₹10/ફ્લેટ/મહિનો, પ્રાંગણવન ટીમ દ્વારા મેન્યુઅલી ટ્રેક થાય છે.</p>
           </Card>
 
           <Card className="mt-4">
             <h2 className="font-bold text-navy-800 mb-1">ડેટા બેકઅપ</h2>
             <p className="text-[13px] text-navy-400 mb-3">
               {session.isRealSession
-                ? 'બધો ડેટા JSON ફાઈલમાં ઉતારો. તમારો ડેટા પહેલેથી જ Supabase માં સુરક્ષિત રીતે સચવાયેલો છે.'
-                : 'બધો ડેટા JSON ફાઈલમાં ઉતારો. Supabase સાથે જોડ્યા પછી આ ક્લાઉડમાં આપોઆપ સચવાશે.'}
+                ? 'બધો ડેટા JSON ફાઈલમાં ઉતારો. તમારો ડેટા પહેલેથી જ ઓનલાઈન સુરક્ષિત રીતે સચવાયેલો છે.'
+                : 'બધો ડેટા JSON ફાઈલમાં ઉતારો. ઓનલાઈન સેવા સાથે જોડ્યા પછી આ આપોઆપ સુરક્ષિત રીતે સચવાશે.'}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="soft" onClick={backup}><Download size={16} /> બેકઅપ ડાઉનલોડ</Button>
@@ -107,7 +107,7 @@ export default function Settings() {
       <Card>
         <p className="text-[12.5px] text-navy-400 mb-3">
           {canEditModules
-            ? 'Prangan One એ જે સુવિધા આપી છે, એમાંથી તમે રહેવાસીઓ માટે શું બતાવવું એ પસંદ કરી શકો છો.'
+            ? 'પ્રાંગણવને જે સુવિધા આપી છે, એમાંથી તમે રહેવાસીઓ માટે શું બતાવવું એ પસંદ કરી શકો છો.'
             : 'ફક્ત સોસાયટી એડમિન આ બદલી શકે છે. તમને (કમિટી સભ્ય) આ ફક્ત જોવા માટે દેખાય છે.'}
         </p>
         <div className="space-y-1.5">
@@ -117,7 +117,7 @@ export default function Settings() {
               <label key={m.key} className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 ${ownerAllowed && canEditModules ? 'cursor-pointer hover:bg-cream-100' : 'opacity-60'}`}>
                 <m.icon size={16} className="text-navy-500 shrink-0" />
                 <span className="flex-1 text-[13.5px] text-navy-700">{m.label}</span>
-                {!ownerAllowed && <Badge tone="gray">Prangan One પ્લાનમાં નથી</Badge>}
+                {!ownerAllowed && <Badge tone="gray">પ્રાંગણવન પ્લાનમાં નથી</Badge>}
                 <input type="checkbox" checked={society.modules.adminVisible[m.key]} disabled={!ownerAllowed || !canEditModules}
                   onChange={e => toggleAdminVisible(m.key, e.target.checked)}
                   className="accent-saffron-500" style={{ width: 18, height: 18 }} />
@@ -150,7 +150,7 @@ export default function Settings() {
           ))}
         </tbody>
       </TableWrap>
-      <p className="text-[12.5px] text-navy-400 mt-2">આ પરવાનગી ફક્ત UI પૂરતી છે. અસલી સુરક્ષા Supabase RLS થી લાગુ થશે (જુઓ supabase/schema.sql).</p>
+      <p className="text-[12.5px] text-navy-400 mt-2">આ સ્ક્રીન પરની પરવાનગીઓ ફક્ત દેખાવ પૂરતી છે. અસલી સુરક્ષા સિસ્ટમ સ્તરે લાગુ થાય છે, ફક્ત સ્ક્રીન પર છુપાવવાથી નહીં.</p>
     </div>
   )
 }

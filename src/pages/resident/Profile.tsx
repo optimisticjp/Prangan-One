@@ -66,7 +66,7 @@ export default function Profile() {
           <ArrowLeftRight size={17} /> ડેમો છોડો
         </Button>
       )}
-      <p className="text-center text-[12px] text-navy-300 mt-4">{society.name} · Prangan One દ્વારા સંચાલિત</p>
+      <p className="text-center text-[12px] text-navy-300 mt-4">{society.name} · પ્રાંગણવન દ્વારા સંચાલિત</p>
     </div>
   )
 }

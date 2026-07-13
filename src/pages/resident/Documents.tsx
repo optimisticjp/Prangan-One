@@ -80,7 +80,7 @@ export default function Documents() {
         </div>
       )}
       {!session.isRealSession && (
-        <p className="text-[12.5px] text-navy-400 mt-3">નોંધ: ડેમોમાં ફાઈલની ફક્ત વિગત દેખાય છે. અસલ ફાઈલ સ્ટોરેજ Supabase સાથે જોડાયેલ છે.</p>
+        <p className="text-[12.5px] text-navy-400 mt-3">નોંધ: ડેમોમાં ફાઈલની ફક્ત વિગત દેખાય છે. અસલ એપમાં ફાઈલ સુરક્ષિત રીતે ઓનલાઈન સચવાય છે.</p>
       )}
     </div>
   )

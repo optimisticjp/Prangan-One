@@ -2,8 +2,13 @@
 
 ## 1. Official brand usage
 
-- Use the brand exactly as `Prangan One` in every language.
-- Do not create Gujarati brand forms such as `પ્રાંગણવન`, `પ્રાંગણ વન`, or `પ્રાંગણ-વન` unless an approved brand decision adds them later.
+Locked decision (supersedes the earlier "English brand in every language" rule):
+
+- Use `પ્રાંગણવન` as the brand in **Gujarati-facing** product and marketing copy: in-app Gujarati screens, Gujarati public-page copy, resident and committee messages, the runtime Gujarati meta description, and the PWA app name shown to users.
+- Keep `Prangan One` in: English copy; URLs and email addresses; code identifiers; legal-entity references (e.g. the copyright footer); developer documentation; English metadata (the page-title brand suffix `| Prangan One`, `og:site_name`, and the static English SEO route shells used for search); structured data (JSON-LD `name`); the logo/wordmark image and its alt text; and the platform-owner console identity.
+- For bilingual public metadata, use the correct brand for each language: `પ્રાંગણવન` in Gujarati strings, `Prangan One` in English strings.
+- Decide per string from language and context. Do not mechanically replace every occurrence.
+- Financial/legal copy still under review (Privacy, Terms, subscription messages) carries its brand swap in its own batch, not retroactively here.
 - The public tagline may remain `The Society OS` where already used. In explanatory Gujarati copy, describe the product as `હાઉસિંગ સોસાયટી મેનેજમેન્ટ` rather than translating the tagline literally.
 
 ## 2. Gujarati tone and formality

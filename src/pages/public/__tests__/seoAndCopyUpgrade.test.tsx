@@ -44,7 +44,7 @@ describe('Home SEO metadata carries brand, Surat/Gujarat relevance and product t
   it('sets a Gujarati meta description with the brand, region and core modules', () => {
     renderPublic(<Home />, 'gu')
     const desc = metaDescription()
-    expect(desc).toContain('Prangan One')
+    expect(desc).toContain('પ્રાંગણવન')
     expect(desc).toContain('સુરત')
     expect(desc).toContain('ગુજરાતી-પ્રથમ')
     expect(desc).toMatch(/બિલિંગ|રસીદ|ફરિયાદ|નોટિસ/)

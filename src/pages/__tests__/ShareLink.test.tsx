@@ -26,7 +26,7 @@ describe('society share link', () => {
     renderShareLink('rajhans-tower')
     expect(await screen.findByText('રાજહંસ ટાવર')).toBeInTheDocument()
     expect(screen.getByText('લોગિન કરો')).toBeInTheDocument()
-    expect(screen.getByText('Prangan One પર')).toBeInTheDocument()
+    expect(screen.getByText('પ્રાંગણવન પર')).toBeInTheDocument()
   })
 
   it('shows a clean not-found state for a slug that does not exist, without hinting at real slugs', async () => {

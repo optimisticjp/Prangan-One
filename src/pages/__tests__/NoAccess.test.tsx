@@ -14,6 +14,6 @@ describe('NoAccess page', () => {
   it('offers both the join-code path and the bring-your-society path', () => {
     render(<MemoryRouter><NoAccess /></MemoryRouter>)
     expect(screen.getByText('મારી પાસે સોસાયટી કોડ છે')).toBeInTheDocument()
-    expect(screen.getByText('મારી સોસાયટી માટે Prangan One જોઈએ છે')).toBeInTheDocument()
+    expect(screen.getByText('મારી સોસાયટી માટે પ્રાંગણવન જોઈએ છે')).toBeInTheDocument()
   })
 })
