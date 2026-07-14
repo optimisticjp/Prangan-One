@@ -4,7 +4,7 @@ import { PranganBrand } from '../components/PranganBrand'
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
+    <main className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
       <div className="text-center max-w-sm">
         <PranganBrand variant="symbol-navy" height={40} className="mx-auto" />
         <div className="mx-auto mt-5 mb-3 h-14 w-14 rounded-2xl bg-navy-50 border border-navy-100 flex items-center justify-center text-navy-400">
@@ -19,6 +19,6 @@ export default function NotFound() {
           <Link to="/" className="mt-3 inline-block text-[12.5px] text-navy-400 hover:text-saffron-600">અથવા પ્રાંગણવનની વેબસાઈટ પર જાઓ</Link>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

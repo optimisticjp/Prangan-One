@@ -103,7 +103,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <main className="min-h-screen flex flex-col">
       <div className="bg-navy-900 text-cream-50 px-5 pt-10 pb-14 relative overflow-hidden">
         <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-saffron-500/10" aria-hidden />
         <div className="absolute right-14 top-16 h-20 w-20 rounded-full bg-saffron-500/10" aria-hidden />
@@ -118,7 +118,7 @@ export default function Login() {
             </div>
           ) : (
             <div className="animate-fadeUp">
-              <PranganBrand variant="wordmark-white" height={34} />
+              <h1><PranganBrand variant="wordmark-white" height={34} /></h1>
               <div className="text-saffron-400 font-semibold text-[13.5px] mt-2">The Society OS</div>
             </div>
           )}
@@ -218,6 +218,6 @@ export default function Login() {
           </p>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

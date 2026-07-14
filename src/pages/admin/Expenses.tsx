@@ -71,7 +71,7 @@ export default function Expenses() {
       </Card>
 
       <div className="grid lg:grid-cols-3 gap-4 mt-4">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-w-0">
           <div className="flex items-center justify-between mb-2">
             <Select value={month} onChange={e => setMonth(e.target.value)} className="!w-44">
               {lastMonths(6).map(m => <option key={m} value={m}>{fmtMonth(m)}</option>)}
