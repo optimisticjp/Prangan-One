@@ -103,7 +103,7 @@ owasp-security: the changed privacy/access wording stays honest and non-misleadi
 
 ## Needs owner confirmation (copy is complete; these are business/legal sign-offs, not blockers)
 
-- ❓ **Pricing figures** ₹10/flat/month and ₹499/society/month minimum (plus 90-day trial, 14-day grace) — kept exactly as in code and `COPY_FACTS.md`; no new claim added. `COPY_FACTS.md` still marks the business price as needing owner sign-off.
+- ✅ **Pricing figures** ₹10/flat/month and ₹499/society/month minimum: owner-confirmed 14 July 2026 (`COPY_FACTS.md` updated; ₹499 minimum recorded as a business rule, not code-enforced). The approved "less than ₹1 per flat per day, 50+ flats" comparison was added to the Pricing page as supporting copy. 90-day trial and 14-day grace remain exactly as in code.
 - ❓ **PWA app name** `પ્રાંગણવન` (Batch 2 decision; one-line revert to `Prangan One` if the owner prefers the English app name).
 - ❓ **Privacy/Terms legal read** — wording clarified for ordinary readers with legal meaning, qualifications, dates and contacts preserved; a final human/legal review is still advisable before relying on it.
 - ✅ Done: bilingual Contact role titles, Settings permissions note (Batch 2), and the Privacy read-access gloss "(વાંચવાની એક્સેસ)" (present, retained).
