@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import {
   LayoutDashboard, Users, ReceiptText, IndianRupee, Wallet, Store as StoreIcon,
@@ -11,6 +11,7 @@ import { RoleGate } from './components/RoleGate'
 import { ModuleGate } from './components/ModuleGate'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { PageLoading } from './components/PageLoading'
+import { lazyWithRetry as lazy } from './lib/lazyWithRetry'
 
 // Every page is lazy-loaded, split by route, so a resident's bundle never
 // includes admin/accountant/owner code and vice versa (see

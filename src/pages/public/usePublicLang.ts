@@ -12,9 +12,24 @@ const KEY = 'prangan_public_lang'
  * localStorage so the choice persists across the site's pages without
  * needing a context provider threaded through App.tsx.
  */
+/**
+ * Only 'gu' and 'en' are valid. Anything else - a missing key, an empty
+ * string, a historical value like 'Gujarati', or arbitrary text a browser
+ * extension wrote - must fall back to 'gu' rather than reach the copy maps,
+ * where copy[lang] would be undefined and every `t.*` access would throw and
+ * crash the page. This is the guard that turns a bad stored value into a
+ * silent, safe default instead of an error boundary.
+ */
+export function isPublicLang(value: unknown): value is PublicLang {
+  return value === 'gu' || value === 'en'
+}
+
 export function usePublicLang(): [PublicLang, (l: PublicLang) => void] {
   const [lang, setLang] = useState<PublicLang>(() => {
-    try { return (localStorage.getItem(KEY) as PublicLang) || 'gu' } catch { return 'gu' }
+    try {
+      const stored = localStorage.getItem(KEY)
+      return isPublicLang(stored) ? stored : 'gu'
+    } catch { return 'gu' }
   })
   useEffect(() => {
     try { localStorage.setItem(KEY, lang) } catch { /* ignore */ }
