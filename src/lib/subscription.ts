@@ -106,7 +106,7 @@ export function statusBanner(society: SocietyLifecycle, audience: 'admin' | 'res
   if (status === 'paused') {
     return audience === 'admin'
       ? 'સેવા થોભાવેલી છે. ફરી શરૂ કરવા care@pranganone.com પર સંપર્ક કરો.'
-      : 'સેવા હાલમાં થોભાવેલી છે. નવી પ્રવૃત્તિ માટે Prangan One નો સંપર્ક કરો.'
+      : 'સેવા હાલમાં થોભાવેલી છે. નવી પ્રવૃત્તિ માટે પ્રાંગણવનનો સંપર્ક કરો.'
   }
   return null
 }

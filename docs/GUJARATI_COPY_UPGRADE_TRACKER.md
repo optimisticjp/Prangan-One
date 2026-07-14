@@ -16,7 +16,7 @@ the audit was captured. Most of the audit's 37 handoff replacements are therefor
 **already in the code**. Each area below records what is already satisfied, what
 Batch 1 changed, and what is deferred.
 
-Legend: ✅ done · 🔷 already satisfied · ⏳ deferred · ❓ needs owner confirmation. Batch 1 = low-risk interface copy (merged, PR #10). Batch 2 = brand + de-technicalisation + public messaging (this PR).
+Legend: ✅ done · 🔷 already satisfied · ⏳ deferred · ❓ needs owner confirmation. Batch 1 = low-risk interface copy (merged, PR #10). Batch 2 = brand + de-technicalisation + public messaging (merged, PR #11). Batch 3 = financial + legal wording (this PR). **All 13 product areas and current user-facing copy sources are now accounted for; the copy pass is complete apart from the owner sign-offs listed at the end.**
 
 ---
 
@@ -41,18 +41,18 @@ Legend: ✅ done · 🔷 already satisfied · ⏳ deferred · ❓ needs owner co
 
 ## 13-area coverage
 
-| # | Area | Audited | Status (Batch 1 · Batch 2) |
+| # | Area | Audited | Status (B1 · B2 · B3) |
 |---|---|---|---|
-| 1 | Public website (Home, Features, Pricing, FAQ, Contact, Privacy, Terms, PublicLayout) | 8 | ✅ B1 em dashes + `માત્ર`→`ફક્ત`; ✅ B2 `પ્રાંગણવન` in Gujarati Home/Contact copy, Home trust + FAQ×2 de-teched, Contact bilingual role titles; 🔷 Pricing accurate (figures locked, no change), PublicLayout wordmark + English legal footer; ⏳ Privacy/Terms → Batch 3 |
+| 1 | Public website (Home, Features, Pricing, FAQ, Contact, Privacy, Terms, PublicLayout) | 8 | ✅ B1 em dashes + `માત્ર`→`ફક્ત`; ✅ B2 `પ્રાંગણવન` in Gujarati Home/Contact copy, Home trust + FAQ×2 de-teched, Contact bilingual role titles; 🔷 Pricing accurate (figures locked, no change), PublicLayout wordmark + English legal footer; ✅ B3 Privacy + Terms de-teched (`ડેટાબેઝ લેવલે`→`સિસ્ટમ સ્તરે`, `સ્ટેન્ડિંગ`→`કાયમી`) and gu brand → `પ્રાંગણવન`; legal meaning, qualifications and July-2026 date preserved |
 | 2 | Auth & system pages (Login, Join, AuthCallback, ResetPassword, NoAccess, Forbidden, NotFound, ShareLink, SetPasswordCard) | 9 | 🔷 all `ફરી પ્રયાસ કરો` / `કૃપા કરીને` / combined non-revealing auth errors already in place; no raw provider errors surfaced |
-| 3 | Shared components (App shell, banners, ReceiptView, error boundary, layouts) | 14 | 🔷 read-only/support/auditor banners already `ફક્ત જોવા માટે … વ્યૂ`, middle dots; ErrorBoundary shows friendly Gujarati only (raw `error.message` kept for logging, never rendered) |
-| 4 | Admin / committee (Payments, Billing, Members, Settings, Complaints, Notices, Documents, Events, Polls, Parking, Vendors, Reports, Dashboard, Expenses) | 14 | ✅ B1 `પ્રયત્ન`→`પ્રયાસ`; ✅ B2 Settings permissions note de-teched (no "Supabase RLS"), backup + plan notes de-teched, `પ્રાંગણવન` in Settings, admin Documents storage note de-teched; ⏳ Payments `ફેલ`→`નષ્ફળ` → Batch 3 |
-| 5 | Accountant (Reports, Adjustments, Dashboard) | 3 | 🔷 bilingual ઉધાર/જમા intact; ⏳ failed-transaction `ફેલ`→`નષ્ફળ` (Reports) → Batch 3 |
-| 6 | Resident (Bill, Receipts, ReceiptDetail, Complaints, ComplaintDetail, Notices, Documents, Contacts, Polls, Events, Parking, Profile, Dashboard, More) | 14 | 🔷 warm/plain copy already correct; ✅ B2 resident Documents storage note de-teched, Profile → `પ્રાંગણવન`; ⏳ self-report/credit/receipt financial lines (Bill) → Batch 3 |
+| 3 | Shared components (App shell, banners, ReceiptView, error boundary, layouts) | 14 | 🔷 read-only/support/auditor banners already `ફક્ત જોવા માટે … વ્યૂ`; ErrorBoundary shows friendly Gujarati only; ✅ B3 verified ReceiptView (computer-generated / no-signature line + placeholders intact) and SubscriptionBanner (renders subscription.ts copy) unchanged |
+| 4 | Admin / committee (Payments, Billing, Members, Settings, Complaints, Notices, Documents, Events, Polls, Parking, Vendors, Reports, Dashboard, Expenses) | 14 | ✅ B1 `પ્રયત્ન`→`પ્રયાસ`; ✅ B2 Settings permissions note de-teched (no "Supabase RLS"), backup + plan notes de-teched, `પ્રાંગણવન` in Settings, admin Documents storage note de-teched; ✅ B3 verified Payments (failed already = `નિષ્ફળ`; cancel-receipt confirmation states cancelled-not-deleted + reason-stays + amount-returns-to-dues) unchanged |
+| 5 | Accountant (Reports, Adjustments, Dashboard) | 3 | 🔷 bilingual ઉધાર/જમા intact; ✅ B3 verified Reports CSV status = `નિષ્ફળ` (not `ફેલ`), Adjustments credit/debit unchanged |
+| 6 | Resident (Bill, Receipts, ReceiptDetail, Complaints, ComplaintDetail, Notices, Documents, Contacts, Polls, Events, Parking, Profile, Dashboard, More) | 14 | 🔷 warm/plain copy already correct; ✅ B2 resident Documents storage note de-teched, Profile → `પ્રાંગણવન`; ✅ B3 verified Bill (self-report "આ હજુ સત્તાવાર ચુકવણી નથી", credit-to-next-bill, receipt links) unchanged |
 | 7 | Owner & onboarding (SocietyDetail, Onboarding, Activity, Billing, Dashboard, Societies, Leads, Layout) | 8 | ✅ `પ્રયત્ન`→`પ્રયાસ` (Leads); 🔷 impersonation already surfaced as `કમિટી તરીકે જુઓ`; `legacy`/`memberships` exist only as JS identifiers (not copy — not renamed) |
 | 8 | Demo library (demoSeed, demoGuide, demoStore) | 3 | 🔷 seed numerals already Western (enforced by `gujaratiCopyUpgrade.test.ts`); guidance copy natural |
-| 9 | Runtime library (copy.ts, whatsapp.ts, format.ts, store.tsx, permissions.ts, subscription.ts, csv.ts, uploadValidation.ts, theme/presets.ts, auth.ts) | 10 | 🔷 `copy.ts` retry/please canonical already `પ્રયાસ`/`કૃપા કરીને`; `whatsapp.ts` uses correct `${societyName}` (audit's "$s{ocietyName}" was OCR damage, **no bug**); ⏳ whatsapp financial templates + `store.tsx` credit/cancel + `subscription.ts` → Batch 3 |
-| 10 | Database-generated text (`supabase/schema.sql`) | 1 | ⏳ overpayment credit-reason literal (`schema.sql`, DB function) → Batch 3 (needs migration) |
+| 9 | Runtime library (copy.ts, whatsapp.ts, format.ts, store.tsx, permissions.ts, subscription.ts, csv.ts, uploadValidation.ts, theme/presets.ts, auth.ts) | 10 | 🔷 `copy.ts` retry/please canonical already `પ્રયાસ`/`કૃપા કરીને`; `whatsapp.ts` uses correct `${societyName}` (audit's "$s{ocietyName}" was OCR damage, **no bug**); ✅ B3 whatsapp templates verified (placeholders intact, no automated-reminder claim), `store.tsx` credit/cancel audit text verified, `subscription.ts` verified + paused-banner brand → `પ્રાંગણવન` |
+| 10 | Database-generated text (`supabase/schema.sql`) | 1 | ✅ B3 verified: overpayment credit-reason literal ("વધારે ચૂકવણી, … માંથી ક્રેડિટ તરીકે રાખેલ") is accurate and matches `store.tsx`; left unchanged (correct; any change would need a DB migration) |
 | 11 | PWA & metadata (`index.html`, `public/manifest.webmanifest`) | 2 | ✅ B1 em dash; ✅ B2 manifest name/short_name → `પ્રાંગણવન`, `index.html` gu default title/og/twitter → `પ્રાંગણવન`. English marketing shells (`public-seo.mjs`) keep `Prangan One` for search; `og:site_name`/image-alt kept English |
 | 12 | Sample data (`sample-data/*.json`) | 16 | 🔷 Western numerals, fictional records; not shipped to real societies; no change needed |
 | 13 | Fake-data generator (`scripts/gen-data.mjs`) | 1 | 🔷 internal tooling, not user-facing (per audit) — left as-is |
@@ -86,20 +86,27 @@ Placeholders, `${…}`/JSX, JSON keys, IDs, URLs, emails, figures, routing and a
 
 ---
 
-## Deferred to Batch 3 — high-risk financial & legal (double-review + owasp-security)
-- Privacy, Terms, security-architecture claims, data retention, support access.
-- Bills, balances, credits, adjustments, advances, self-reported vs confirmed vs failed payments (`ફેલ`→`નષ્ફળ`), receipts, receipt cancellation.
-- WhatsApp financial templates, `store.tsx` credit/cancel text, `subscription.ts`, `supabase/schema.sql` credit-reason literal.
+## Batch 3 — changes applied (this PR)
+
+High-risk financial + legal pass. Only legal/brand wording changed; every financial meaning was verified and left intact.
+
+**Changed**
+1. **Privacy** (gu) — de-teched (`ડેટાબેઝ લેવલે`→`સિસ્ટમ સ્તરે`, `સ્ટેન્ડિંગ રીડ-એક્સેસ`→`કાયમી રીડ-એક્સેસ`, `ઈન્ટરફેસ`→`સ્ક્રીન`); Supabase/Postgres kept only in the "where data lives" disclosure with a plain-Gujarati gloss; brand → `પ્રાંગણવન`. Every qualification, the support-session write-block, the honest "standing read access is still real" statement, the conservative deletion/retention/incident wording and the July-2026 date are preserved. No encryption / hosting-region / never-sell / AI-training / backup / SLA claim added.
+2. **Terms** (gu) — brand → `પ્રાંગણવન`. Trial (90d), grace (14d), read-only-after-grace, no-auto-delete, ₹10/₹499 figures, no-online-gateway, liability and "still building" qualifications all unchanged.
+3. **subscription.ts** — paused-banner brand → `પ્રાંગણવન`.
+
+**Verified and unchanged** (already fully compliant from the prior Gujarati pass): Payments (failed = `નિષ્ફળ`; cancel confirmation = cancelled-not-deleted + reason-stays + amount-returns-to-dues), resident Bill (self-report "આ હજુ સત્તાવાર ચુકવણી નથી", credit-to-next-bill), ReceiptView (computer-generated / no-signature line, placeholders), Adjustments (જમા/ઉધાર), accountant Reports (`નિષ્ફળ`), CSV labels, WhatsApp templates (placeholders + `🙏`, no automated-reminder claim), `store.tsx` credit/cancel audit text, and the `schema.sql` credit-reason literal. English Privacy/Terms keep `Prangan One` and their careful qualifications.
+
+owasp-security: the changed privacy/access wording stays honest and non-misleading (real system-level enforcement stated, "hiding a control is not security" preserved, standing read-access disclosed, no false guarantee); no secrets or raw errors exposed. 1 intentionally-asserted test string updated (`સ્ટેન્ડિંગ`→`કાયમી`).
 
 ---
 
-## Needs owner confirmation
+## Needs owner confirmation (copy is complete; these are business/legal sign-offs, not blockers)
 
-- ✅ Public Contact role titles — applied as bilingual `પ્રમુખ (ચેરમેન)` … (Batch 2).
-- ✅ Settings permissions note — de-teched (Batch 2).
-- ❓ PWA app name `પ્રાંગણવન` (Batch 2 decision; one-line revert to `Prangan One` if the owner prefers the English app name).
-- ❓ Pricing / trial / ₹10-per-flat / ₹499-minimum wording and any "cost of tea" comparison — figures kept exact and no new claim added; confirm before any pricing-copy change (`COPY_FACTS.md`).
-- ❓ Privacy read-access ("read" → "રીડ-એક્સેસ (વાંચવાની એક્સેસ)") legal wording — Batch 3.
+- ❓ **Pricing figures** ₹10/flat/month and ₹499/society/month minimum (plus 90-day trial, 14-day grace) — kept exactly as in code and `COPY_FACTS.md`; no new claim added. `COPY_FACTS.md` still marks the business price as needing owner sign-off.
+- ❓ **PWA app name** `પ્રાંગણવન` (Batch 2 decision; one-line revert to `Prangan One` if the owner prefers the English app name).
+- ❓ **Privacy/Terms legal read** — wording clarified for ordinary readers with legal meaning, qualifications, dates and contacts preserved; a final human/legal review is still advisable before relying on it.
+- ✅ Done: bilingual Contact role titles, Settings permissions note (Batch 2), and the Privacy read-access gloss "(વાંચવાની એક્સેસ)" (present, retained).
 
 ---
 
