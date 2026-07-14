@@ -10,6 +10,7 @@ const copy = {
     h1: 'Simple pricing', sub: '90 days free. No card required to start.',
     perFlat: 'per flat / month, after your free trial',
     minimumNote: '₹499 minimum per society, per month, whichever is higher.',
+    dailyNote: 'After the trial, societies with 50 or more flats pay ₹10 per flat per month, which is less than ₹1 per flat per day. ₹499 minimum per society per month.',
     features: ['Available modules included', 'Residents and committee members can use their assigned access', 'Billing, receipts, and one-tap WhatsApp reminder sharing', 'Complaints, notices, polls, and events', 'Use available exports when you need records', 'Setup handled personally, no self-serve signup form'],
     note: 'Setup is manual and personal: we onboard your society directly, no card and no online payment gateway required to get started. Your 90-day trial begins once your society is actually set up and ready to use, not the day you fill out this form.',
     cta: 'Request Society Setup',
@@ -21,6 +22,7 @@ const copy = {
     h1: 'સાદી કિંમત', sub: '90 દિવસ મફત. શરૂ કરવા કાર્ડની જરૂર નથી.',
     perFlat: 'ફ્લેટ દીઠ / મહિનો, ટ્રાયલ પછી',
     minimumNote: 'સોસાયટી દીઠ ઓછામાં ઓછું ₹499 મહિને, બેમાંથી જે વધારે હોય તે.',
+    dailyNote: 'ટ્રાયલ પછી, 50 કે તેથી વધુ ફ્લેટની સોસાયટી માટે ફ્લેટ દીઠ મહિને ₹10, એટલે પ્રતિ ફ્લેટ રોજના ₹1 કરતાં પણ ઓછું. સોસાયટી દીઠ ન્યૂનતમ ₹499 મહિને.',
     features: ['ઉપલબ્ધ મોડ્યુલ સામેલ', 'રહેવાસી અને કમિટી સભ્યો માટે આપેલી એક્સેસ મુજબ ઉપયોગ', 'બિલિંગ, રસીદ અને WhatsApp પર રિમાઇન્ડર શેર', 'ફરિયાદ, નોટિસ, મતદાન, ઇવેન્ટ', 'જરૂર પડે ત્યારે ઉપલબ્ધ એક્સપોર્ટ વાપરો', 'સેટઅપ અમે સીધું કરીએ, સેલ્ફ-સર્વ ફોર્મ નહીં'],
     note: 'સેટઅપ મેન્યુઅલી અને સીધું થાય છે: અમે આપની સોસાયટીને સીધા ઓનબોર્ડ કરીએ છીએ, શરૂ કરવા માટે કાર્ડ કે ઓનલાઈન ચુકવણી ગેટવેની જરૂર નથી. આપનો 90-દિવસનો ટ્રાયલ ત્યારે શરૂ થાય છે જ્યારે આપની સોસાયટી ખરેખર સેટ થઈને વાપરવા તૈયાર થાય, આ ફોર્મ ભરો એ દિવસે નહીં.',
     cta: 'સોસાયટી સેટઅપની વિનંતી કરો',
@@ -51,6 +53,7 @@ export default function Pricing() {
           </div>
           <div className="text-[13.5px] text-navy-400 relative">{t.perFlat}</div>
           <div className="text-[12px] text-navy-400 relative mt-1">{t.minimumNote}</div>
+          <p className="text-[12.5px] text-navy-600 bg-cream-100 border border-cream-200 rounded-xl px-3.5 py-2.5 mt-3 relative leading-relaxed text-left">{t.dailyNote}</p>
           <ul className="mt-5 space-y-2.5 text-left text-[14px] relative">
             {t.features.map(f => (
               <li key={f} className="flex items-start gap-2"><Check size={16} className="text-paid shrink-0 mt-0.5" /> {f}</li>

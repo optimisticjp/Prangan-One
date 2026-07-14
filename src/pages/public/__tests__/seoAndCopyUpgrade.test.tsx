@@ -99,6 +99,17 @@ describe('Pricing metadata and CTA', () => {
     // The explanatory pricing note is preserved.
     expect(screen.getByText(/અમે આપની સોસાયટીને સીધા ઓનબોર્ડ કરીએ છીએ/)).toBeInTheDocument()
   })
+
+  it('shows the owner-approved daily cost comparison as per-flat supporting copy, not a whole-society claim', () => {
+    renderPublic(<Pricing />, 'gu')
+    const line = screen.getByText(/પ્રતિ ફ્લેટ રોજના ₹1 કરતાં પણ ઓછું/)
+    expect(line).toBeInTheDocument()
+    // Accuracy rules: always per-flat, always after the trial, exact figures kept.
+    expect(line.textContent).toContain('પ્રતિ ફ્લેટ')
+    expect(line.textContent).toContain('ટ્રાયલ પછી')
+    expect(line.textContent).toContain('₹10')
+    expect(line.textContent).toContain('₹499')
+  })
 })
 
 describe('Features CTA is shortened with supporting context', () => {
