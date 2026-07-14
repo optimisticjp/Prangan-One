@@ -1,0 +1,27 @@
+# Cloudflare Pages response headers.
+#
+# Why this file exists: the app is code-split into content-hashed chunks under
+# /assets/ (e.g. /assets/Pricing-DEDgDZ0X.js). Each deploy produces new hashes.
+# If a browser caches an HTML shell, that stale HTML keeps referencing chunk
+# names from the previous deploy - names the CDN no longer has - and the
+# dynamic import() fails, showing the error screen on an otherwise healthy site.
+#
+# IMPORTANT about precedence: Cloudflare Pages applies EVERY matching rule and
+# JOINS duplicate headers with a comma - it does NOT do "last rule wins". A
+# request under /assets/ matches both rules below, so without intervention the
+# asset would get "no-cache, ..., immutable" and no-cache would win, defeating
+# the long cache. The "! Cache-Control" line removes the value inherited from
+# /* before the /assets/* block sets its own.
+#
+#   * All navigations / HTML shells (including the prerendered per-route shells
+#     like /pricing/): never cache, always revalidate, so a new deploy's HTML
+#     reaches visitors immediately.
+#   * /assets/* : content-hashed, so a changed file always has a new name -
+#     safe to cache forever, which removes needless revalidation round-trips.
+
+/*
+  Cache-Control: no-cache, must-revalidate
+
+/assets/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
