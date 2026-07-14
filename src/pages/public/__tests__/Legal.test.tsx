@@ -18,7 +18,7 @@ function renderPublic(page: ReactElement, lang: 'en' | 'gu' = 'gu') {
 describe('Privacy page', () => {
   it('states the actual current state of owner access, not vague boilerplate', () => {
     renderPublic(<Privacy />)
-    expect(screen.getByText(/દરેક સોસાયટીના ડેટાની સ્ટેન્ડિંગ રીડ-એક્સેસ \(વાંચવાની એક્સેસ\)/)).toBeInTheDocument()
+    expect(screen.getByText(/દરેક સોસાયટીના ડેટાની કાયમી રીડ-એક્સેસ \(વાંચવાની એક્સેસ\)/)).toBeInTheDocument()
   })
 
   it('also states the real, current write-blocking safeguard during an active support session, not just standing read access', () => {
