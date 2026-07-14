@@ -114,12 +114,12 @@ export function PublicLayout({ lang, setLang, children }: {
             </div>
           </div>
         </div>
-        <div className="text-center text-[11.5px] text-navy-300 pb-2 flex items-center justify-center gap-3">
+        <div className="text-center text-[11.5px] text-navy-400 pb-2 flex items-center justify-center gap-3">
           <Link to="/privacy" className="rounded hover:text-saffron-600">{lang === 'en' ? 'Privacy' : 'પ્રાઇવસી'}</Link>
           <span>·</span>
           <Link to="/terms" className="rounded hover:text-saffron-600">{lang === 'en' ? 'Terms' : 'શરતો'}</Link>
         </div>
-        <div className="text-center text-[11.5px] text-navy-300 pb-6">© Prangan One. The Society OS.</div>
+        <div className="text-center text-[11.5px] text-navy-400 pb-6">© Prangan One. The Society OS.</div>
       </footer>
     </div>
   )

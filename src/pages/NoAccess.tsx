@@ -18,7 +18,7 @@ export default function NoAccess() {
   const nav = useNavigate()
 
   return (
-    <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
+    <main className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
       <div className="text-center max-w-sm">
         <PranganBrand variant="symbol-navy" height={40} className="mx-auto mb-4" />
         <h1 className="font-bold text-navy-900 text-[20px] leading-snug">આ ઈમેલ સાથે હજી કોઈ સોસાયટી જોડાયેલી નથી</h1>
@@ -46,6 +46,6 @@ export default function NoAccess() {
 
         <Button variant="soft" className="mt-6" onClick={() => nav('/login')}>લોગિન પર પાછા જાઓ</Button>
       </div>
-    </div>
+    </main>
   )
 }

@@ -44,7 +44,7 @@ export default function Pricing() {
 
         <div className="max-w-sm mx-auto mt-8 rounded-3xl border-2 border-saffron-300 bg-white p-7 relative overflow-hidden">
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-saffron-500/10" aria-hidden />
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-paid/10 text-paid text-[12.5px] font-bold px-3 py-1 relative">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-paid/10 text-green-800 text-[12.5px] font-bold px-3 py-1 relative">
             {lang === 'en' ? '90 days free, no card needed' : '90 દિવસ મફત, કાર્ડની જરૂર નથી'}
           </div>
           <div className="flex items-end justify-center gap-1 relative mt-4">
