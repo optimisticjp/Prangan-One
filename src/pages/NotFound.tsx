@@ -16,7 +16,7 @@ export default function NotFound() {
           લોગિન પર જાઓ
         </Link>
         <div>
-          <Link to="/" className="mt-3 inline-block text-[12.5px] text-navy-400 hover:text-saffron-600">અથવા Prangan One ની વેબસાઈટ પર જાઓ</Link>
+          <Link to="/" className="mt-3 inline-block text-[12.5px] text-navy-400 hover:text-saffron-600">અથવા પ્રાંગણવનની વેબસાઈટ પર જાઓ</Link>
         </div>
       </div>
     </div>

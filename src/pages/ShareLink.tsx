@@ -106,7 +106,7 @@ export default function ShareLink() {
         {(society.area || society.city) && (
           <p className="text-[13.5px] text-navy-400 mt-0.5">{[society.area, society.city].filter(Boolean).join(', ')}</p>
         )}
-        <p className="text-[12.5px] text-saffron-600 font-semibold mt-2">Prangan One પર</p>
+        <p className="text-[12.5px] text-saffron-600 font-semibold mt-2">પ્રાંગણવન પર</p>
         <Button variant="accent" full className="mt-5" onClick={() => nav('/login')}>લોગિન કરો</Button>
       </div>
     </div>

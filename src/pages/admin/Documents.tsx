@@ -93,7 +93,7 @@ export default function Documents() {
           </tbody>
         </TableWrap>
         {!session.isRealSession && (
-          <p className="text-[12.5px] text-navy-400 mt-2">અસલ ફાઈલ સ્ટોરેજ (અપલોડ/ડાઉનલોડ) Supabase Storage સાથે જોડાયેલ છે, ડેમોમાં ફક્ત વિગત સચવાય છે.</p>
+          <p className="text-[12.5px] text-navy-400 mt-2">અસલ એપમાં ફાઈલ (અપલોડ/ડાઉનલોડ) સુરક્ષિત રીતે ઓનલાઈન સચવાય છે; ડેમોમાં ફક્ત વિગત સચવાય છે.</p>
         )}
       </div>
     </div>

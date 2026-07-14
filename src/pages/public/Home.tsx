@@ -25,10 +25,10 @@ const copy = {
     pricingTeaser: '₹10 per flat a month, ₹499 minimum per society.', pricingCta: 'See pricing', faqTeaser: 'Need details?', faqCta: 'Read FAQ', contactCta: 'Request setup',
   },
   gu: {
-    metaTitle: 'The Society OS', metaDesc: 'Prangan One, સુરત અને ગુજરાતની હાઉસિંગ સોસાયટી માટે ગુજરાતી-પ્રથમ સોસાયટી મેનેજમેન્ટ: બિલિંગ, રસીદ, ફરિયાદ, નોટિસ.',
+    metaTitle: 'The Society OS', metaDesc: 'પ્રાંગણવન, સુરત અને ગુજરાતની હાઉસિંગ સોસાયટી માટે ગુજરાતી-પ્રથમ સોસાયટી મેનેજમેન્ટ: બિલિંગ, રસીદ, ફરિયાદ, નોટિસ.',
     badge: 'ગુજરાતી-પ્રથમ સોસાયટી મેનેજમેન્ટ',
     h1: 'આપની હાઉસિંગ સોસાયટી એક સ્પષ્ટ કમિટી ડેશબોર્ડથી સંભાળો.',
-    sub: 'Prangan One કમિટીને બિલ, રસીદ, ફરિયાદ, નોટિસ, દસ્તાવેજ, મતદાન, ઇવેન્ટ, પાર્કિંગ અને રિપોર્ટ સંભાળવામાં મદદ કરે છે. રહેવાસીઓ માટે સરળ વ્યૂ પણ આપે છે.',
+    sub: 'પ્રાંગણવન કમિટીને બિલ, રસીદ, ફરિયાદ, નોટિસ, દસ્તાવેજ, મતદાન, ઇવેન્ટ, પાર્કિંગ અને રિપોર્ટ સંભાળવામાં મદદ કરે છે. રહેવાસીઓ માટે સરળ વ્યૂ પણ આપે છે.',
     ctaDemo: 'ડેમો ખોલો', ctaContact: 'ડેમો માટે સંપર્ક કરો', ctaSecondary: 'લોગિન',
     previewEyebrow: 'પ્રોડક્ટ પ્રિવ્યુ', previewTitle: 'કમિટી માટે કંટ્રોલ, રહેવાસી માટે સ્પષ્ટતા', previewBody: 'રોજિંદા સોસાયટી કામ માટે વ્યવહારુ વર્કસ્પેસ, સાથે રહેવાસીને બાકી રકમ, નોટિસ અને ફરિયાદ સ્પષ્ટ દેખાય એવો હોમ.',
     adminLabel: 'કમિટી ડેશબોર્ડ', residentLabel: 'રહેવાસી વ્યૂ', dueThisMonth: 'આ મહિને બાકી', collected: 'જમા થયું', complaints: 'ખુલ્લી ફરિયાદ', notice: 'પાણીની ટાંકી સાફ કરવાની નોટિસ', receipt: 'રસીદ RT-2026-0042', residentDue: 'મેન્ટેનન્સ બાકી', residentComplaint: 'ફરિયાદ સ્થિતિ: ચાલુ',
@@ -59,7 +59,7 @@ const steps = [
 
 const trust = [
   { icon: ShieldCheck, en: 'Gujarati-first resident experience, not an English page translated later.', gu: 'રહેવાસી માટે ગુજરાતી-પ્રથમ અનુભવ; પછીથી કરેલો અનુવાદ નહીં.' },
-  { icon: Database, en: 'Supabase-backed real sessions with tenant isolation through Row Level Security.', gu: 'Supabase આધારિત સેશન અને Row Level Security વડે સોસાયટી-આધારિત ઍક્સેસ નિયંત્રણ.' },
+  { icon: Database, en: 'Each society’s information stays separate and secure. People only see or change what their responsibility allows.', gu: 'દરેક સોસાયટીની માહિતી અલગ અને સુરક્ષિત રહે છે. અધિકૃત વ્યક્તિ પોતાની જવાબદારી મુજબ જ માહિતી જુએ કે બદલે.' },
   { icon: Lock, en: 'Private storage is used for supported uploads and permissioned documents.', gu: 'સપોર્ટેડ અપલોડ અને પરવાનગીવાળા દસ્તાવેજ માટે નિયંત્રિત સ્ટોરેજ વપરાય છે.' },
 ]
 

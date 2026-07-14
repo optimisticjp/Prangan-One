@@ -113,7 +113,7 @@ export default function Login() {
               <SocietyLogo size={46} dark />
               <div>
                 <h1 className="text-[24px] font-bold leading-tight">{society.name}</h1>
-                <div className="text-saffron-400 font-semibold text-[13.5px]">Prangan One પર ડિજિટલ સોસાયટી · {society.address}</div>
+                <div className="text-saffron-400 font-semibold text-[13.5px]">પ્રાંગણવન પર ડિજિટલ સોસાયટી · {society.address}</div>
               </div>
             </div>
           ) : (
