@@ -5,6 +5,7 @@ import { fmtDate } from '../../lib/format'
 import { complaintStatusLabel, complaintStatusTone } from '../../lib/copy'
 import { waShare, waTemplates } from '../../lib/whatsapp'
 import { Badge, Button, Card, Input, PageHeader, Select } from '../../components/ui'
+import { Skeleton } from '../../components/Skeleton'
 import type { ComplaintStatus } from '../../lib/types'
 
 const FLOW: Record<ComplaintStatus, ComplaintStatus | null> = {
@@ -90,10 +91,18 @@ export default function Complaints() {
               {isOpen && (
                 <div className="mt-3 pt-3 border-t border-cream-200 space-y-3">
                   {c.detail && <p className="text-[14px] text-navy-600">{c.detail}</p>}
-                  {isOpen && photoUrl ? (
-                    <a href={photoUrl} target="_blank" rel="noreferrer" className="block">
-                      <img src={photoUrl} alt="ફરિયાદનો ફોટો" className="rounded-xl border border-cream-200 max-h-48 object-cover" />
-                    </a>
+                  {c.photoPath ? (
+                    // Reserve the photo box while its signed URL loads so the
+                    // image paint doesn't shove the timeline below it down.
+                    <div className="h-48 w-full max-w-[16rem] overflow-hidden rounded-xl border border-cream-200 bg-cream-100">
+                      {photoUrl ? (
+                        <a href={photoUrl} target="_blank" rel="noreferrer" className="block h-full w-full">
+                          <img src={photoUrl} alt="ફરિયાદનો ફોટો" className="h-full w-full object-cover" />
+                        </a>
+                      ) : (
+                        <Skeleton className="h-full w-full !rounded-none" />
+                      )}
+                    </div>
                   ) : c.photoName && (
                     <div className="text-[12.5px] text-navy-400 flex items-center gap-1"><ImageIcon size={13} /> ફોટો: {c.photoName}</div>
                   )}

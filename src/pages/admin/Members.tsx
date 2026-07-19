@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { Download, Plus, Search, Upload, AlertTriangle, CheckCircle2, UserPlus, X, Clock3, Pencil } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { useToast } from '../../components/Toast'
 import { inr } from '../../lib/format'
 import { exportCsv, parseCsv, validateFlatImport } from '../../lib/csv'
 import type { FlatImportResult } from '../../lib/csv'
 import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, TableWrap, td, th } from '../../components/ui'
 
 export default function Members() {
-  const { db, society, flatPending, addFlat, addFlatsBulk, approveMembership, rejectMembership, updateFlat } = useData()
+  const { db, society, flatPending, addFlat, addFlatsBulk, approveMembership, rejectMembership, updateFlat, canWriteNow } = useData()
+  const toast = useToast()
   const [overrideTarget, setOverrideTarget] = useState<string | null>(null)
   const [overrideValue, setOverrideValue] = useState('')
   const [q, setQ] = useState('')
@@ -24,13 +26,18 @@ export default function Members() {
   const [importResult, setImportResult] = useState<FlatImportResult | null>(null)
   const [importDone, setImportDone] = useState<{ added: number; skippedDuplicates: string[] } | null>(null)
 
+  // Defer the query used for filtering so typing stays responsive even on a
+  // large member list: the input updates instantly (bound to q), while the
+  // heavier re-filter/re-render tracks the deferred value and yields to
+  // keystrokes. Zero-dependency, React-native; behaviour is unchanged.
+  const deferredQ = useDeferredValue(q)
   const list = useMemo(() => {
-    const s = q.trim().toLowerCase()
+    const s = deferredQ.trim().toLowerCase()
     return db.flats.filter(f =>
       !s || f.number.includes(s) || f.ownerName.toLowerCase().includes(s) ||
       (f.tenantName ?? '').toLowerCase().includes(s) || f.phone.includes(s),
     ).sort((a, b) => a.number.localeCompare(b.number))
-  }, [db.flats, q])
+  }, [db.flats, deferredQ])
 
   const save = () => {
     if (!form.number.trim() || !form.ownerName.trim()) return
@@ -41,8 +48,10 @@ export default function Members() {
       tenantEmail: form.occupancy === 'tenant' ? (form.tenantEmail.trim() || undefined) : undefined,
       sqft: Number(form.sqft) || 0,
     })
+    if (!canWriteNow) return
     setOpen(false)
     setForm({ number: '', floor: 1, ownerName: '', phone: '', email: '', occupancy: 'owner', tenantName: '', tenantEmail: '', sqft: 980 })
+    toast.success(`ફ્લેટ ${form.number.trim()} ઉમેરાયો`)
   }
 
   const csv = () => exportCsv('members.csv',

@@ -6,15 +6,23 @@
  */
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactElement, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { cloneElement, isValidElement, useId, useRef } from 'react'
-import { X } from 'lucide-react'
+import { X, Loader2 } from 'lucide-react'
 import { useDialogA11y } from '../lib/useDialogA11y'
 
 /* ---------------- Button ---------------- */
 type BtnVariant = 'primary' | 'accent' | 'soft' | 'ghost' | 'danger'
+/**
+ * `loading` gives every button a consistent in-flight state: a centered
+ * spinner, aria-busy, and an auto-disable so it can't be double-submitted
+ * while a request is in flight. Crucially it keeps the label in place
+ * (visibility:hidden, not removed), so the button never changes width the way
+ * a text swap ("સેવ થાય છે...") does - no layout shift, and the click target
+ * stays exactly where the finger already is.
+ */
 export function Button({
-  variant = 'primary', full, className = '', children, ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant; full?: boolean }) {
-  const base = 'inline-flex items-center justify-center gap-2 rounded-xl font-semibold px-4 min-h-[44px] text-[15px] transition-all duration-150 active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none'
+  variant = 'primary', full, loading = false, className = '', children, disabled, ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant; full?: boolean; loading?: boolean }) {
+  const base = 'relative inline-flex items-center justify-center rounded-xl font-semibold px-4 min-h-[44px] text-[15px] transition-all duration-150 active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none'
   const styles: Record<BtnVariant, string> = {
     primary: 'bg-navy-800 text-cream-50 hover:bg-navy-700 shadow-soft',
     accent: 'bg-saffron-500 text-navy-900 hover:bg-saffron-400 shadow-soft',
@@ -23,8 +31,20 @@ export function Button({
     danger: 'bg-red-50 text-over hover:bg-red-100 border border-red-100',
   }
   return (
-    <button className={`${base} ${styles[variant]} ${full ? 'w-full' : ''} ${className}`} {...rest}>
-      {children}
+    <button
+      className={`${base} ${styles[variant]} ${full ? 'w-full' : ''} ${className}`}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...rest}
+    >
+      {loading && (
+        <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
+          <Loader2 size={18} className="animate-spin" />
+        </span>
+      )}
+      <span className={`inline-flex items-center justify-center gap-2 ${loading ? 'invisible' : ''}`}>
+        {children}
+      </span>
     </button>
   )
 }

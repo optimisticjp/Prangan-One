@@ -180,8 +180,8 @@ export default function Login() {
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
-                    <Button type="submit" variant="primary" full disabled={!email.trim() || !password || sending}>
-                      {sending ? 'લોગિન થાય છે...' : 'લોગિન કરો'}
+                    <Button type="submit" variant="primary" full loading={sending} disabled={!email.trim() || !password}>
+                      લોગિન કરો
                     </Button>
                     <div className="flex items-center justify-between pt-0.5">
                       <button type="button" onClick={() => setUsePassword(false)} className="text-[12.5px] font-semibold text-navy-400">ઈમેલ લિંકથી લોગિન કરો</button>
@@ -192,8 +192,8 @@ export default function Login() {
                   <form onSubmit={e => { e.preventDefault(); submitEmail() }}>
                     <div className="flex gap-2">
                       <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="આપનો ઈમેલ" className="flex-1" aria-label="ઈમેલ" autoComplete="email" required />
-                      <Button type="submit" variant="primary" disabled={!email.trim() || sending}>
-                        {sending ? 'મોકલાય છે...' : 'લિંક મોકલો'}
+                      <Button type="submit" variant="primary" loading={sending} disabled={!email.trim()}>
+                        લિંક મોકલો
                       </Button>
                     </div>
                     <button type="button" onClick={() => setUsePassword(true)} className="text-[12.5px] font-semibold text-navy-400 mt-2.5">પાસવર્ડથી લોગિન કરો</button>

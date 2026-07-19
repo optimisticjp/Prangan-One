@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Pin, Share2, Trash2, Bell } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { useToast } from '../../components/Toast'
 import { fmtDate } from '../../lib/format'
 import { noticeCategories } from '../../lib/copy'
 import { waShare, waTemplates } from '../../lib/whatsapp'
 import { Badge, Button, Card, Field, Input, PageHeader, Select, Textarea } from '../../components/ui'
 
 export default function Notices() {
-  const { db, society, addNotice, togglePin } = useData()
+  const { db, society, addNotice, togglePin, canWriteNow } = useData()
+  const toast = useToast()
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [category, setCategory] = useState(noticeCategories[0])
@@ -18,7 +20,11 @@ export default function Notices() {
   const publish = () => {
     if (!title.trim() || !body.trim()) return
     addNotice({ title: title.trim(), body: body.trim(), category, pinned })
+    // The store no-ops a blocked write and the layout toasts the reason; only
+    // clear the form and confirm when the write was actually allowed.
+    if (!canWriteNow) return
     setTitle(''); setBody(''); setPinned(false); setCategory(noticeCategories[0])
+    toast.success('નોટિસ પ્રકાશિત થઈ ગઈ')
   }
 
   return (

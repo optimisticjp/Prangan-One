@@ -6,6 +6,7 @@ import { DataProvider } from './lib/store'
 import { DemoDataProvider, isDemoSessionActive } from './lib/demoStore'
 import { isDemoModeEnabled } from './lib/demoMode'
 import { initMonitoring } from './lib/monitoring'
+import { ToastProvider } from './components/Toast'
 import './index.css'
 
 // Before anything renders, so early errors and unhandled promise rejections
@@ -24,15 +25,20 @@ const useDemo = isDemoModeEnabled() && isDemoSessionActive()
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      {useDemo ? (
-        <DemoDataProvider>
-          <App />
-        </DemoDataProvider>
-      ) : (
-        <DataProvider>
-          <App />
-        </DataProvider>
-      )}
+      {/* One ToastProvider above both data providers so useToast() resolves
+          from anywhere in the app. It holds no data-layer state, so it's
+          deliberately outside the demo/real provider split. */}
+      <ToastProvider>
+        {useDemo ? (
+          <DemoDataProvider>
+            <App />
+          </DemoDataProvider>
+        ) : (
+          <DataProvider>
+            <App />
+          </DataProvider>
+        )}
+      </ToastProvider>
     </BrowserRouter>
   </React.StrictMode>,
 )

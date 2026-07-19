@@ -55,9 +55,26 @@ export default {
         fadeUp: {
           '0%': { opacity: '0', transform: 'translateY(10px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' }
+        },
+        // Fast, restrained entrance for transient UI (toasts). ease-out on
+        // enter, ~180ms, per the interaction-speed guidance - only opacity and
+        // transform so nothing triggers layout.
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(6px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' }
+        },
+        // Skeleton loading shimmer - a sweep of light across a placeholder.
+        // Pure transform on a gradient, GPU-friendly, and fully suppressed by
+        // the prefers-reduced-motion block in index.css.
+        shimmer: {
+          '100%': { transform: 'translateX(100%)' }
         }
       },
-      animation: { fadeUp: 'fadeUp .45s cubic-bezier(0.16,1,0.3,1) both' }
+      animation: {
+        fadeUp: 'fadeUp .45s cubic-bezier(0.16,1,0.3,1) both',
+        fadeIn: 'fadeIn .18s cubic-bezier(0.16,1,0.3,1) both',
+        shimmer: 'shimmer 1.4s ease-in-out infinite'
+      }
     }
   },
   plugins: []

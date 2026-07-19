@@ -107,7 +107,7 @@ export default function Join() {
               <label htmlFor="join-email" className="sr-only">ઈમેલ</label>
               <Input id="join-email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="ઈમેલ" className={inputClass} autoComplete="email" required />
               {error && <p className="text-[13px] text-over flex items-start gap-1.5"><AlertCircle size={15} className="shrink-0 mt-0.5" /> {error}</p>}
-              <Button type="submit" variant="primary" className="w-full" disabled={!canSubmit || sending}>{sending ? 'મોકલાય છે...' : 'જોડાવાની વિનંતી મોકલો'}</Button>
+              <Button type="submit" variant="primary" className="w-full" loading={sending} disabled={!canSubmit}>જોડાવાની વિનંતી મોકલો</Button>
             </form>
           )}
         </Card>

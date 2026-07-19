@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Download, MessageCircle, ReceiptText, XCircle, Ban } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { useToast } from '../../components/Toast'
 import { fmtDate, fmtMonth, inr } from '../../lib/format'
 import { payModeLabel } from '../../lib/copy'
 import { exportCsv } from '../../lib/csv'
@@ -10,7 +11,8 @@ import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, TableWrap
 import type { PayMode, Payment } from '../../lib/types'
 
 export default function Payments() {
-  const { db, flatById, recordPayment, cancelReceipt, confirmPendingPayment, society } = useData()
+  const { db, flatById, recordPayment, cancelReceipt, confirmPendingPayment, society, canWriteNow } = useData()
+  const toast = useToast()
   const [flatId, setFlatId] = useState(db.flats[0]?.id ?? '')
   const [billId, setBillId] = useState('')
   const [amount, setAmount] = useState('')
@@ -80,7 +82,7 @@ export default function Payments() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="num font-bold text-navy-800">{inr(p.amount)}</span>
-                    <Button variant="accent" onClick={() => confirmPendingPayment(p.id)}>પુષ્ટિ કરો</Button>
+                    <Button variant="accent" onClick={() => { confirmPendingPayment(p.id); if (canWriteNow) toast.success('ચુકવણી પુષ્ટ થઈ, રસીદ બની ગઈ') }}>પુષ્ટિ કરો</Button>
                   </div>
                 </div>
               )
@@ -179,7 +181,7 @@ export default function Payments() {
         <div className="flex gap-2 pt-1">
           <Button variant="soft" full onClick={() => { setCancelTarget(null); setCancelReason('') }}>રહેવા દો</Button>
           <Button variant="danger" full disabled={!cancelReason.trim()}
-            onClick={() => { if (cancelTarget) cancelReceipt(cancelTarget.id, cancelReason.trim()); setCancelTarget(null); setCancelReason('') }}>
+            onClick={() => { if (cancelTarget) cancelReceipt(cancelTarget.id, cancelReason.trim()); if (canWriteNow) toast.success('રસીદ રદ થઈ, બાકી રકમ પાછી ઉમેરાઈ'); setCancelTarget(null); setCancelReason('') }}>
             રસીદ રદ કરો
           </Button>
         </div>

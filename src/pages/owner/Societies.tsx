@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, ArrowLeftRight } from 'lucide-react'
+import { Plus, ArrowLeftRight, Loader2 } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { effectiveStatus } from '../../lib/subscription'
 import { Badge, Button, Card, PageHeader, TableWrap, td, th } from '../../components/ui'
@@ -72,20 +72,20 @@ export default function OwnerSocieties() {
                 <td className={`${td} whitespace-nowrap`}>
                   <div className="flex gap-1.5">
                     {status !== 'active' && status !== 'archived' && (
-                      <Button variant="soft" onClick={() => quickAction(s.id, 'active')} disabled={busy === s.id}>એક્ટિવ કરો</Button>
+                      <Button variant="soft" onClick={() => quickAction(s.id, 'active')} loading={busy === s.id}>એક્ટિવ કરો</Button>
                     )}
                     {status === 'active' && (
-                      <Button variant="soft" onClick={() => quickAction(s.id, 'grace')} disabled={busy === s.id}>ગ્રેસમાં મૂકો</Button>
+                      <Button variant="soft" onClick={() => quickAction(s.id, 'grace')} loading={busy === s.id}>ગ્રેસમાં મૂકો</Button>
                     )}
                     {(status === 'active' || status === 'grace') && (
-                      <Button variant="danger" onClick={() => quickAction(s.id, 'paused')} disabled={busy === s.id}>થોભાવો</Button>
+                      <Button variant="danger" onClick={() => quickAction(s.id, 'paused')} loading={busy === s.id}>થોભાવો</Button>
                     )}
                     {status === 'paused' && (
-                      <Button variant="accent" onClick={() => quickAction(s.id, 'active')} disabled={busy === s.id}>ફરી શરૂ કરો</Button>
+                      <Button variant="accent" onClick={() => quickAction(s.id, 'active')} loading={busy === s.id}>ફરી શરૂ કરો</Button>
                     )}
-                    <button onClick={() => enterAsAdmin(s.id)} disabled={entering !== null}
-                      title="કમિટી તરીકે જુઓ" className="h-9 w-9 rounded-lg bg-navy-50 border border-navy-100 text-navy-600 inline-flex items-center justify-center hover:bg-navy-100 disabled:opacity-50 disabled:cursor-not-allowed">
-                      <ArrowLeftRight size={15} />
+                    <button onClick={() => enterAsAdmin(s.id)} disabled={entering !== null} aria-busy={entering === s.id || undefined}
+                      title="કમિટી તરીકે જુઓ" className="h-9 w-9 rounded-lg bg-navy-50 border border-navy-100 text-navy-600 inline-flex items-center justify-center transition-colors hover:bg-navy-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {entering === s.id ? <Loader2 size={15} className="animate-spin" /> : <ArrowLeftRight size={15} />}
                     </button>
                   </div>
                 </td>
