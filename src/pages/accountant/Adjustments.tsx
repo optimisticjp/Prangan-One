@@ -1,19 +1,23 @@
 import { useState } from 'react'
 import { Download, Plus } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { useToast } from '../../components/Toast'
 import { fmtDate, inr, todayISO } from '../../lib/format'
 import { exportCsv } from '../../lib/csv'
 import { Badge, Button, Card, Field, Input, PageHeader, Select, TableWrap, td, th } from '../../components/ui'
 
 export default function Adjustments() {
-  const { db, flatById, addAdjustment } = useData()
+  const { db, flatById, addAdjustment, canWriteNow } = useData()
+  const toast = useToast()
   const [form, setForm] = useState({ date: todayISO(), flatId: '', amount: '', type: 'credit' as 'credit' | 'debit', reason: '' })
 
   const save = () => {
     const amt = Number(form.amount)
     if (!amt || amt <= 0 || !form.reason.trim()) return
     addAdjustment({ date: form.date, flatId: form.flatId || undefined, amount: amt, type: form.type, reason: form.reason.trim() })
+    if (!canWriteNow) return
     setForm({ date: todayISO(), flatId: '', amount: '', type: 'credit', reason: '' })
+    toast.success(`${form.type === 'credit' ? 'જમા' : 'ઉધાર'} એડજસ્ટમેન્ટ નોંધાયું`)
   }
 
   const list = [...db.adjustments].sort((a, b) => b.date.localeCompare(a.date))

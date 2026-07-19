@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Wrench, Mic, ImagePlus, ChevronRight, Users, Lock } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { useToast } from '../../components/Toast'
 import { validateUpload } from '../../lib/uploadValidation'
 import { fmtDate } from '../../lib/format'
 import { complaintCategories, complaintStatusLabel, complaintStatusTone } from '../../lib/copy'
@@ -9,6 +10,7 @@ import { Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Selec
 
 export default function Complaints() {
   const { db, session, addComplaint } = useData()
+  const toast = useToast()
   const [open, setOpen] = useState(false)
   const [category, setCategory] = useState(complaintCategories[0])
   const [title, setTitle] = useState('')
@@ -44,9 +46,13 @@ export default function Complaints() {
 
   const submit = () => {
     if (!title.trim()) return
-    addComplaint({ flatId, category, title: title.trim(), detail: detail.trim(), priority, photoName: photoName || undefined, photoFile, visibility })
+    const created = addComplaint({ flatId, category, title: title.trim(), detail: detail.trim(), priority, photoName: photoName || undefined, photoFile, visibility })
+    // Blocked (read-only / subscription): keep the modal and everything typed
+    // in place so nothing is lost - the layout surfaces why via a toast.
+    if (!created) return
     setOpen(false)
     setTitle(''); setDetail(''); setPriority('normal'); setVisibility('personal'); setPhotoName(''); setPhotoFile(undefined); setPhotoError(null)
+    toast.success('ફરિયાદ કમિટીને પહોંચી ગઈ 🙏')
   }
 
   const ComplaintRow = ({ c }: { c: typeof mine[number] }) => (

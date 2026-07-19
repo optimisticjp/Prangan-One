@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Download, Plus, Phone, Store as StoreIcon, Pencil } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { useToast } from '../../components/Toast'
 import { fmtDate, inr, todayISO } from '../../lib/format'
 import { exportCsv } from '../../lib/csv'
 import { Badge, Button, Card, Field, Input, Modal, PageHeader, Textarea, EmptyState } from '../../components/ui'
@@ -17,7 +18,8 @@ function amcBadge(v: Vendor) {
 }
 
 export default function Vendors() {
-  const { db, addVendor, updateVendor } = useData()
+  const { db, addVendor, updateVendor, canWriteNow } = useData()
+  const toast = useToast()
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const blank = { name: '', service: '', contactPerson: '', phone: '', amcStart: '', amcEnd: '', notes: '' }
@@ -37,7 +39,9 @@ export default function Vendors() {
     }
     if (editId) updateVendor(editId, payload)
     else addVendor(payload)
+    if (!canWriteNow) return
     setOpen(false)
+    toast.success(editId ? 'વેન્ડરની વિગત સચવાઈ' : 'નવો વેન્ડર ઉમેરાયો')
   }
 
   const serviceHistory = (id: string) => {

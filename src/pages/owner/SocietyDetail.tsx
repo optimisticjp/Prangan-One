@@ -137,7 +137,7 @@ export default function SocietyDetail() {
       </button>
 
       <PageHeader title={soc.name} sub={soc.nameEn}
-        actions={<Button variant="soft" onClick={enterAsAdmin} disabled={entering}><ArrowLeftRight size={16} /> કમિટી તરીકે જુઓ</Button>} />
+        actions={<Button variant="soft" onClick={enterAsAdmin} loading={entering}><ArrowLeftRight size={16} /> કમિટી તરીકે જુઓ</Button>} />
 
       {enterError && (
         <div role="alert" className="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[13px] font-semibold px-4 py-2.5">

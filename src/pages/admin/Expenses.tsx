@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Download, Paperclip } from 'lucide-react'
 import { useData } from '../../lib/store'
+import { useToast } from '../../components/Toast'
 import { fmtDate, fmtMonth, inr, lastMonths, thisMonth, todayISO } from '../../lib/format'
 import { expenseCategories, payModeLabel } from '../../lib/copy'
 import { exportCsv } from '../../lib/csv'
@@ -9,7 +10,8 @@ import { Button, Card, Field, Input, PageHeader, SectionTitle, Select, TableWrap
 import type { PayMode } from '../../lib/types'
 
 export default function Expenses() {
-  const { db, addExpense } = useData()
+  const { db, addExpense, canWriteNow } = useData()
+  const toast = useToast()
   const [month, setMonth] = useState(thisMonth())
   const [form, setForm] = useState({ date: todayISO(), category: expenseCategories[0], vendorId: '', amount: '', mode: 'bank' as PayMode, note: '', billFile: '' })
 
@@ -25,7 +27,9 @@ export default function Expenses() {
     const amt = Number(form.amount)
     if (!amt || amt <= 0) return
     addExpense({ date: form.date, category: form.category, vendorId: form.vendorId || undefined, amount: amt, mode: form.mode, note: form.note.trim() || undefined, billFile: form.billFile || undefined })
+    if (!canWriteNow) return
     setForm({ ...form, amount: '', note: '', billFile: '' })
+    toast.success(`${inr(amt)} નો ખર્ચ નોંધાયો`)
   }
 
   const csv = () => exportCsv(`expenses-${month}.csv`,

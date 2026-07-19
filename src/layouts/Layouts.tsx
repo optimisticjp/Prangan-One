@@ -1,12 +1,15 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { NavLink, Outlet, Link } from 'react-router-dom'
-import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, LogOut, ShieldAlert, Loader2 } from 'lucide-react'
+import { Home, IndianRupee, Wrench, Bell, LayoutGrid, Menu, X, UserCircle2, ArrowLeftRight, LogOut, ShieldAlert } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useData } from '../lib/store'
 import { DemoRoleSwitcher } from '../components/DemoRoleSwitcher'
 import { useDialogA11y } from '../lib/useDialogA11y'
+import { useBlockedWriteToast } from '../lib/useBlockedWriteToast'
+import { prefetchHandlers } from '../lib/prefetch'
 import { SocietyLogo } from '../components/SocietyLogo'
 import { PranganBrand, PoweredByPrangan } from '../components/PranganBrand'
+import { PageSkeleton } from '../components/Skeleton'
 import { useAppLang } from '../lib/useAppLang'
 import { SubscriptionBanner } from '../components/SubscriptionBanner'
 import { SyncFailureBanner } from '../components/SyncFailureBanner'
@@ -28,24 +31,13 @@ const residentTabs: { to: string; label: string; icon: LucideIcon; end?: boolean
 
 export function ResidentLayout() {
   useAppLang()
-  const { society, session, flatById, moduleEnabled, financialsLoading, lastBlockedReason } = useData()
+  useBlockedWriteToast()
+  const { society, session, flatById, moduleEnabled, financialsLoading } = useData()
   const flat = session.flatId ? flatById(session.flatId) : undefined
   const tabs = residentTabs.filter(t => !t.module || moduleEnabled(t.module))
-  const [blockedToast, setBlockedToast] = useState<string | null>(null)
-  useEffect(() => {
-    if (!lastBlockedReason) return
-    setBlockedToast(lastBlockedReason)
-    const t = setTimeout(() => setBlockedToast(null), 4000)
-    return () => clearTimeout(t)
-  }, [lastBlockedReason])
 
   return (
     <div className="min-h-screen max-w-2xl mx-auto flex flex-col">
-      {blockedToast && (
-        <div role="status" className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] bg-navy-900 text-cream-50 text-[13px] font-semibold px-4 py-2.5 rounded-xl shadow-lift animate-fadeUp">
-          {blockedToast}
-        </div>
-      )}
       <DemoIdentityBanner />
       <FetchErrorBanner />
       <DemoGuideBanner />
@@ -78,18 +70,13 @@ export function ResidentLayout() {
       </header>
 
       <main className="flex-1 px-4 py-4 pb-28">
-        {financialsLoading ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-navy-400">
-            <Loader2 size={26} className="animate-spin" />
-            <span className="text-[13px]">તમારી માહિતી લોડ થાય છે...</span>
-          </div>
-        ) : <Outlet />}
+        {financialsLoading ? <PageSkeleton label="તમારી માહિતી લોડ થાય છે..." /> : <Outlet />}
       </main>
 
       <nav className="fixed bottom-0 inset-x-0 z-40 max-w-2xl mx-auto glass border-t border-cream-200 px-1 pb-[env(safe-area-inset-bottom)]">
         <div className="grid" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
           {tabs.map(tab => (
-            <NavLink key={tab.to} to={tab.to} end={tab.end}
+            <NavLink key={tab.to} to={tab.to} end={tab.end} {...prefetchHandlers(tab.to)}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-0.5 py-2.5 text-[11.5px] font-semibold transition-colors ${isActive ? 'text-saffron-600' : 'text-navy-400 hover:text-navy-600'}`}>
               {({ isActive }) => (<>
@@ -121,18 +108,12 @@ export interface NavItem {
 
 export function Shell({ items, title }: { items: NavItem[]; title: string }) {
   useAppLang()
-  const { society, session, logout, moduleEnabled, exitImpersonation, financialsLoading, lastBlockedReason } = useData()
+  useBlockedWriteToast()
+  const { society, session, logout, moduleEnabled, exitImpersonation, financialsLoading } = useData()
   const [open, setOpen] = useState(false)
   const drawerRef = useRef<HTMLElement>(null)
   const drawerId = useId()
   useDialogA11y(open, () => setOpen(false), drawerRef)
-  const [blockedToast, setBlockedToast] = useState<string | null>(null)
-  useEffect(() => {
-    if (!lastBlockedReason) return
-    setBlockedToast(lastBlockedReason)
-    const t = setTimeout(() => setBlockedToast(null), 4000)
-    return () => clearTimeout(t)
-  }, [lastBlockedReason])
   // Exiting support is confirmed against the database, not fire-and-forget:
   // stay in support mode and show a retry if the close didn't actually land,
   // rather than returning to the Owner Console as if it worked while the
@@ -158,7 +139,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
           {it.group && it.group !== visibleItems[i - 1]?.group && (
             <div className="mx-3 mt-4 mb-1 text-[10.5px] font-bold tracking-wide text-navy-400 uppercase first:mt-1">{it.group}</div>
           )}
-          <NavLink to={it.to} end={it.end} onClick={() => setOpen(false)}
+          <NavLink to={it.to} end={it.end} onClick={() => setOpen(false)} {...prefetchHandlers(it.to)}
             className={({ isActive }) =>
               `mx-3 flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14.5px] font-medium transition-colors ${isActive ? 'bg-navy-700 text-cream-50 shadow-soft' : 'text-navy-100/75 hover:bg-navy-800 hover:text-cream-50'}`}>
             {({ isActive }) => (<>
@@ -215,11 +196,6 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
 
   return (
     <div className="min-h-screen md:flex">
-      {blockedToast && (
-        <div role="status" className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] bg-navy-900 text-cream-50 text-[13px] font-semibold px-4 py-2.5 rounded-xl shadow-lift animate-fadeUp">
-          {blockedToast}
-        </div>
-      )}
       <FetchErrorBanner />
       <DemoGuideBanner />
       <SyncFailureBanner />
@@ -249,7 +225,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
             </span>
             <span className="inline-flex items-center gap-2 shrink-0">
               {exitFailed && <span className="text-red-800">બંધ ન થયું</span>}
-              <button onClick={doExitImpersonation} disabled={exiting} className="underline disabled:opacity-60 disabled:no-underline">
+              <button onClick={doExitImpersonation} disabled={exiting} aria-busy={exiting || undefined} className="underline disabled:opacity-60 disabled:no-underline">
                 {exiting ? 'બહાર નીકળી રહ્યા છીએ…' : exitFailed ? 'ફરી પ્રયાસ કરો' : 'બહાર જાઓ'}
               </button>
             </span>
@@ -267,12 +243,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
           <PranganBrand variant="wordmark-navy" height={16} className="opacity-70" />
         </header>
         <main className="p-4 sm:p-6 max-w-6xl">
-          {financialsLoading ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-16 text-navy-400">
-              <Loader2 size={26} className="animate-spin" />
-              <span className="text-[13px]">માહિતી લોડ થાય છે...</span>
-            </div>
-          ) : <Outlet />}
+          {financialsLoading ? <PageSkeleton label="માહિતી લોડ થાય છે..." /> : <Outlet />}
         </main>
       </div>
     </div>

@@ -67,7 +67,7 @@ export function SetPasswordCard() {
           <Input type={showPassword ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="પાસવર્ડ ફરી નાખો" aria-label="પાસવર્ડ ફરી નાખો" autoComplete="new-password" required minLength={6} />
           <div className="flex gap-2">
             <Button type="button" variant="soft" full onClick={() => { setOpen(false); setError('') }}>રદ કરો</Button>
-            <Button type="submit" variant="primary" full disabled={!password || !confirm || saving}>{saving ? 'સેવ થાય છે...' : 'સેવ કરો'}</Button>
+            <Button type="submit" variant="primary" full loading={saving} disabled={!password || !confirm}>સેવ કરો</Button>
           </div>
           {error && <p className="text-[12.5px] text-over flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
         </form>

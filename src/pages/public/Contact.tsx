@@ -134,7 +134,8 @@ export default function Contact() {
             <textarea id="contact-message" className={inputClass + ' min-h-[80px] py-2.5'} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder={t.message} />
             {error && <p className="text-[13px] text-over flex items-start gap-1.5"><AlertCircle size={15} className="shrink-0 mt-0.5" /> {t.error}</p>}
             <button type="submit" disabled={!form.name.trim() || !form.phone.trim() || !form.email.trim() || !form.societyName.trim() || sending}
-              className="w-full rounded-xl bg-navy-900 text-cream-50 py-3.5 text-[15px] font-bold hover:bg-navy-800 disabled:opacity-40">
+              aria-busy={sending || undefined}
+              className="w-full rounded-xl bg-navy-900 text-cream-50 py-3.5 text-[15px] font-bold transition-all duration-150 active:scale-[0.99] hover:bg-navy-800 disabled:opacity-40">
               {sending ? t.sending : t.submit}
             </button>
           </form>

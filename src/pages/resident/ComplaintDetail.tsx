@@ -5,6 +5,7 @@ import { useData } from '../../lib/store'
 import { fmtDate } from '../../lib/format'
 import { complaintStatusLabel, complaintStatusTone } from '../../lib/copy'
 import { Badge, Button, Card, Textarea } from '../../components/ui'
+import { Skeleton } from '../../components/Skeleton'
 
 export default function ComplaintDetail() {
   const { id } = useParams()
@@ -49,10 +50,19 @@ export default function ComplaintDetail() {
         </div>
         <h1 className="text-[19px] font-bold text-navy-900 mt-2 leading-snug">{c.title}</h1>
         {c.detail && <p className="text-[14.5px] text-navy-600 mt-1.5">{c.detail}</p>}
-        {photoUrl ? (
-          <a href={photoUrl} target="_blank" rel="noreferrer" className="block mt-2.5">
-            <img src={photoUrl} alt="ફરિયાદનો ફોટો" className="rounded-xl border border-cream-200 max-h-56 object-cover" />
-          </a>
+        {c.photoPath ? (
+          // A real uploaded photo is on the way. Reserve its box up front so
+          // neither the signed-URL fetch nor the image decode shifts anything
+          // below it - a skeleton holds the exact space until the image paints.
+          <div className="mt-2.5 h-56 w-full max-w-[16rem] overflow-hidden rounded-xl border border-cream-200 bg-cream-100">
+            {photoUrl ? (
+              <a href={photoUrl} target="_blank" rel="noreferrer" className="block h-full w-full">
+                <img src={photoUrl} alt="ફરિયાદનો ફોટો" className="h-full w-full object-cover" />
+              </a>
+            ) : (
+              <Skeleton className="h-full w-full !rounded-none" />
+            )}
+          </div>
         ) : c.hasPhoto && (
           <div className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] text-navy-400 bg-cream-100 border border-cream-200 rounded-lg px-2.5 py-1">
             <ImageIcon size={14} /> ફોટો જોડેલો: {c.photoName}

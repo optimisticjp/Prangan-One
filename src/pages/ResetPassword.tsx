@@ -90,8 +90,8 @@ export default function ResetPassword() {
               </button>
             </div>
             <Input type={showPassword ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="પાસવર્ડ ફરી નાખો" aria-label="પાસવર્ડ ફરી નાખો" autoComplete="new-password" required minLength={6} />
-            <Button type="submit" variant="primary" full disabled={!password || !confirm || saving}>
-              {saving ? 'સેવ થાય છે...' : 'પાસવર્ડ સેટ કરો'}
+            <Button type="submit" variant="primary" full loading={saving} disabled={!password || !confirm}>
+              પાસવર્ડ સેટ કરો
             </Button>
             {error && <p className="text-[12.5px] text-over flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
           </form>

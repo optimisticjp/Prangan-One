@@ -3,6 +3,7 @@ import { IndianRupee, ReceiptText, Wrench, Bell, ChevronRight, CalendarDays, Pho
 import { useData } from '../../lib/store'
 import { fmtDate, inr, thisMonth, todayISO } from '../../lib/format'
 import { complaintStatusLabel, complaintStatusTone } from '../../lib/copy'
+import { prefetchHandlers } from '../../lib/prefetch'
 import { Badge, Card } from '../../components/ui'
 
 export default function Dashboard() {
@@ -32,7 +33,7 @@ export default function Dashboard() {
       </div>
 
       {/* pending amount: the one number that matters */}
-      <Link to="/app/bill" className="block animate-fadeUp">
+      <Link to="/app/bill" className="block animate-fadeUp" {...prefetchHandlers('/app/bill')}>
         <div className={`rounded-2xl p-5 shadow-soft border ${pending > 0 ? 'bg-navy-800 border-navy-700' : pending < 0 ? 'bg-green-50 border-green-200' : 'bg-white border-cream-200'}`}>
           <div className="flex items-center justify-between">
             <div>
@@ -52,7 +53,7 @@ export default function Dashboard() {
       {/* quick actions */}
       <div className="grid grid-cols-4 gap-2.5">
         {quick.map((q, i) => (
-          <Link key={q.to} to={q.to} className="card p-3 flex flex-col items-center gap-1.5 hover:shadow-lift transition-shadow animate-fadeUp" style={{ animationDelay: `${i * 50}ms` }}>
+          <Link key={q.to} to={q.to} {...prefetchHandlers(q.to)} className="card p-3 flex flex-col items-center gap-1.5 hover:shadow-lift transition-shadow animate-fadeUp" style={{ animationDelay: `${i * 50}ms` }}>
             <div className="h-11 w-11 rounded-xl bg-saffron-50 border border-saffron-100 text-saffron-600 flex items-center justify-center"><q.icon size={21} /></div>
             <div className="text-[12px] font-semibold text-navy-700 text-center leading-tight">{q.label}</div>
           </Link>
