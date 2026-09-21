@@ -4164,4 +4164,3 @@ $$;
 
 revoke execute on function edit_business_transaction_amount(uuid,numeric) from public, anon;
 grant execute on function edit_business_transaction_amount(uuid,numeric) to authenticated;
-\n
