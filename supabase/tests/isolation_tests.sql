@@ -914,7 +914,7 @@ select test_assert((select outstanding_due from get_business_partner_positions('
 -- financially until the expense is explicitly marked paid.
 select test_become('10000000-0000-0000-0000-0000000000a3');
 
-do $
+do $$
 declare unpaid_business uuid;
 begin
   unpaid_business := record_business_expense(
@@ -931,7 +931,7 @@ begin
     now()
   );
   perform set_config('test.unpaid_business_expense', unpaid_business::text, false);
-end $;
+end $$;
 
 select test_assert(
   (select payment_status from business_transactions where id = current_setting('test.unpaid_business_expense')::uuid) = 'unpaid',
@@ -954,7 +954,7 @@ select test_assert(
   'marking the expense paid from business funds reduces the selected account'
 );
 
-do $
+do $$
 declare unpaid_partner uuid;
 begin
   unpaid_partner := record_business_expense(
@@ -971,7 +971,7 @@ begin
     now()
   );
   perform set_config('test.unpaid_partner_expense', unpaid_partner::text, false);
-end $;
+end $$;
 
 select mark_business_expense_paid(
   current_setting('test.unpaid_partner_expense')::uuid,
