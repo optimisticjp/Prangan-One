@@ -1108,7 +1108,7 @@ select test_assert(
 );
 
 -- Amount edit is user-visible editing, implemented as reverse + replacement.
-do $
+do $$
 declare
   source_tx uuid;
   replacement_tx uuid;
@@ -1142,7 +1142,7 @@ begin
   perform set_config('test.amount_edit_replacement',replacement_tx::text,false);
   perform set_config('test.amount_edit_before',before_balance::text,false);
   perform set_config('test.amount_edit_after',after_balance::text,false);
-end $;
+end $$;
 
 select test_assert(
   (select reversed_at is not null from business_transactions where id=current_setting('test.amount_edit_source')::uuid),
