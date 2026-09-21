@@ -1004,7 +1004,7 @@ select test_assert(
   'business admin can edit partner profile details'
 );
 
-do $
+do $$
 begin
   begin
     perform archive_business_partner('11100000-0000-0000-0000-000000000002');
@@ -1014,7 +1014,7 @@ begin
       if sqlerrm <> 'partner_balance_must_be_zero' then raise; end if;
       raise notice 'PASS: partner with unsettled due cannot be deleted';
   end;
-end $;
+end $$;
 
 insert into business_accounts (id,business_id,name,kind,opening_balance)
 values ('11200000-0000-0000-0000-000000000099','11000000-0000-0000-0000-000000000001','Temporary zero','bank',0);
@@ -1030,7 +1030,7 @@ select test_assert(
   'zero-balance account delete archives it rather than removing history'
 );
 
-do $
+do $$
 begin
   begin
     perform archive_business_account('11200000-0000-0000-0000-000000000001');
@@ -1040,14 +1040,14 @@ begin
       if sqlerrm <> 'account_balance_must_be_zero' then raise; end if;
       raise notice 'PASS: non-zero account cannot be deleted';
   end;
-end $;
+end $$;
 
-do $
+do $$
 declare category_id uuid;
 begin
   category_id := add_business_category('11000000-0000-0000-0000-000000000001','Temporary category','expense');
   perform set_config('test.edit_delete_category',category_id::text,false);
-end $;
+end $$;
 select update_business_category(current_setting('test.edit_delete_category')::uuid,'Temporary category edited','expense');
 select test_assert(
   (select name from business_categories where id=current_setting('test.edit_delete_category')::uuid) = 'Temporary category edited',
@@ -1059,7 +1059,7 @@ select test_assert(
   'category delete archives it while preserving its row'
 );
 
-do $
+do $$
 declare tx_id uuid;
 begin
   tx_id := record_business_expense(
@@ -1076,7 +1076,7 @@ begin
     now()
   );
   perform set_config('test.edit_delete_tx',tx_id::text,false);
-end $;
+end $$;
 
 select edit_business_transaction_details(
   current_setting('test.edit_delete_tx')::uuid,
