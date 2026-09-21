@@ -99,7 +99,7 @@ export default function OwnerBusinesses() {
       />
 
       <div className="mb-4 rounded-xl bg-navy-50 border border-navy-100 px-3.5 py-3 text-[12.5px] text-navy-600">
-        <strong>મંજૂરી પછી જ workspace બને છે.</strong> મંજૂરીથી પ્રથમ admin partner, Cash/UPI accounts અને ledger setup બનાવાય છે. Pending request ને business data access મળતું નથી.
+        <strong>મંજૂરી પછી જ workspace બને છે.</strong> મંજૂરીથી પ્રથમ admin partner, Cash/Bank accounts અને ledger setup બનાવાય છે. Pending request ને business data access મળતું નથી.
       </div>
 
       <section>

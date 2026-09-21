@@ -1011,5 +1011,14 @@ select test_assert(
 );
 select test_assert(
   (select count(*) from business_accounts where business_id = current_setting('test.approved_business_id')::uuid) = 2,
-  'owner approval creates the default Cash and UPI accounts'
+  'owner approval creates the default Cash and Bank accounts'
+);
+
+select test_assert(
+  (select count(*) from business_accounts where business_id = current_setting('test.approved_business_id')::uuid and kind = 'bank' and name = 'Bank') = 1,
+  'approved business receives Bank as the second default money account'
+);
+select test_assert(
+  (select count(*) from business_accounts where business_id = current_setting('test.approved_business_id')::uuid and kind = 'upi') = 0,
+  'UPI is not created as a default account'
 );
