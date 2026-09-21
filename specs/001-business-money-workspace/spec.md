@@ -39,6 +39,29 @@ The product is for small, partner-led and unorganised businesses that need trust
 
 Approval status and payment status are deliberately separate. An unpaid expense can still be awaiting or receive approval without moving money. Once paid, real Cash/Bank or partner-due balances move immediately even if approval is still pending.
 
+
+## Default expense categories
+
+Every approved Business workspace starts with these expense categories, shown in this order:
+
+1. Ad Spend / Marketing
+2. Courier / Shipping
+3. Packaging Material
+4. Purchase / Inventory
+5. Salaries / Contractor
+6. Legal / Professional Fees
+7. Food / Staff Welfare
+8. Rent / Warehouse
+9. Utilities / Internet
+10. Software / Subscriptions
+11. Repairs / Maintenance
+12. Travel / Conveyance
+13. Printing / Stationery
+14. Payment Gateway / Bank Charges
+15. Other / Miscellaneous
+
+Sales / Receipts remains a separate income category.
+
 ## Approval rules
 
 Business setting:

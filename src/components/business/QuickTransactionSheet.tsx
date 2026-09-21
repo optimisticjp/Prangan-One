@@ -19,6 +19,28 @@ const kinds: Array<{ kind: ComposerKind; label: string; icon: typeof ReceiptText
   { kind: 'refund', label: 'Refund received', icon: WalletCards },
 ]
 
+const expenseCategoryOrder = [
+  'Ad Spend / Marketing',
+  'Courier / Shipping',
+  'Packaging Material',
+  'Purchase / Inventory',
+  'Salaries / Contractor',
+  'Legal / Professional Fees',
+  'Food / Staff Welfare',
+  'Rent / Warehouse',
+  'Utilities / Internet',
+  'Software / Subscriptions',
+  'Repairs / Maintenance',
+  'Travel / Conveyance',
+  'Printing / Stationery',
+  'Payment Gateway / Bank Charges',
+  'Other / Miscellaneous',
+] as const
+
+const expenseCategoryRank = new Map<string, number>(
+  expenseCategoryOrder.map((name, index) => [name, index]),
+)
+
 export function QuickTransactionSheet({ open, initialKind, onClose }: { open: boolean; initialKind: ComposerKind; onClose: () => void }) {
   const { data, canWrite, postTransaction } = useBusiness()
   const toast = useToast()
@@ -57,10 +79,16 @@ export function QuickTransactionSheet({ open, initialKind, onClose }: { open: bo
     ? paymentStatus === 'paid' && paidBy === 'partner'
     : ['partner_capital','partner_advance','reimbursement','withdrawal'].includes(kind)
   const showCategory = ['income','expense','refund'].includes(kind)
-  const relevantCategories = useMemo(
-    () => data.categories.filter(c => !showCategory ? false : kind === 'income' || kind === 'refund' ? c.kind !== 'expense' : c.kind !== 'income'),
-    [data.categories, kind, showCategory],
-  )
+  const relevantCategories = useMemo(() => {
+    const filtered = data.categories.filter(c =>
+      !showCategory ? false : kind === 'income' || kind === 'refund' ? c.kind !== 'expense' : c.kind !== 'income',
+    )
+    if (kind !== 'expense') return filtered
+    return [...filtered].sort((a, b) =>
+      (expenseCategoryRank.get(a.name) ?? 999) - (expenseCategoryRank.get(b.name) ?? 999)
+      || a.name.localeCompare(b.name),
+    )
+  }, [data.categories, kind, showCategory])
 
   const valid = canWrite
     && Number(amount) > 0

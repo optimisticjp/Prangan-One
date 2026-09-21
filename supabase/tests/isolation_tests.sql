@@ -1104,3 +1104,33 @@ select test_assert(
   (select count(*) from business_accounts where business_id = current_setting('test.approved_business_id')::uuid and kind = 'upi') = 0,
   'UPI is not created as a default account'
 );
+
+select test_assert(
+  (select count(*) from business_categories where business_id = current_setting('test.approved_business_id')::uuid and kind = 'expense' and active) = 15,
+  'approved business receives the full standard expense category set'
+);
+select test_assert(
+  (select count(*) from business_categories
+    where business_id = current_setting('test.approved_business_id')::uuid
+      and kind = 'expense'
+      and active
+      and name in (
+        'Ad Spend / Marketing',
+        'Courier / Shipping',
+        'Packaging Material',
+        'Purchase / Inventory',
+        'Salaries / Contractor',
+        'Legal / Professional Fees',
+        'Food / Staff Welfare',
+        'Rent / Warehouse',
+        'Utilities / Internet',
+        'Software / Subscriptions',
+        'Repairs / Maintenance',
+        'Travel / Conveyance',
+        'Printing / Stationery',
+        'Payment Gateway / Bank Charges',
+        'Other / Miscellaneous'
+      )
+  ) = 15,
+  'approved business expense categories match the standard names'
+);
