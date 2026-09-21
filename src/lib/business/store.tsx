@@ -4,7 +4,7 @@ import { supabase } from '../supabase'
 import * as api from './data'
 import type {
   ApprovalMode, BusinessAccountKind, BusinessMembership, BusinessOnboardingRequest,
-  BusinessSnapshot, PostBusinessTransactionInput,
+  BusinessSnapshot, MarkBusinessExpensePaidInput, PostBusinessTransactionInput,
 } from './types'
 
 const EMPTY: BusinessSnapshot = {
@@ -28,6 +28,7 @@ interface BusinessContextValue {
   refreshAccess: () => Promise<void>
   requestBusiness: (input: { name: string; ownerName: string; phone?: string; city?: string; businessType?: string }) => Promise<string>
   postTransaction: (input: PostBusinessTransactionInput) => Promise<string>
+  markExpensePaid: (id: string, input: MarkBusinessExpensePaidInput) => Promise<void>
   approveTransaction: (id: string, note?: string) => Promise<void>
   rejectTransaction: (id: string, note?: string) => Promise<void>
   reverseTransaction: (id: string, reason: string) => Promise<void>
@@ -172,6 +173,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     refreshAccess: async () => { await loadMemberships() },
     requestBusiness,
     postTransaction,
+    markExpensePaid: async (id, input) => withReload(() => api.markBusinessExpensePaid(id, input)),
     approveTransaction: async (id, note = '') => withReload(() => api.approveBusinessTransaction(id, note)),
     rejectTransaction: async (id, note = '') => withReload(() => api.rejectBusinessTransaction(id, note)),
     reverseTransaction: async (id, reason) => withReload(() => api.reverseBusinessTransaction(id, reason)),

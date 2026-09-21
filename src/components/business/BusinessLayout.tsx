@@ -7,8 +7,10 @@ import { useBusiness } from '../../lib/business/store'
 import type { BusinessTransactionKind } from '../../lib/business/types'
 import { QuickTransactionSheet } from './QuickTransactionSheet'
 
+type BusinessComposerKind = Exclude<BusinessTransactionKind, 'reversal' | 'personal_expense'>
+
 export interface BusinessOutletContext {
-  openTransaction: (kind?: Exclude<BusinessTransactionKind, 'reversal'>) => void
+  openTransaction: (kind?: BusinessComposerKind) => void
 }
 
 const tabs = [
@@ -20,7 +22,7 @@ const tabs = [
 
 export default function BusinessLayout() {
   const { authenticated, loading, memberships, activeMembership, switchBusiness, data, refreshing } = useBusiness()
-  const [composer, setComposer] = useState<Exclude<BusinessTransactionKind, 'reversal'> | null>(null)
+  const [composer, setComposer] = useState<BusinessComposerKind | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
 
   if (loading) return <div className="min-h-screen bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business workspace..." /></div>
@@ -28,7 +30,7 @@ export default function BusinessLayout() {
   if (!activeMembership) return <Navigate to="/business/onboarding" replace />
   if (!data.business) return <div className="min-h-screen bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business data..." /></div>
 
-  const openTransaction = (kind: Exclude<BusinessTransactionKind, 'reversal'> = 'expense') => {
+  const openTransaction = (kind: BusinessComposerKind = 'expense') => {
     setComposer(kind)
     setComposerOpen(true)
   }

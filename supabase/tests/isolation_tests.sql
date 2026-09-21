@@ -871,6 +871,7 @@ reset role;
 insert into auth.users (id, email) values
   ('10000000-0000-0000-0000-0000000000a1', 'biz-admin-a@test.local'),
   ('10000000-0000-0000-0000-0000000000a2', 'biz-viewer-a@test.local'),
+  ('10000000-0000-0000-0000-0000000000a3', 'biz-partner-a@test.local'),
   ('10000000-0000-0000-0000-0000000000b1', 'biz-admin-b@test.local');
 
 insert into businesses (id, name, approval_mode, created_by) values
@@ -879,11 +880,13 @@ insert into businesses (id, name, approval_mode, created_by) values
 
 insert into business_partners (id, business_id, name, email) values
   ('11100000-0000-0000-0000-000000000001', '11000000-0000-0000-0000-000000000001', 'Admin A', 'biz-admin-a@test.local'),
+  ('11100000-0000-0000-0000-000000000002', '11000000-0000-0000-0000-000000000001', 'Partner A', 'biz-partner-a@test.local'),
   ('12100000-0000-0000-0000-000000000001', '12000000-0000-0000-0000-000000000001', 'Admin B', 'biz-admin-b@test.local');
 
 insert into business_memberships (business_id, user_id, partner_id, email, display_name, role) values
   ('11000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-0000000000a1', '11100000-0000-0000-0000-000000000001', 'biz-admin-a@test.local', 'Admin A', 'admin'),
   ('11000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-0000000000a2', null, 'biz-viewer-a@test.local', 'Viewer A', 'viewer'),
+  ('11000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-0000000000a3', '11100000-0000-0000-0000-000000000002', 'biz-partner-a@test.local', 'Partner A', 'partner'),
   ('12000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-0000000000b1', '12100000-0000-0000-0000-000000000001', 'biz-admin-b@test.local', 'Admin B', 'admin');
 
 insert into business_accounts (id, business_id, name, kind, opening_balance) values
@@ -907,8 +910,87 @@ select post_business_transaction(
 select test_assert((select balance from get_business_account_balances('11000000-0000-0000-0000-000000000001') where account_id = '11200000-0000-0000-0000-000000000001') = 11000, 'business account balance includes opening cash plus posted income');
 select test_assert((select outstanding_due from get_business_partner_positions('11000000-0000-0000-0000-000000000001') where partner_id = '11100000-0000-0000-0000-000000000001') = 3000, 'partner-paid expense becomes amount owed to that partner without reducing business cash');
 
+-- Any active partner can record an expense before it is paid. Nothing moves
+-- financially until the expense is explicitly marked paid.
+select test_become('10000000-0000-0000-0000-0000000000a3');
+
+do $
+declare unpaid_business uuid;
+begin
+  unpaid_business := record_business_expense(
+    '11000000-0000-0000-0000-000000000001',
+    700,
+    'unpaid',
+    'business',
+    null,
+    null,
+    null,
+    'Electricity board',
+    'Bill due later',
+    current_date + 7,
+    now()
+  );
+  perform set_config('test.unpaid_business_expense', unpaid_business::text, false);
+end $;
+
+select test_assert(
+  (select payment_status from business_transactions where id = current_setting('test.unpaid_business_expense')::uuid) = 'unpaid',
+  'partner can record an unpaid business expense'
+);
+select test_assert(
+  (select balance from get_business_account_balances('11000000-0000-0000-0000-000000000001') where account_id = '11200000-0000-0000-0000-000000000001') = 11000,
+  'unpaid expense does not reduce business funds'
+);
+
+select mark_business_expense_paid(
+  current_setting('test.unpaid_business_expense')::uuid,
+  'business',
+  '11200000-0000-0000-0000-000000000001',
+  null,
+  now()
+);
+select test_assert(
+  (select balance from get_business_account_balances('11000000-0000-0000-0000-000000000001') where account_id = '11200000-0000-0000-0000-000000000001') = 10300,
+  'marking the expense paid from business funds reduces the selected account'
+);
+
+do $
+declare unpaid_partner uuid;
+begin
+  unpaid_partner := record_business_expense(
+    '11000000-0000-0000-0000-000000000001',
+    400,
+    'unpaid',
+    'partner',
+    null,
+    null,
+    null,
+    'Local supplier',
+    'Partner will settle',
+    null,
+    now()
+  );
+  perform set_config('test.unpaid_partner_expense', unpaid_partner::text, false);
+end $;
+
+select mark_business_expense_paid(
+  current_setting('test.unpaid_partner_expense')::uuid,
+  'partner',
+  null,
+  '11100000-0000-0000-0000-000000000002',
+  now()
+);
+select test_assert(
+  (select balance from get_business_account_balances('11000000-0000-0000-0000-000000000001') where account_id = '11200000-0000-0000-0000-000000000001') = 10300,
+  'partner-paid expense does not reduce business Cash or Bank'
+);
+select test_assert(
+  (select outstanding_due from get_business_partner_positions('11000000-0000-0000-0000-000000000001') where partner_id = '11100000-0000-0000-0000-000000000002') = 400,
+  'marking an expense paid by a partner makes the business owe that partner'
+);
+
 select test_become('10000000-0000-0000-0000-0000000000a2');
-select test_assert((select count(*) from business_transactions) = 2, 'viewer can read their business transactions');
+select test_assert((select count(*) from business_transactions) = 4, 'viewer can read their business transactions including unpaid/paid expense lifecycle');
 select test_assert(test_try_write($w$insert into business_accounts (business_id, name, kind) values ('11000000-0000-0000-0000-000000000001', 'Viewer cash', 'cash')$w$) = -1, 'viewer cannot create a business money account');
 
 select test_become('10000000-0000-0000-0000-0000000000b1');

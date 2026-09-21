@@ -16,7 +16,7 @@ The product is for small, partner-led and unorganised businesses that need trust
 ## Core journeys
 
 1. An authenticated user with no business submits a business onboarding request. No Business workspace or membership exists yet. The Prangan One platform owner reviews the request in `/owner/businesses`; approval creates the business, first admin partner, active membership, and default Cash/Bank accounts.
-2. A business records money received, business expenses, partner capital, partner advances, partner-paid personal expenses, reimbursements, partner withdrawals, refunds and account transfers.
+2. A business records money received, business expenses, partner capital, partner advances, partner-paid expenses, reimbursements, partner withdrawals, refunds and account transfers. Any active partner can record an expense as unpaid first and settle it later.
 3. A partner can see exactly how much capital they contributed, how much they advanced temporarily, what they personally paid, what the business still owes them and what they withdrew.
 4. An expense that requires approval changes real account balances when money actually moved, while its accountability status remains pending until the configured partner approvals are completed.
 5. Posted transactions are never silently edited. A correction creates a reversal that preserves the original record and an audit trail.
@@ -27,7 +27,7 @@ The product is for small, partner-led and unorganised businesses that need trust
 ## Financial semantics
 
 - income: increases a selected business account.
-- expense: decreases a selected business account.
+- expense: can be recorded as unpaid with no financial movement. When marked paid, it either decreases the selected business account or, if a partner paid personally, increases the amount the business owes that partner.
 - partner_capital: increases a business account and the partner's permanent capital contribution.
 - partner_advance: increases a business account and the amount the business owes that partner.
 - personal_expense: does not change a business cash/bank balance; increases the amount the business owes that partner.
@@ -37,7 +37,7 @@ The product is for small, partner-led and unorganised businesses that need trust
 - refund: increases a selected business account.
 - reversal: mirrors the original ledger entries with opposite signs and links permanently to the original.
 
-Approval status and cash movement are deliberately separate. A real expense paid from business cash is reflected in the balance immediately even if approval is pending.
+Approval status and payment status are deliberately separate. An unpaid expense can still be awaiting or receive approval without moving money. Once paid, real Cash/Bank or partner-due balances move immediately even if approval is still pending.
 
 ## Approval rules
 
@@ -58,6 +58,8 @@ The Business workspace is mobile-first and deliberately denser than the housing 
 - Compact header with business switcher.
 - 34-40px visual controls may be used where appropriate, while touch targets remain roughly 44px or larger.
 - Dense one-line ledger rows and small account/partner cards.
+- Transaction actions carry short purpose tags (for example RECEIVE, EXPENSE, CAPITAL, ADVANCE, REPAY, MOVE) so similar money actions are not ambiguous.
+- Expense rows show payment tags (UNPAID/PAID) separately from approval tags.
 - Bottom-sheet transaction entry.
 - No large hero panels or excessive vertical whitespace inside the workspace.
 - Test at 320, 360, 390, 412, 768 and 1024+ widths.
@@ -87,6 +89,7 @@ The Business workspace is mobile-first and deliberately denser than the housing 
 - Cash/bank/UPI/wallet/other accounts
 - Partner records and login-linked partner membership
 - Core transaction types listed above
+- Unpaid → paid expense lifecycle, including optional due date and settlement by Business funds or a named partner
 - Partner positions
 - Expense approvals
 - Private proof upload

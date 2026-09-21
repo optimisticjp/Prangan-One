@@ -2,7 +2,8 @@ import { supabase } from '../supabase'
 import type {
   AccountBalance, ApprovalMode, Business, BusinessAccount, BusinessAccountKind, BusinessApproval,
   BusinessAttachment, BusinessCategory, BusinessDayClosing, BusinessMembership, BusinessOnboardingRequest,
-  BusinessPartner, BusinessSnapshot, BusinessTransaction, PartnerPosition, PostBusinessTransactionInput,
+  BusinessPartner, BusinessSnapshot, BusinessTransaction, MarkBusinessExpensePaidInput,
+  PartnerPosition, PostBusinessTransactionInput,
 } from './types'
 
 const requireSupabase = () => {
@@ -113,7 +114,27 @@ export async function fetchBusinessSnapshot(businessId: string): Promise<Busines
   }
 }
 
+export async function recordBusinessExpense(businessId: string, input: PostBusinessTransactionInput): Promise<string> {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('record_business_expense', {
+    target_business: businessId,
+    target_amount: input.amount,
+    target_payment_status: input.paymentStatus ?? 'paid',
+    target_paid_by: input.paidBy ?? 'business',
+    target_account: input.accountId || null,
+    target_partner: input.partnerId || null,
+    target_category: input.categoryId || null,
+    target_counterparty: input.counterparty?.trim() || null,
+    target_note: input.note?.trim() || null,
+    target_due_date: input.dueDate || null,
+    target_occurred_at: input.occurredAt || new Date().toISOString(),
+  })
+  if (error) throw error
+  return data as string
+}
+
 export async function postBusinessTransaction(businessId: string, input: PostBusinessTransactionInput): Promise<string> {
+  if (input.kind === 'expense') return recordBusinessExpense(businessId, input)
   const client = requireSupabase()
   const { data, error } = await client.rpc('post_business_transaction', {
     target_business: businessId,
@@ -129,6 +150,18 @@ export async function postBusinessTransaction(businessId: string, input: PostBus
   })
   if (error) throw error
   return data as string
+}
+
+export async function markBusinessExpensePaid(transactionId: string, input: MarkBusinessExpensePaidInput): Promise<void> {
+  const client = requireSupabase()
+  const { error } = await client.rpc('mark_business_expense_paid', {
+    target_transaction: transactionId,
+    target_paid_by: input.paidBy,
+    target_account: input.accountId || null,
+    target_partner: input.partnerId || null,
+    target_paid_at: new Date().toISOString(),
+  })
+  if (error) throw error
 }
 
 export async function uploadBusinessProof(businessId: string, transactionId: string, file: File): Promise<void> {

@@ -26,3 +26,9 @@
 - [ ] Pass CI after the approval-gate correction.
 - [x] Apply owner-approval migration to live Supabase.
 - [ ] Complete live approval-flow smoke checklist after deployment.
+
+- [x] Clarify Business transaction actions with purpose tags and helper text.
+- [x] Add unpaid expense recording without changing Cash/Bank/partner balances.
+- [x] Add atomic mark-paid flow for Business funds or a named partner.
+- [x] Separate payment-status tags from approval-status tags in Business UI.
+- [x] Add isolation tests proving active partners can record and settle unpaid expenses.

@@ -6,6 +6,8 @@ export type BusinessTransactionKind =
   | 'personal_expense' | 'reimbursement' | 'withdrawal' | 'transfer'
   | 'refund' | 'reversal'
 export type BusinessApprovalStatus = 'not_required' | 'pending' | 'approved' | 'rejected'
+export type BusinessPaymentStatus = 'unpaid' | 'paid'
+export type BusinessPaidBy = 'business' | 'partner'
 export type BusinessOnboardingStatus = 'pending' | 'approved' | 'rejected'
 
 export interface BusinessMembership {
@@ -81,6 +83,9 @@ export interface BusinessTransaction {
   counterparty: string | null
   note: string | null
   approval_status: BusinessApprovalStatus
+  payment_status: BusinessPaymentStatus
+  due_date: string | null
+  paid_at: string | null
   occurred_at: string
   created_by: string
   created_at: string
@@ -165,4 +170,13 @@ export interface PostBusinessTransactionInput {
   note?: string
   occurredAt?: string
   proof?: File | null
+  paymentStatus?: BusinessPaymentStatus
+  paidBy?: BusinessPaidBy
+  dueDate?: string | null
+}
+
+export interface MarkBusinessExpensePaidInput {
+  paidBy: BusinessPaidBy
+  accountId?: string | null
+  partnerId?: string | null
 }
