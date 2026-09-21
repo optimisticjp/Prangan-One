@@ -133,3 +133,16 @@ The Business workspace is mobile-first and deliberately denser than the housing 
 - Payment gateways
 - Full double-entry accounting screens
 - Tally replacement
+
+
+## Edit and delete controls
+
+- Business records use explicit Edit and Delete actions where management is appropriate.
+- Before an edit is committed, the UI requires the user to type exactly `EDIT`.
+- Before a destructive/archive action is committed, the UI requires the user to type exactly `DELETE`.
+- Transactions are never physically deleted. Delete creates an audit-safe reversal and preserves the original record.
+- Transaction Edit changes descriptive fields only (counterparty/vendor, note, category and unpaid due date). Amount, account, payer and posted financial movement remain immutable.
+- Partner deletion disables active login access and archives the partner. The last Business Admin cannot be deleted, and a partner with an outstanding amount owed cannot be deleted until settled.
+- Account deletion archives the account and requires its current balance to be ₹0. Opening balances remain immutable.
+- Category deletion removes the category from new-entry forms while historical transactions keep their reference.
+- Business deletion archives the workspace and disables memberships rather than cascade-deleting financial history.

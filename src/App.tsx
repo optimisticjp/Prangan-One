@@ -93,6 +93,7 @@ const BApprovals = lazy(() => import('./pages/business/Approvals'))
 const BPartners = lazy(() => import('./pages/business/Partners'))
 const BMore = lazy(() => import('./pages/business/More'))
 const BAccounts = lazy(() => import('./pages/business/Accounts'))
+const BCategories = lazy(() => import('./pages/business/Categories'))
 const BReports = lazy(() => import('./pages/business/Reports'))
 const BDayClose = lazy(() => import('./pages/business/DayClose'))
 const BSettings = lazy(() => import('./pages/business/Settings'))
@@ -205,6 +206,7 @@ export default function App() {
             <Route path="partners" element={<Lazy><BPartners /></Lazy>} />
             <Route path="more" element={<Lazy><BMore /></Lazy>} />
             <Route path="accounts" element={<Lazy><BAccounts /></Lazy>} />
+            <Route path="categories" element={<Lazy><BCategories /></Lazy>} />
             <Route path="reports" element={<Lazy><BReports /></Lazy>} />
             <Route path="day-close" element={<Lazy><BDayClose /></Lazy>} />
             <Route path="settings" element={<Lazy><BSettings /></Lazy>} />

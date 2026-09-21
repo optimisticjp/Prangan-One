@@ -61,9 +61,9 @@ export function QuickTransactionSheet({ open, initialKind, onClose }: { open: bo
   useEffect(() => {
     if (open) {
       setKind(initialKind)
-      setAccountId(data.accounts[0]?.id ?? '')
-      setToAccountId(data.accounts[1]?.id ?? '')
-      setPartnerId(data.partners[0]?.id ?? '')
+      setAccountId(data.accounts.find(a => a.active)?.id ?? '')
+      setToAccountId(data.accounts.filter(a => a.active)[1]?.id ?? '')
+      setPartnerId(data.partners.find(p => p.active)?.id ?? '')
       setCategoryId('')
       setPaymentStatus('paid')
       setPaidBy('business')
@@ -71,6 +71,8 @@ export function QuickTransactionSheet({ open, initialKind, onClose }: { open: bo
     }
   }, [open, initialKind, data.accounts, data.partners])
 
+  const activeAccounts = data.accounts.filter(a => a.active)
+  const activePartners = data.partners.filter(p => p.active)
   const isExpense = kind === 'expense'
   const needsAccount = isExpense
     ? paymentStatus === 'paid' && paidBy === 'business'
@@ -80,7 +82,7 @@ export function QuickTransactionSheet({ open, initialKind, onClose }: { open: bo
     : ['partner_capital','partner_advance','reimbursement','withdrawal'].includes(kind)
   const showCategory = ['income','expense','refund'].includes(kind)
   const relevantCategories = useMemo(() => {
-    const filtered = data.categories.filter(c =>
+    const filtered = data.categories.filter(c => c.active &&
       !showCategory ? false : kind === 'income' || kind === 'refund' ? c.kind !== 'expense' : c.kind !== 'income',
     )
     if (kind !== 'expense') return filtered
@@ -198,7 +200,7 @@ export function QuickTransactionSheet({ open, initialKind, onClose }: { open: bo
       {needsAccount && (
         <Field label={kind === 'transfer' ? 'From account' : kind === 'income' || kind === 'refund' || kind === 'partner_capital' || kind === 'partner_advance' ? 'Money goes to' : 'Paid from'}>
           <Select value={accountId} onChange={e => setAccountId(e.target.value)}>
-            {data.accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            {activeAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </Select>
         </Field>
       )}
@@ -206,7 +208,7 @@ export function QuickTransactionSheet({ open, initialKind, onClose }: { open: bo
       {kind === 'transfer' && (
         <Field label="To account">
           <Select value={toAccountId} onChange={e => setToAccountId(e.target.value)}>
-            {data.accounts.filter(a => a.id !== accountId).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            {activeAccounts.filter(a => a.id !== accountId).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </Select>
         </Field>
       )}
@@ -214,7 +216,7 @@ export function QuickTransactionSheet({ open, initialKind, onClose }: { open: bo
       {needsPartner && (
         <Field label={isExpense ? 'Partner who paid' : 'Partner'}>
           <Select value={partnerId} onChange={e => setPartnerId(e.target.value)}>
-            {data.partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {activePartners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
         </Field>
       )}

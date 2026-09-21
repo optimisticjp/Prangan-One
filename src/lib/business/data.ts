@@ -87,9 +87,9 @@ export async function fetchBusinessSnapshot(businessId: string): Promise<Busines
   const client = requireSupabase()
   const [businessRes, partnersRes, accountsRes, categoriesRes, transactionsRes, approvalsRes, attachmentsRes, closingsRes, balancesRes, positionsRes] = await Promise.all([
     client.from('businesses').select('id,name,currency,approval_mode,created_by,created_at').eq('id', businessId).maybeSingle(),
-    client.from('business_partners').select('*').eq('business_id', businessId).eq('active', true).order('created_at'),
-    client.from('business_accounts').select('*').eq('business_id', businessId).eq('active', true).order('created_at'),
-    client.from('business_categories').select('*').eq('business_id', businessId).eq('active', true).order('name'),
+    client.from('business_partners').select('*').eq('business_id', businessId).order('created_at'),
+    client.from('business_accounts').select('*').eq('business_id', businessId).order('created_at'),
+    client.from('business_categories').select('*').eq('business_id', businessId).order('name'),
     client.from('business_transactions').select('*').eq('business_id', businessId).order('occurred_at', { ascending: false }).limit(500),
     client.from('business_transaction_approvals').select('*').eq('business_id', businessId).order('decided_at', { ascending: false }).limit(500),
     client.from('business_attachments').select('*').eq('business_id', businessId).order('created_at', { ascending: false }).limit(500),
@@ -226,6 +226,24 @@ export async function addBusinessPartner(businessId: string, input: { name: stri
   return data as string
 }
 
+export async function updateBusinessPartner(partnerId: string, input: { name: string; email?: string; phone?: string; ownership?: number | null }) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('update_business_partner', {
+    target_partner: partnerId,
+    partner_name: input.name.trim(),
+    partner_email: input.email?.trim() || null,
+    partner_phone: input.phone?.trim() || null,
+    partner_ownership: input.ownership ?? null,
+  })
+  if (error) throw error
+}
+
+export async function archiveBusinessPartner(partnerId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('archive_business_partner', { target_partner: partnerId })
+  if (error) throw error
+}
+
 export async function addBusinessAccount(businessId: string, input: { name: string; kind: BusinessAccountKind; openingBalance: number }) {
   const client = requireSupabase()
   const { error } = await client.from('business_accounts').insert({
@@ -234,9 +252,74 @@ export async function addBusinessAccount(businessId: string, input: { name: stri
   if (error) throw error
 }
 
+export async function updateBusinessAccount(accountId: string, input: { name: string; kind: BusinessAccountKind }) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('update_business_account', {
+    target_account: accountId,
+    target_name: input.name.trim(),
+    target_kind: input.kind,
+  })
+  if (error) throw error
+}
+
+export async function archiveBusinessAccount(accountId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('archive_business_account', { target_account: accountId })
+  if (error) throw error
+}
+
+export async function addBusinessCategory(businessId: string, input: { name: string; kind: BusinessCategory['kind'] }) {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('add_business_category', {
+    target_business: businessId,
+    target_name: input.name.trim(),
+    target_kind: input.kind,
+  })
+  if (error) throw error
+  return data as string
+}
+
+export async function updateBusinessCategory(categoryId: string, input: { name: string; kind: BusinessCategory['kind'] }) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('update_business_category', {
+    target_category: categoryId,
+    target_name: input.name.trim(),
+    target_kind: input.kind,
+  })
+  if (error) throw error
+}
+
+export async function archiveBusinessCategory(categoryId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('archive_business_category', { target_category: categoryId })
+  if (error) throw error
+}
+
+export async function editBusinessTransactionDetails(transactionId: string, input: { counterparty?: string; note?: string; categoryId?: string | null; dueDate?: string | null }) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('edit_business_transaction_details', {
+    target_transaction: transactionId,
+    target_counterparty: input.counterparty?.trim() || null,
+    target_note: input.note?.trim() || null,
+    target_category: input.categoryId || null,
+    target_due_date: input.dueDate || null,
+  })
+  if (error) throw error
+}
+
 export async function updateBusinessSettings(businessId: string, input: { name: string; approvalMode: ApprovalMode }) {
   const client = requireSupabase()
-  const { error } = await client.from('businesses').update({ name: input.name.trim(), approval_mode: input.approvalMode, updated_at: new Date().toISOString() }).eq('id', businessId)
+  const { error } = await client.rpc('update_business_settings', {
+    target_business: businessId,
+    target_name: input.name.trim(),
+    target_approval_mode: input.approvalMode,
+  })
+  if (error) throw error
+}
+
+export async function archiveBusiness(businessId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('archive_business', { target_business: businessId })
   if (error) throw error
 }
 

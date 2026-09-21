@@ -32,3 +32,11 @@
 - [x] Add atomic mark-paid flow for Business funds or a named partner.
 - [x] Separate payment-status tags from approval-status tags in Business UI.
 - [x] Add isolation tests proving active partners can record and settle unpaid expenses.
+
+- [x] Add reusable typed EDIT / DELETE confirmation modal.
+- [x] Add partner edit/delete with login-access and last-admin safeguards.
+- [x] Add account edit/delete with zero-balance requirement.
+- [x] Add category management with edit/delete controls.
+- [x] Add transaction descriptive edit and audit-safe delete/reversal.
+- [x] Require EDIT confirmation for Business settings and DELETE for Business archive.
+- [x] Preserve inactive partner/account/category references for historical ledger display.

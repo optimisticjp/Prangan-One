@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Download, Paperclip, RotateCcw, Search } from 'lucide-react'
+import { Download, Paperclip, Pencil, Search, Trash2 } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
-import { Badge, Button, Field, Input, Modal, Select } from '../../components/ui'
+import { Badge, Button, Field, Input, Modal, Select, Textarea } from '../../components/ui'
+import { TypedConfirmModal } from '../../components/business/TypedConfirmModal'
 import { useToast } from '../../components/Toast'
 import { useBusiness } from '../../lib/business/store'
 import { businessMoney, businessTransactionLabels, expensePaidByLabel, transactionCashDirection } from '../../lib/business/finance'
@@ -12,18 +13,24 @@ import type { BusinessOutletContext } from '../../components/business/BusinessLa
 const filters = ['all', 'income', 'expense', 'unpaid', 'partner', 'approval'] as const
 
 export default function BusinessLedger() {
-  const { data, canWrite, reverseTransaction, markExpensePaid } = useBusiness()
+  const { data, canWrite, reverseTransaction, markExpensePaid, editTransactionDetails } = useBusiness()
   const { openTransaction } = useOutletContext<BusinessOutletContext>()
   const toast = useToast()
   const [filter, setFilter] = useState<typeof filters[number]>('all')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<BusinessTransaction | null>(null)
-  const [reason, setReason] = useState('')
-  const [reversing, setReversing] = useState(false)
   const [paidBy, setPaidBy] = useState<BusinessPaidBy>('business')
   const [payAccountId, setPayAccountId] = useState('')
   const [payPartnerId, setPayPartnerId] = useState('')
   const [paying, setPaying] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmEdit, setConfirmEdit] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [editCounterparty, setEditCounterparty] = useState('')
+  const [editNote, setEditNote] = useState('')
+  const [editCategoryId, setEditCategoryId] = useState('')
+  const [editDueDate, setEditDueDate] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -63,24 +70,53 @@ export default function BusinessLedger() {
 
   const openDetails = (tx: BusinessTransaction) => {
     setSelected(tx)
-    setReason('')
     setPaidBy('business')
-    setPayAccountId(data.accounts[0]?.id ?? '')
-    setPayPartnerId(data.partners[0]?.id ?? '')
+    setPayAccountId(data.accounts.find(a => a.active)?.id ?? '')
+    setPayPartnerId(data.partners.find(p => p.active)?.id ?? '')
   }
 
-  const reverse = async () => {
-    if (!selected || reason.trim().length < 3) return
-    setReversing(true)
+  const openEdit = () => {
+    if (!selected) return
+    setEditCounterparty(selected.counterparty ?? '')
+    setEditNote(selected.note ?? '')
+    setEditCategoryId(selected.category_id ?? '')
+    setEditDueDate(selected.due_date ?? '')
+    setEditOpen(true)
+  }
+
+  const saveEdit = async () => {
+    if (!selected) return
+    setSaving(true)
     try {
-      await reverseTransaction(selected.id, reason)
-      toast.success('Transaction reversed')
+      await editTransactionDetails(selected.id, {
+        counterparty: editCounterparty,
+        note: editNote,
+        categoryId: editCategoryId || null,
+        dueDate: editDueDate || null,
+      })
+      toast.success('Transaction details updated')
+      setConfirmEdit(false)
+      setEditOpen(false)
       setSelected(null)
-      setReason('')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not reverse transaction')
+      toast.error(error instanceof Error ? error.message : 'Could not edit transaction')
     } finally {
-      setReversing(false)
+      setSaving(false)
+    }
+  }
+
+  const deleteTransaction = async () => {
+    if (!selected) return
+    setSaving(true)
+    try {
+      await reverseTransaction(selected.id, 'Deleted after typed DELETE confirmation')
+      toast.success('Transaction deleted with audit trail')
+      setConfirmDelete(false)
+      setSelected(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not delete transaction')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -104,6 +140,14 @@ export default function BusinessLedger() {
       setPaying(false)
     }
   }
+
+  const editableCategories = data.categories.filter(c => {
+    if (!c.active) return false
+    if (!selected) return true
+    if (selected.kind === 'income' || selected.kind === 'refund') return c.kind !== 'expense'
+    if (selected.kind === 'expense' || selected.kind === 'personal_expense') return c.kind !== 'income'
+    return true
+  })
 
   return (
     <div className="space-y-2.5">
@@ -151,7 +195,7 @@ export default function BusinessLedger() {
                   {tx.kind === 'expense' && <Badge tone={tx.payment_status === 'paid' ? 'green' : 'amber'}>{tx.payment_status === 'paid' ? 'PAID' : 'UNPAID'}</Badge>}
                   {tx.approval_status === 'pending' && <Badge tone="amber">APPROVAL</Badge>}
                   {tx.approval_status === 'rejected' && <Badge tone="red">REJECTED</Badge>}
-                  {tx.reversed_at && <Badge tone="gray">REVERSED</Badge>}
+                  {tx.reversed_at && <Badge tone="gray">DELETED / REVERSED</Badge>}
                 </div>
                 <div className="text-[10.5px] text-navy-400 truncate">
                   {tx.kind === 'expense' ? payer : partner || tx.counterparty || data.accounts.find(a => a.id === tx.account_id)?.name || 'Business'}
@@ -169,7 +213,7 @@ export default function BusinessLedger() {
 
       <Button full variant="soft" onClick={() => openTransaction('expense')}>Add transaction</Button>
 
-      <Modal open={!!selected} onClose={() => { if (!paying && !reversing) { setSelected(null); setReason('') } }} title="Transaction details">
+      <Modal open={!!selected} onClose={() => { if (!paying && !saving) setSelected(null) }} title="Transaction details">
         {selected && (
           <>
             <div className="flex items-start justify-between gap-3">
@@ -203,28 +247,25 @@ export default function BusinessLedger() {
                   <div className="text-[10px] font-bold tracking-wide text-pend">MARK AS PAID</div>
                   <div className="text-[11.5px] text-navy-600">Choose who actually paid. This is when the financial balance will move.</div>
                 </div>
-
                 <Field label="Paid by">
                   <Select value={paidBy} onChange={e => setPaidBy(e.target.value as BusinessPaidBy)}>
                     <option value="business">Business funds</option>
                     <option value="partner">Partner personally</option>
                   </Select>
                 </Field>
-
                 {paidBy === 'business' ? (
                   <Field label="Paid from account">
                     <Select value={payAccountId} onChange={e => setPayAccountId(e.target.value)}>
-                      {data.accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      {data.accounts.filter(a => a.active).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </Select>
                   </Field>
                 ) : (
                   <Field label="Partner who paid">
                     <Select value={payPartnerId} onChange={e => setPayPartnerId(e.target.value)}>
-                      {data.partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      {data.partners.filter(p => p.active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </Select>
                   </Field>
                 )}
-
                 <Button full loading={paying} disabled={paidBy === 'business' ? !payAccountId : !payPartnerId} onClick={markPaid}>
                   Mark expense paid
                 </Button>
@@ -232,18 +273,65 @@ export default function BusinessLedger() {
             )}
 
             {canWrite && !selected.reversed_at && selected.kind !== 'reversal' && (
-              <>
-                <Field label="Reverse this transaction">
-                  <Input value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for correction" />
-                </Field>
-                <Button variant="danger" full loading={reversing} disabled={reason.trim().length < 3} onClick={reverse}>
-                  <RotateCcw size={15} /> Reverse with audit trail
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="soft" onClick={openEdit}>
+                  <Pencil size={14} /> Edit
                 </Button>
-              </>
+                <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+                  <Trash2 size={14} /> Delete
+                </Button>
+              </div>
+            )}
+
+            {canWrite && !selected.reversed_at && selected.kind !== 'reversal' && (
+              <div className="rounded-xl border border-cream-200 bg-cream-100 px-3 py-2 text-[11px] text-navy-500">
+                Edit changes vendor/note/category/due date only. Amount, account, payer and financial movement stay locked. Delete creates a reversing audit entry rather than erasing history.
+              </div>
             )}
           </>
         )}
       </Modal>
+
+      <Modal open={editOpen} onClose={() => { if (!saving) setEditOpen(false) }} title="Edit transaction details">
+        <Field label="Vendor / counterparty">
+          <Input value={editCounterparty} onChange={e => setEditCounterparty(e.target.value)} />
+        </Field>
+        <Field label="Category">
+          <Select value={editCategoryId} onChange={e => setEditCategoryId(e.target.value)}>
+            <option value="">No category</option>
+            {editableCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+        </Field>
+        {selected?.kind === 'expense' && selected.payment_status === 'unpaid' && (
+          <Field label="Due date">
+            <Input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} />
+          </Field>
+        )}
+        <Field label="Note">
+          <Textarea value={editNote} onChange={e => setEditNote(e.target.value)} />
+        </Field>
+        <Button full onClick={() => setConfirmEdit(true)}>Review edit</Button>
+      </Modal>
+
+      <TypedConfirmModal
+        open={confirmEdit}
+        mode="EDIT"
+        title="Confirm transaction edit"
+        body="This edits descriptive transaction details only. Posted financial values remain unchanged and the edit is logged."
+        busy={saving}
+        onClose={() => setConfirmEdit(false)}
+        onConfirm={saveEdit}
+      />
+
+      <TypedConfirmModal
+        open={confirmDelete}
+        mode="DELETE"
+        title="Delete transaction"
+        body="For financial integrity this will reverse the transaction and keep both the original and reversing entry in the audit trail."
+        busy={saving}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={deleteTransaction}
+      />
     </div>
   )
 }

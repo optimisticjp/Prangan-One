@@ -989,6 +989,124 @@ select test_assert(
   'marking an expense paid by a partner makes the business owe that partner'
 );
 
+-- Managed edit/delete operations preserve financial history.
+select test_become('10000000-0000-0000-0000-0000000000a1');
+
+select update_business_partner(
+  '11100000-0000-0000-0000-000000000002',
+  'Partner A Edited',
+  'biz-partner-a@test.local',
+  '9000000000',
+  25
+);
+select test_assert(
+  (select name from business_partners where id='11100000-0000-0000-0000-000000000002') = 'Partner A Edited',
+  'business admin can edit partner profile details'
+);
+
+do $
+begin
+  begin
+    perform archive_business_partner('11100000-0000-0000-0000-000000000002');
+    raise exception 'FAIL: partner with unsettled due was deleted';
+  exception
+    when others then
+      if sqlerrm <> 'partner_balance_must_be_zero' then raise; end if;
+      raise notice 'PASS: partner with unsettled due cannot be deleted';
+  end;
+end $;
+
+insert into business_accounts (id,business_id,name,kind,opening_balance)
+values ('11200000-0000-0000-0000-000000000099','11000000-0000-0000-0000-000000000001','Temporary zero','bank',0);
+
+select update_business_account('11200000-0000-0000-0000-000000000099','Temporary edited','bank');
+select test_assert(
+  (select name from business_accounts where id='11200000-0000-0000-0000-000000000099') = 'Temporary edited',
+  'business admin can edit an account name'
+);
+select archive_business_account('11200000-0000-0000-0000-000000000099');
+select test_assert(
+  (select active from business_accounts where id='11200000-0000-0000-0000-000000000099') = false,
+  'zero-balance account delete archives it rather than removing history'
+);
+
+do $
+begin
+  begin
+    perform archive_business_account('11200000-0000-0000-0000-000000000001');
+    raise exception 'FAIL: non-zero account was deleted';
+  exception
+    when others then
+      if sqlerrm <> 'account_balance_must_be_zero' then raise; end if;
+      raise notice 'PASS: non-zero account cannot be deleted';
+  end;
+end $;
+
+do $
+declare category_id uuid;
+begin
+  category_id := add_business_category('11000000-0000-0000-0000-000000000001','Temporary category','expense');
+  perform set_config('test.edit_delete_category',category_id::text,false);
+end $;
+select update_business_category(current_setting('test.edit_delete_category')::uuid,'Temporary category edited','expense');
+select test_assert(
+  (select name from business_categories where id=current_setting('test.edit_delete_category')::uuid) = 'Temporary category edited',
+  'business admin can edit a category'
+);
+select archive_business_category(current_setting('test.edit_delete_category')::uuid);
+select test_assert(
+  (select active from business_categories where id=current_setting('test.edit_delete_category')::uuid) = false,
+  'category delete archives it while preserving its row'
+);
+
+do $
+declare tx_id uuid;
+begin
+  tx_id := record_business_expense(
+    '11000000-0000-0000-0000-000000000001',
+    250,
+    'unpaid',
+    'business',
+    null,
+    null,
+    null,
+    'Old vendor',
+    'Old note',
+    current_date + 10,
+    now()
+  );
+  perform set_config('test.edit_delete_tx',tx_id::text,false);
+end $;
+
+select edit_business_transaction_details(
+  current_setting('test.edit_delete_tx')::uuid,
+  'Edited vendor',
+  'Edited note',
+  null,
+  current_date + 14
+);
+select test_assert(
+  (select counterparty from business_transactions where id=current_setting('test.edit_delete_tx')::uuid) = 'Edited vendor',
+  'transaction edit updates descriptive fields'
+);
+select test_assert(
+  (select amount from business_transactions where id=current_setting('test.edit_delete_tx')::uuid) = 250,
+  'transaction edit does not rewrite financial amount'
+);
+
+select reverse_business_transaction(
+  current_setting('test.edit_delete_tx')::uuid,
+  'Deleted after typed DELETE confirmation'
+);
+select test_assert(
+  (select reversed_at is not null from business_transactions where id=current_setting('test.edit_delete_tx')::uuid),
+  'transaction delete is implemented as an audit-safe reversal'
+);
+select test_assert(
+  (select count(*) from business_transactions where reversed_transaction_id=current_setting('test.edit_delete_tx')::uuid and kind='reversal') = 1,
+  'transaction delete keeps a linked reversal record'
+);
+
 select test_become('10000000-0000-0000-0000-0000000000a2');
 select test_assert((select count(*) from business_transactions) = 4, 'viewer can read their business transactions including unpaid/paid expense lifecycle');
 select test_assert(test_try_write($w$insert into business_accounts (business_id, name, kind) values ('11000000-0000-0000-0000-000000000001', 'Viewer cash', 'cash')$w$) = -1, 'viewer cannot create a business money account');
