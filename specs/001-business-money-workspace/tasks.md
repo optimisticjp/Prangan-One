@@ -7,7 +7,10 @@
 - [x] Add private business proof storage rules.
 - [x] Add business Supabase adapter and isolated BusinessProvider.
 - [x] Add workspace-aware login resolution.
-- [x] Add Business onboarding.
+- [x] Route pending/rejected business applicants to onboarding status instead of generic no-access.
+- [x] Add `/owner/businesses` approval/rejection inbox and owner dashboard entry.
+- [x] Disable the legacy instant-create RPC at the database boundary.
+- [x] Add owner-approved Business onboarding request flow.
 - [x] Add compact mobile Business shell and quick transaction sheet.
 - [x] Add dashboard and account balance overview.
 - [x] Add searchable/filterable ledger and CSV export.
@@ -20,6 +23,6 @@
 - [x] Add secondary Business promotion on the Society-first homepage.
 - [x] Add financial helper unit tests.
 - [x] Extend database isolation coverage for Business A vs Business B.
-- [ ] Pass CI after the integrated commit.
-- [ ] Apply migration to live Supabase and verify advisors.
-- [ ] Complete live smoke checklist after deployment.
+- [ ] Pass CI after the approval-gate correction.
+- [x] Apply owner-approval migration to live Supabase.
+- [ ] Complete live approval-flow smoke checklist after deployment.

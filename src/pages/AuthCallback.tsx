@@ -4,7 +4,7 @@ import { AlertCircle, BriefcaseBusiness, Building2, Loader2 } from 'lucide-react
 import { useData } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { claimMemberships } from '../lib/auth'
-import { claimBusinessMemberships } from '../lib/business/data'
+import { claimBusinessMemberships, getMyBusinessOnboarding } from '../lib/business/data'
 import { roleLabel, roleHomeRoute } from '../lib/permissions'
 import { DEFAULT_SOCIETY_ID } from '../lib/store'
 import { Button } from '../components/ui'
@@ -51,9 +51,10 @@ export default function AuthCallback() {
         if (cancelled) return
         if (!user?.email) { setState('error'); return }
 
-        const [societyMemberships, businessMemberships] = await Promise.all([
+        const [societyMemberships, businessMemberships, businessOnboarding] = await Promise.all([
           claimMemberships(user.id, user.email),
           claimBusinessMemberships(),
+          getMyBusinessOnboarding(),
         ])
         if (cancelled) return
 
@@ -63,8 +64,11 @@ export default function AuthCallback() {
         ]
 
         if (all.length === 0) {
-          logUnmatchedLoginAttempt(user.email)
-          nav('/no-access', { replace: true })
+          if (businessOnboarding) nav('/business/onboarding', { replace: true })
+          else {
+            logUnmatchedLoginAttempt(user.email)
+            nav('/no-access', { replace: true })
+          }
         } else if (all.length === 1) {
           openChoice(all[0])
         } else {

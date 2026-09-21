@@ -7,7 +7,7 @@
  */
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Building2, Wallet, Inbox, ScrollText, ArrowLeftRight, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Building2, BriefcaseBusiness, Wallet, Inbox, ScrollText, ArrowLeftRight, LogOut, Menu, X } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { PranganBrand } from '../../components/PranganBrand'
 import { useAppLang } from '../../lib/useAppLang'
@@ -17,6 +17,7 @@ import { FetchErrorBanner } from '../../components/FetchErrorBanner'
 const nav = [
   { to: '/owner', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true },
   { to: '/owner/societies', label: 'સોસાયટીઓ', icon: Building2 },
+  { to: '/owner/businesses', label: 'બિઝનેસ મંજૂરી', icon: BriefcaseBusiness },
   { to: '/owner/billing', label: 'પ્લેટફોર્મ બિલિંગ', icon: Wallet },
   { to: '/owner/leads', label: 'લીડ ઈનબોક્સ', icon: Inbox },
   { to: '/owner/activity', label: 'એક્ટિવિટી લોગ', icon: ScrollText },

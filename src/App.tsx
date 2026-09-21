@@ -82,6 +82,7 @@ const OSocietyDetail = lazy(() => import('./pages/owner/SocietyDetail'))
 const OBilling = lazy(() => import('./pages/owner/Billing'))
 const OLeads = lazy(() => import('./pages/owner/Leads'))
 const OActivity = lazy(() => import('./pages/owner/Activity'))
+const OBusinesses = lazy(() => import('./pages/owner/Businesses'))
 const OwnerLegacyRedirect = lazy(() => import('./pages/owner/LegacyRedirect'))
 
 const BusinessRoot = lazy(() => import('./components/business/BusinessRoot'))
@@ -215,6 +216,7 @@ export default function App() {
           <Route path="societies" element={<Lazy><OSocieties /></Lazy>} />
           <Route path="societies/new" element={<Lazy><OOnboarding /></Lazy>} />
           <Route path="societies/:id" element={<Lazy><OSocietyDetail /></Lazy>} />
+          <Route path="businesses" element={<Lazy><OBusinesses /></Lazy>} />
           <Route path="billing" element={<Lazy><OBilling /></Lazy>} />
           <Route path="leads" element={<Lazy><OLeads /></Lazy>} />
           <Route path="activity" element={<Lazy><OActivity /></Lazy>} />

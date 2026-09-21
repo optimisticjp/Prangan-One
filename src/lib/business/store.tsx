@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { supabase } from '../supabase'
 import * as api from './data'
 import type {
-  ApprovalMode, BusinessAccountKind, BusinessMembership, BusinessSnapshot, PostBusinessTransactionInput,
+  ApprovalMode, BusinessAccountKind, BusinessMembership, BusinessOnboardingRequest,
+  BusinessSnapshot, PostBusinessTransactionInput,
 } from './types'
 
 const EMPTY: BusinessSnapshot = {
@@ -16,6 +17,7 @@ interface BusinessContextValue {
   refreshing: boolean
   userId: string | null
   memberships: BusinessMembership[]
+  onboardingRequest: BusinessOnboardingRequest | null
   activeMembership: BusinessMembership | null
   data: BusinessSnapshot
   canWrite: boolean
@@ -23,7 +25,8 @@ interface BusinessContextValue {
   canApprove: boolean
   switchBusiness: (businessId: string) => void
   reload: () => Promise<void>
-  createBusiness: (input: { name: string; ownerName: string; approvalMode: ApprovalMode; openingCash: number }) => Promise<string>
+  refreshAccess: () => Promise<void>
+  requestBusiness: (input: { name: string; ownerName: string; phone?: string; city?: string; businessType?: string }) => Promise<string>
   postTransaction: (input: PostBusinessTransactionInput) => Promise<string>
   approveTransaction: (id: string, note?: string) => Promise<void>
   rejectTransaction: (id: string, note?: string) => Promise<void>
@@ -42,19 +45,39 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [memberships, setMemberships] = useState<BusinessMembership[]>([])
+  const [onboardingRequest, setOnboardingRequest] = useState<BusinessOnboardingRequest | null>(null)
   const [activeBusinessId, setActiveBusinessId] = useState<string | null>(() => localStorage.getItem(ACTIVE_KEY))
   const [data, setData] = useState<BusinessSnapshot>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const loadMemberships = useCallback(async () => {
-    if (!supabase) { setAuthenticated(false); setLoading(false); return [] as BusinessMembership[] }
+    if (!supabase) {
+      setAuthenticated(false)
+      setOnboardingRequest(null)
+      setLoading(false)
+      return [] as BusinessMembership[]
+    }
+
     const user = (await supabase.auth.getUser()).data.user
-    if (!user) { setAuthenticated(false); setUserId(null); setMemberships([]); setLoading(false); return [] as BusinessMembership[] }
+    if (!user) {
+      setAuthenticated(false)
+      setUserId(null)
+      setMemberships([])
+      setOnboardingRequest(null)
+      setLoading(false)
+      return [] as BusinessMembership[]
+    }
+
     setAuthenticated(true)
     setUserId(user.id)
-    const list = await api.claimBusinessMemberships()
+    const [list, request] = await Promise.all([
+      api.claimBusinessMemberships(),
+      api.getMyBusinessOnboarding(),
+    ])
+
     setMemberships(list)
+    setOnboardingRequest(request)
     setActiveBusinessId(current => {
       const valid = current && list.some(m => m.businessId === current)
       const next = valid ? current : list[0]?.businessId ?? null
@@ -66,22 +89,34 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const reload = useCallback(async () => {
-    if (!activeBusinessId) { setData(EMPTY); return }
+    if (!activeBusinessId) {
+      setData(EMPTY)
+      return
+    }
     setRefreshing(true)
-    try { setData(await api.fetchBusinessSnapshot(activeBusinessId)) }
-    finally { setRefreshing(false) }
+    try {
+      setData(await api.fetchBusinessSnapshot(activeBusinessId))
+    } finally {
+      setRefreshing(false)
+    }
   }, [activeBusinessId])
 
   useEffect(() => {
     let live = true
     ;(async () => {
-      try { await loadMemberships() }
-      finally { if (live) setLoading(false) }
+      try {
+        await loadMemberships()
+      } finally {
+        if (live) setLoading(false)
+      }
     })()
     return () => { live = false }
   }, [loadMemberships])
 
-  useEffect(() => { if (activeBusinessId) void reload(); else setData(EMPTY) }, [activeBusinessId, reload])
+  useEffect(() => {
+    if (activeBusinessId) void reload()
+    else setData(EMPTY)
+  }, [activeBusinessId, reload])
 
   const activeMembership = memberships.find(m => m.businessId === activeBusinessId) ?? null
   const role = activeMembership?.role
@@ -95,26 +130,24 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setActiveBusinessId(businessId)
   }
 
-  const createBusiness = async (input: { name: string; ownerName: string; approvalMode: ApprovalMode; openingCash: number }) => {
-    const id = await api.createBusiness(input)
-    localStorage.setItem(ACTIVE_KEY, id)
-    setActiveBusinessId(id)
+  const requestBusiness = async (input: { name: string; ownerName: string; phone?: string; city?: string; businessType?: string }) => {
+    const id = await api.requestBusinessOnboarding(input)
     await loadMemberships()
     return id
   }
 
-  const withReload = async (fn: () => Promise<unknown>) => { await fn(); await reload() }
+  const withReload = async (fn: () => Promise<unknown>) => {
+    await fn()
+    await reload()
+  }
+
   const postTransaction = async (input: PostBusinessTransactionInput) => {
     if (!activeBusinessId) throw new Error('Choose a business first')
     const id = await api.postBusinessTransaction(activeBusinessId, input)
-    // The financial post is the source of truth. A proof upload happens
-    // afterward and must never make the UI report "transaction failed" after
-    // money was already recorded, which could invite a duplicate retry.
     if (input.proof) {
-      try { await api.uploadBusinessProof(activeBusinessId, id, input.proof) }
-      catch (error) {
-        // Keep the transaction successful and visible. The missing attachment
-        // is obvious in Ledger and can be reattached in a later attachment UI.
+      try {
+        await api.uploadBusinessProof(activeBusinessId, id, input.proof)
+      } catch (error) {
         console.warn('[Prangan One] Business transaction saved but proof upload failed', error)
       }
     }
@@ -123,8 +156,22 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<BusinessContextValue>(() => ({
-    authenticated, loading, refreshing, userId, memberships, activeMembership, data, canWrite, canAdmin, canApprove,
-    switchBusiness, reload, createBusiness, postTransaction,
+    authenticated,
+    loading,
+    refreshing,
+    userId,
+    memberships,
+    onboardingRequest,
+    activeMembership,
+    data,
+    canWrite,
+    canAdmin,
+    canApprove,
+    switchBusiness,
+    reload,
+    refreshAccess: async () => { await loadMemberships() },
+    requestBusiness,
+    postTransaction,
     approveTransaction: async (id, note = '') => withReload(() => api.approveBusinessTransaction(id, note)),
     rejectTransaction: async (id, note = '') => withReload(() => api.rejectBusinessTransaction(id, note)),
     reverseTransaction: async (id, reason) => withReload(() => api.reverseBusinessTransaction(id, reason)),
@@ -144,7 +191,10 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     closeDay: async (accountId, counted, note = '') => withReload(() => api.closeBusinessDay(accountId, counted, note)),
     reopenDay: async (closingId, reason) => withReload(() => api.reopenBusinessDay(closingId, reason)),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [authenticated, loading, refreshing, userId, memberships, activeMembership, data, canWrite, canAdmin, canApprove, activeBusinessId, reload, loadMemberships])
+  }), [
+    authenticated, loading, refreshing, userId, memberships, onboardingRequest,
+    activeMembership, data, canWrite, canAdmin, canApprove, activeBusinessId, reload, loadMemberships,
+  ])
 
   return <BusinessContext.Provider value={value}>{children}</BusinessContext.Provider>
 }

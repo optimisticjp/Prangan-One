@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Building2, Users, IndianRupee, AlertTriangle, Plus, ArrowRight } from 'lucide-react'
+import { Building2, BriefcaseBusiness, Users, IndianRupee, AlertTriangle, Plus, ArrowRight } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { effectiveStatus } from '../../lib/subscription'
 import { inr } from '../../lib/format'
@@ -55,7 +55,7 @@ export default function OwnerDashboard() {
         <StatCard label="બાકી પ્લેટફોર્મ ચુકવણી" value={String(pendingPlatformPayments)} tone={pendingPlatformPayments ? 'red' : 'green'} icon={<AlertTriangle size={19} />} />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4 mt-4">
+      <div className="grid lg:grid-cols-3 gap-4 mt-4">
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-navy-800">તાજી એક્ટિવિટી</h2>
@@ -70,6 +70,14 @@ export default function OwnerDashboard() {
               </div>
             ))}
           </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-navy-800 inline-flex items-center gap-2"><BriefcaseBusiness size={17} /> બિઝનેસ ઓનબોર્ડિંગ</h2>
+            <Link to="/owner/businesses" className="text-[13px] font-semibold text-saffron-600 inline-flex items-center gap-1">વિનંતીઓ જુઓ <ArrowRight size={14} /></Link>
+          </div>
+          <p className="text-[13.5px] text-navy-500">Business Money workspace કોઈ requester માટે આપની મંજૂરી પહેલાં સક્રિય નહીં થાય.</p>
         </Card>
 
         <Card>

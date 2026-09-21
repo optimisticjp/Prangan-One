@@ -915,3 +915,101 @@ select test_become('10000000-0000-0000-0000-0000000000b1');
 select test_assert((select count(*) from business_transactions) = 0, 'Business B admin sees none of Business A transactions');
 select test_assert((select count(*) from business_partners where business_id = '11000000-0000-0000-0000-000000000001') = 0, 'Business B admin sees none of Business A partners');
 
+
+
+-- ============================================================================
+-- Business onboarding approval gate.
+-- A requester can submit an onboarding request but cannot create a usable
+-- business. Only the platform owner can turn the request into a workspace.
+-- ============================================================================
+reset role;
+
+insert into auth.users (id, email) values
+  ('13000000-0000-0000-0000-000000000001', 'business-requester@test.local');
+
+set role authenticated;
+select test_become('13000000-0000-0000-0000-000000000001');
+
+do $$
+declare request_id uuid;
+begin
+  request_id := request_business_onboarding(
+    'Approval Gate Test',
+    'Requester',
+    '9000000001',
+    'Surat',
+    'Trading'
+  );
+  perform set_config('test.business_onboarding_request', request_id::text, false);
+  raise notice 'SETUP: requester submitted business onboarding request %', request_id;
+end $$;
+
+select test_assert(
+  (select status from get_my_business_onboarding()) = 'pending',
+  'business requester sees their onboarding request as pending'
+);
+select test_assert(
+  (select business_id from get_my_business_onboarding()) is null,
+  'pending onboarding request has no active business workspace yet'
+);
+
+do $$
+begin
+  begin
+    perform create_business('Bypass Attempt', 'Requester', 'none', 5000);
+    raise exception 'FAIL: old instant-create RPC still created a business without owner approval';
+  exception
+    when others then
+      if sqlerrm <> 'owner_approval_required' then raise; end if;
+      raise notice 'PASS: old create_business endpoint is blocked by the owner-approval gate';
+  end;
+end $$;
+
+do $$
+begin
+  begin
+    perform approve_business_onboarding(current_setting('test.business_onboarding_request')::uuid);
+    raise exception 'FAIL: requester approved their own business onboarding';
+  exception
+    when others then
+      if sqlerrm <> 'owner_only' then raise; end if;
+      raise notice 'PASS: a normal requester cannot approve business onboarding';
+  end;
+end $$;
+
+select test_become('00000000-0000-0000-0000-00000000000f'); -- platform owner
+select test_assert(
+  (select count(*) from business_onboarding_requests where id = current_setting('test.business_onboarding_request')::uuid) = 1,
+  'platform owner can see the pending business onboarding request'
+);
+
+do $$
+declare approved_business uuid;
+begin
+  approved_business := approve_business_onboarding(current_setting('test.business_onboarding_request')::uuid);
+  perform set_config('test.approved_business_id', approved_business::text, false);
+  raise notice 'PASS: platform owner approved onboarding and created business %', approved_business;
+end $$;
+
+select test_assert(
+  (select status from business_onboarding_requests where id = current_setting('test.business_onboarding_request')::uuid) = 'approved',
+  'owner approval changes the onboarding request to approved'
+);
+select test_assert(
+  (select business_id from business_onboarding_requests where id = current_setting('test.business_onboarding_request')::uuid) is not null,
+  'approved request is linked to the newly created business'
+);
+
+select test_become('13000000-0000-0000-0000-000000000001');
+select test_assert(
+  (select count(*) from claim_business_memberships()) = 1,
+  'after owner approval the requester receives exactly one active business membership'
+);
+select test_assert(
+  (select count(*) from businesses where id = current_setting('test.approved_business_id')::uuid) = 1,
+  'after approval the requester can access the created business workspace'
+);
+select test_assert(
+  (select count(*) from business_accounts where business_id = current_setting('test.approved_business_id')::uuid) = 2,
+  'owner approval creates the default Cash and UPI accounts'
+);

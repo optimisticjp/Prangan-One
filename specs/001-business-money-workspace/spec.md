@@ -15,7 +15,7 @@ The product is for small, partner-led and unorganised businesses that need trust
 
 ## Core journeys
 
-1. An authenticated user with no business creates a workspace, becomes its first admin partner and starts with a Cash account.
+1. An authenticated user with no business submits a business onboarding request. No Business workspace or membership exists yet. The Prangan One platform owner reviews the request in `/owner/businesses`; approval creates the business, first admin partner, active membership, and default Cash/UPI accounts.
 2. A business records money received, business expenses, partner capital, partner advances, partner-paid personal expenses, reimbursements, partner withdrawals, refunds and account transfers.
 3. A partner can see exactly how much capital they contributed, how much they advanced temporarily, what they personally paid, what the business still owes them and what they withdrew.
 4. An expense that requires approval changes real account balances when money actually moved, while its accountability status remains pending until the configured partner approvals are completed.
@@ -63,6 +63,14 @@ The Business workspace is mobile-first and deliberately denser than the housing 
 - Test at 320, 360, 390, 412, 768 and 1024+ widths.
 - No accidental horizontal page scrolling.
 
+## Platform onboarding gate
+
+- Public/authenticated users can request a Business workspace but cannot activate one themselves.
+- Pending requests contain only business/contact onboarding details; financial setup begins after approval.
+- The legacy instant-create RPC is disabled at the database level so an old client cannot bypass approval.
+- Only a real platform owner membership can approve or reject a request.
+- Rejection can include a reason; the requester can submit a new request afterward.
+
 ## Security and integrity
 
 - Every business-domain row is scoped by business_id where applicable.
@@ -74,7 +82,7 @@ The Business workspace is mobile-first and deliberately denser than the housing 
 
 ## First release includes
 
-- Business onboarding
+- Owner-approved Business onboarding (request → platform owner approval/rejection → workspace activation)
 - Multiple business memberships and switching
 - Cash/bank/UPI/wallet/other accounts
 - Partner records and login-linked partner membership

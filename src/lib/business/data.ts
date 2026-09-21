@@ -1,8 +1,8 @@
 import { supabase } from '../supabase'
 import type {
   AccountBalance, ApprovalMode, Business, BusinessAccount, BusinessAccountKind, BusinessApproval,
-  BusinessAttachment, BusinessCategory, BusinessDayClosing, BusinessMembership, BusinessPartner,
-  BusinessSnapshot, BusinessTransaction, PartnerPosition, PostBusinessTransactionInput,
+  BusinessAttachment, BusinessCategory, BusinessDayClosing, BusinessMembership, BusinessOnboardingRequest,
+  BusinessPartner, BusinessSnapshot, BusinessTransaction, PartnerPosition, PostBusinessTransactionInput,
 } from './types'
 
 const requireSupabase = () => {
@@ -25,13 +25,58 @@ export async function claimBusinessMemberships(): Promise<BusinessMembership[]> 
   }))
 }
 
-export async function createBusiness(input: { name: string; ownerName: string; approvalMode: ApprovalMode; openingCash: number }) {
+type OnboardingRow = {
+  request_id: string
+  business_name: string
+  requester_name: string
+  requester_email: string
+  requester_phone: string | null
+  city: string | null
+  business_type: string | null
+  status: BusinessOnboardingRequest['status']
+  decision_note: string | null
+  business_id: string | null
+  created_at: string
+  decided_at: string | null
+}
+
+const mapOnboarding = (row: OnboardingRow): BusinessOnboardingRequest => ({
+  id: row.request_id,
+  businessName: row.business_name,
+  requesterName: row.requester_name,
+  requesterEmail: row.requester_email,
+  requesterPhone: row.requester_phone,
+  city: row.city,
+  businessType: row.business_type,
+  status: row.status,
+  decisionNote: row.decision_note,
+  businessId: row.business_id,
+  createdAt: row.created_at,
+  decidedAt: row.decided_at,
+})
+
+export async function getMyBusinessOnboarding(): Promise<BusinessOnboardingRequest | null> {
   const client = requireSupabase()
-  const { data, error } = await client.rpc('create_business', {
+  const { data, error } = await client.rpc('get_my_business_onboarding')
+  if (error) throw error
+  const row = ((data ?? []) as unknown as OnboardingRow[])[0]
+  return row ? mapOnboarding(row) : null
+}
+
+export async function requestBusinessOnboarding(input: {
+  name: string
+  ownerName: string
+  phone?: string
+  city?: string
+  businessType?: string
+}): Promise<string> {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('request_business_onboarding', {
     target_name: input.name.trim(),
-    owner_name: input.ownerName.trim(),
-    target_approval_mode: input.approvalMode,
-    opening_cash: input.openingCash,
+    requester_name: input.ownerName.trim(),
+    requester_phone: input.phone?.trim() || null,
+    requester_city: input.city?.trim() || null,
+    target_business_type: input.businessType?.trim() || null,
   })
   if (error) throw error
   return data as string
@@ -92,7 +137,7 @@ export async function uploadBusinessProof(businessId: string, transactionId: str
   if (!allowed.includes(file.type)) throw new Error('Use JPG, PNG, WebP or PDF proof files.')
   if (file.size > 8 * 1024 * 1024) throw new Error('Proof file must be 8 MB or smaller.')
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100) || 'proof'
-  const path = `${businessId}/${transactionId}/${crypto.randomUUID()}-${safeName}`
+  const path = \`\${businessId}/\${transactionId}/\${crypto.randomUUID()}-\${safeName}\`
   const { error: uploadError } = await client.storage.from('business-proofs').upload(path, file, { upsert: false, contentType: file.type })
   if (uploadError) throw uploadError
   const user = (await client.auth.getUser()).data.user

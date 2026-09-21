@@ -6,6 +6,7 @@ export type BusinessTransactionKind =
   | 'personal_expense' | 'reimbursement' | 'withdrawal' | 'transfer'
   | 'refund' | 'reversal'
 export type BusinessApprovalStatus = 'not_required' | 'pending' | 'approved' | 'rejected'
+export type BusinessOnboardingStatus = 'pending' | 'approved' | 'rejected'
 
 export interface BusinessMembership {
   membershipId: string
@@ -13,6 +14,21 @@ export interface BusinessMembership {
   businessName: string
   role: BusinessRole
   partnerId: string | null
+}
+
+export interface BusinessOnboardingRequest {
+  id: string
+  businessName: string
+  requesterName: string
+  requesterEmail: string
+  requesterPhone: string | null
+  city: string | null
+  businessType: string | null
+  status: BusinessOnboardingStatus
+  decisionNote: string | null
+  businessId: string | null
+  createdAt: string
+  decidedAt: string | null
 }
 
 export interface Business {
