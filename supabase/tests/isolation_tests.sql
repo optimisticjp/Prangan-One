@@ -1107,8 +1107,62 @@ select test_assert(
   'transaction delete keeps a linked reversal record'
 );
 
+-- Amount edit is user-visible editing, implemented as reverse + replacement.
+do $
+declare
+  source_tx uuid;
+  replacement_tx uuid;
+  before_balance numeric;
+  after_balance numeric;
+begin
+  select balance into before_balance
+  from get_business_account_balances('11000000-0000-0000-0000-000000000001')
+  where account_id='11200000-0000-0000-0000-000000000001';
+
+  source_tx := post_business_transaction(
+    '11000000-0000-0000-0000-000000000001',
+    'income',
+    100,
+    '11200000-0000-0000-0000-000000000001',
+    null,
+    null,
+    null,
+    'Amount edit test',
+    'Original ₹100',
+    now()
+  );
+
+  replacement_tx := edit_business_transaction_amount(source_tx, 250);
+
+  select balance into after_balance
+  from get_business_account_balances('11000000-0000-0000-0000-000000000001')
+  where account_id='11200000-0000-0000-0000-000000000001';
+
+  perform set_config('test.amount_edit_source',source_tx::text,false);
+  perform set_config('test.amount_edit_replacement',replacement_tx::text,false);
+  perform set_config('test.amount_edit_before',before_balance::text,false);
+  perform set_config('test.amount_edit_after',after_balance::text,false);
+end $;
+
+select test_assert(
+  (select reversed_at is not null from business_transactions where id=current_setting('test.amount_edit_source')::uuid),
+  'amount edit reverses the original transaction'
+);
+select test_assert(
+  (select amount from business_transactions where id=current_setting('test.amount_edit_replacement')::uuid) = 250,
+  'amount edit creates replacement with requested amount'
+);
+select test_assert(
+  (select supersedes_transaction_id from business_transactions where id=current_setting('test.amount_edit_replacement')::uuid) = current_setting('test.amount_edit_source')::uuid,
+  'amount edit replacement links back to original'
+);
+select test_assert(
+  current_setting('test.amount_edit_after')::numeric - current_setting('test.amount_edit_before')::numeric = 250,
+  'amount edit changes the account by the corrected amount only'
+);
+
 select test_become('10000000-0000-0000-0000-0000000000a2');
-select test_assert((select count(*) from business_transactions) = 6, 'viewer can read business transactions including the audit-safe deleted transaction and its reversal');
+select test_assert((select count(*) from business_transactions) = 9, 'viewer can read business transactions including audit-safe delete and amount correction history');
 select test_assert(test_try_write($w$insert into business_accounts (business_id, name, kind) values ('11000000-0000-0000-0000-000000000001', 'Viewer cash', 'cash')$w$) = -1, 'viewer cannot create a business money account');
 
 select test_become('10000000-0000-0000-0000-0000000000b1');

@@ -40,3 +40,19 @@
 - [x] Add transaction descriptive edit and audit-safe delete/reversal.
 - [x] Require EDIT confirmation for Business settings and DELETE for Business archive.
 - [x] Preserve inactive partner/account/category references for historical ledger display.
+
+- [x] Redesign Business Home around total funds, today movement, quick actions and Action Inbox.
+- [x] Make transaction entry amount-first with four primary daily actions and advanced actions behind More.
+- [x] Add smart per-business entry defaults on device.
+- [x] Add favourite transaction templates and repeat-last/repeat-any transaction.
+- [x] Add post-save camera/proof capture and proof viewing from ledger.
+- [x] Add offline transaction draft queue with auto-sync on reconnect.
+- [x] Add browser voice-assisted transaction entry.
+- [x] Add English / Gujarati / Hindi preference for core Business surfaces.
+- [x] Add partner settlement action with partial/full reimbursement.
+- [x] Add denomination-based INR cash day close and variance reasons.
+- [x] Add monthly CA Pack CSV plus print/save-PDF reporting.
+- [x] Add generic bank statement CSV importer with preview.
+- [x] Add transaction amount editing as automatic reversal + linked replacement.
+- [x] Add activity-log feed and smart operational alerts.
+- [x] Add unit tests for bank statement parsing and isolation tests for amount-correction accounting.

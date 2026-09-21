@@ -7,7 +7,7 @@ const tx = (kind: BusinessTransaction['kind'], amount: number, extra: Partial<Bu
   partner_id: null, category_id: null, counterparty: null, note: null, approval_status: 'not_required',
   payment_status: 'paid', due_date: null, paid_at: '2026-09-21T10:00:00.000Z',
   occurred_at: '2026-09-21T10:00:00.000Z', created_by: 'u', created_at: '2026-09-21T10:00:00.000Z',
-  reversed_transaction_id: null, reversed_at: null, reversed_by: null, ...extra,
+  reversed_transaction_id: null, supersedes_transaction_id: null, reversed_at: null, reversed_by: null, ...extra,
 })
 
 describe('business finance helpers', () => {

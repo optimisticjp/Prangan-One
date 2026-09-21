@@ -1,38 +1,52 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet } from 'react-router-dom'
-import { CheckSquare2, Home, LayoutGrid, List, Plus, Users } from 'lucide-react'
+import { CheckSquare2, Home, LayoutGrid, List, Plus, Users, WifiOff } from 'lucide-react'
 import { PranganBrand } from '../PranganBrand'
 import { PageSkeleton } from '../Skeleton'
 import { useBusiness } from '../../lib/business/store'
+import { useBusinessLanguage } from '../../lib/business/i18n'
+import type { SerializableTransactionInput } from '../../lib/business/preferences'
 import type { BusinessTransactionKind } from '../../lib/business/types'
 import { QuickTransactionSheet } from './QuickTransactionSheet'
 
 type BusinessComposerKind = Exclude<BusinessTransactionKind, 'reversal' | 'personal_expense'>
 
 export interface BusinessOutletContext {
-  openTransaction: (kind?: BusinessComposerKind) => void
+  openTransaction: (kind?: BusinessComposerKind, preset?: SerializableTransactionInput | null) => void
 }
 
-const tabs = [
-  { to: '/business', label: 'Home', icon: Home, end: true },
-  { to: '/business/ledger', label: 'Ledger', icon: List },
-  { to: '/business/approvals', label: 'Approvals', icon: CheckSquare2 },
-  { to: '/business/partners', label: 'Partners', icon: Users },
-]
-
 export default function BusinessLayout() {
-  const { authenticated, loading, memberships, activeMembership, switchBusiness, data, refreshing } = useBusiness()
+  const { authenticated, loading, memberships, activeMembership, switchBusiness, data, refreshing, offlineQueueCount, syncOfflineQueue } = useBusiness()
+  const { t } = useBusinessLanguage()
   const [composer, setComposer] = useState<BusinessComposerKind | null>(null)
+  const [preset, setPreset] = useState<SerializableTransactionInput | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
+
+  useEffect(() => {
+    if (navigator.onLine && offlineQueueCount > 0) void syncOfflineQueue()
+  }, [offlineQueueCount, syncOfflineQueue])
 
   if (loading) return <div className="min-h-screen bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business workspace..." /></div>
   if (!authenticated) return <Navigate to="/login" replace />
   if (!activeMembership) return <Navigate to="/business/onboarding" replace />
   if (!data.business) return <div className="min-h-screen bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business data..." /></div>
 
-  const openTransaction = (kind: BusinessComposerKind = 'expense') => {
-    setComposer(kind)
+  const tabs = [
+    { to: '/business', label: t('home'), icon: Home, end: true },
+    { to: '/business/ledger', label: t('ledger'), icon: List },
+    { to: '/business/approvals', label: t('approvals'), icon: CheckSquare2 },
+    { to: '/business/partners', label: t('partners'), icon: Users },
+  ]
+
+  const openTransaction = (kind: BusinessComposerKind = 'expense', nextPreset: SerializableTransactionInput | null = null) => {
+    setComposer(nextPreset?.kind as BusinessComposerKind || kind)
+    setPreset(nextPreset)
     setComposerOpen(true)
+  }
+
+  const closeComposer = () => {
+    setComposerOpen(false)
+    setPreset(null)
   }
 
   return (
@@ -47,9 +61,13 @@ export default function BusinessLayout() {
                 {memberships.map(m => <option key={m.membershipId} value={m.businessId}>{m.businessName}</option>)}
               </select>
             ) : <div className="font-bold text-[15px] text-navy-900 truncate">{data.business.name}</div>}
-            <div className="text-[10.5px] text-navy-400 font-semibold uppercase tracking-wide">Business money workspace · {activeMembership.role}</div>
+            <div className="text-[10.5px] text-navy-400 font-semibold uppercase tracking-wide">Business money · {activeMembership.role}</div>
           </div>
-          {refreshing && <span className="text-[10px] text-navy-300">Syncing…</span>}
+          {offlineQueueCount > 0 ? (
+            <button onClick={() => void syncOfflineQueue()} className="min-h-[34px] rounded-xl bg-amber-50 border border-amber-200 px-2 flex items-center gap-1 text-[10px] font-semibold text-pend" title="Offline entries waiting to sync">
+              <WifiOff size={13} /> {offlineQueueCount}
+            </button>
+          ) : refreshing ? <span className="text-[10px] text-navy-300">Syncing…</span> : null}
           <Link to="/business/more" aria-label="More business tools" className="h-9 w-9 rounded-xl border border-cream-300 bg-white flex items-center justify-center text-navy-700 active:scale-95">
             <LayoutGrid size={17} />
           </Link>
@@ -70,7 +88,7 @@ export default function BusinessLayout() {
         </div>
       </nav>
 
-      <QuickTransactionSheet open={composerOpen} initialKind={composer ?? 'expense'} onClose={() => setComposerOpen(false)} />
+      <QuickTransactionSheet open={composerOpen} initialKind={composer ?? 'expense'} initialPreset={preset} onClose={closeComposer} />
     </div>
   )
 }

@@ -2,13 +2,29 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 import { supabase } from '../supabase'
 import * as api from './data'
+import {
+  getOfflineBusinessQueue,
+  queueOfflineBusinessTransaction,
+  removeOfflineBusinessTransaction,
+} from './preferences'
 import type {
   ApprovalMode, BusinessAccountKind, BusinessMembership, BusinessOnboardingRequest,
   BusinessSnapshot, MarkBusinessExpensePaidInput, PostBusinessTransactionInput,
 } from './types'
 
 const EMPTY: BusinessSnapshot = {
-  business: null, partners: [], accounts: [], categories: [], transactions: [], approvals: [], attachments: [], closings: [], accountBalances: [], partnerPositions: [],
+  business: null,
+  partners: [],
+  members: [],
+  accounts: [],
+  categories: [],
+  transactions: [],
+  approvals: [],
+  attachments: [],
+  closings: [],
+  activity: [],
+  accountBalances: [],
+  partnerPositions: [],
 }
 
 interface BusinessContextValue {
@@ -23,15 +39,20 @@ interface BusinessContextValue {
   canWrite: boolean
   canAdmin: boolean
   canApprove: boolean
+  offlineQueueCount: number
   switchBusiness: (businessId: string) => void
   reload: () => Promise<void>
   refreshAccess: () => Promise<void>
+  syncOfflineQueue: () => Promise<number>
   requestBusiness: (input: { name: string; ownerName: string; phone?: string; city?: string; businessType?: string }) => Promise<string>
   postTransaction: (input: PostBusinessTransactionInput) => Promise<string>
+  importTransactions: (inputs: PostBusinessTransactionInput[]) => Promise<number>
+  attachProof: (transactionId: string, file: File) => Promise<void>
   markExpensePaid: (id: string, input: MarkBusinessExpensePaidInput) => Promise<void>
   approveTransaction: (id: string, note?: string) => Promise<void>
   rejectTransaction: (id: string, note?: string) => Promise<void>
   reverseTransaction: (id: string, reason: string) => Promise<void>
+  editTransactionAmount: (id: string, amount: number) => Promise<string>
   addPartner: (input: { name: string; email?: string; phone?: string; ownership?: number | null }) => Promise<void>
   editPartner: (id: string, input: { name: string; email?: string; phone?: string; ownership?: number | null }) => Promise<void>
   deletePartner: (id: string) => Promise<void>
@@ -60,6 +81,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<BusinessSnapshot>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [offlineQueueCount, setOfflineQueueCount] = useState(0)
 
   const loadMemberships = useCallback(async () => {
     if (!supabase) {
@@ -111,6 +133,24 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     }
   }, [activeBusinessId])
 
+  const syncOfflineQueue = useCallback(async () => {
+    if (!activeBusinessId || !navigator.onLine) return 0
+    const queue = getOfflineBusinessQueue(activeBusinessId)
+    let synced = 0
+    for (const item of queue) {
+      try {
+        await api.postBusinessTransaction(activeBusinessId, item.input)
+        removeOfflineBusinessTransaction(activeBusinessId, item.id)
+        synced += 1
+      } catch {
+        break
+      }
+    }
+    setOfflineQueueCount(getOfflineBusinessQueue(activeBusinessId).length)
+    if (synced > 0) await reload()
+    return synced
+  }, [activeBusinessId, reload])
+
   useEffect(() => {
     let live = true
     ;(async () => {
@@ -124,9 +164,29 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   }, [loadMemberships])
 
   useEffect(() => {
-    if (activeBusinessId) void reload()
-    else setData(EMPTY)
+    if (activeBusinessId) {
+      setOfflineQueueCount(getOfflineBusinessQueue(activeBusinessId).length)
+      void reload()
+    } else {
+      setData(EMPTY)
+      setOfflineQueueCount(0)
+    }
   }, [activeBusinessId, reload])
+
+  useEffect(() => {
+    const refreshQueue = () => {
+      if (activeBusinessId) setOfflineQueueCount(getOfflineBusinessQueue(activeBusinessId).length)
+    }
+    const online = () => { void syncOfflineQueue() }
+    window.addEventListener('prangan-business-queue', refreshQueue)
+    window.addEventListener('storage', refreshQueue)
+    window.addEventListener('online', online)
+    return () => {
+      window.removeEventListener('prangan-business-queue', refreshQueue)
+      window.removeEventListener('storage', refreshQueue)
+      window.removeEventListener('online', online)
+    }
+  }, [activeBusinessId, syncOfflineQueue])
 
   const activeMembership = memberships.find(m => m.businessId === activeBusinessId) ?? null
   const role = activeMembership?.role
@@ -153,6 +213,14 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
   const postTransaction = async (input: PostBusinessTransactionInput) => {
     if (!activeBusinessId) throw new Error('Choose a business first')
+
+    if (!navigator.onLine) {
+      const { proof: _proof, ...serializable } = input
+      const queueId = queueOfflineBusinessTransaction(activeBusinessId, serializable)
+      setOfflineQueueCount(getOfflineBusinessQueue(activeBusinessId).length)
+      return 'offline:' + queueId
+    }
+
     const id = await api.postBusinessTransaction(activeBusinessId, input)
     if (input.proof) {
       try {
@@ -163,6 +231,28 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     }
     await reload()
     return id
+  }
+
+  const importTransactions = async (inputs: PostBusinessTransactionInput[]) => {
+    if (!activeBusinessId) throw new Error('Choose a business first')
+    let imported = 0
+
+    if (!navigator.onLine) {
+      for (const input of inputs) {
+        const { proof: _proof, ...serializable } = input
+        queueOfflineBusinessTransaction(activeBusinessId, serializable)
+        imported += 1
+      }
+      setOfflineQueueCount(getOfflineBusinessQueue(activeBusinessId).length)
+      return imported
+    }
+
+    for (const input of inputs) {
+      await api.postBusinessTransaction(activeBusinessId, input)
+      imported += 1
+    }
+    await reload()
+    return imported
   }
 
   const value = useMemo<BusinessContextValue>(() => ({
@@ -177,15 +267,28 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     canWrite,
     canAdmin,
     canApprove,
+    offlineQueueCount,
     switchBusiness,
     reload,
     refreshAccess: async () => { await loadMemberships() },
+    syncOfflineQueue,
     requestBusiness,
     postTransaction,
+    importTransactions,
+    attachProof: async (transactionId, file) => {
+      if (!activeBusinessId) throw new Error('Choose a business first')
+      await api.uploadBusinessProof(activeBusinessId, transactionId, file)
+      await reload()
+    },
     markExpensePaid: async (id, input) => withReload(() => api.markBusinessExpensePaid(id, input)),
     approveTransaction: async (id, note = '') => withReload(() => api.approveBusinessTransaction(id, note)),
     rejectTransaction: async (id, note = '') => withReload(() => api.rejectBusinessTransaction(id, note)),
     reverseTransaction: async (id, reason) => withReload(() => api.reverseBusinessTransaction(id, reason)),
+    editTransactionAmount: async (id, amount) => {
+      const replacement = await api.editBusinessTransactionAmount(id, amount)
+      await reload()
+      return replacement
+    },
     addPartner: async input => {
       if (!activeBusinessId) throw new Error('Choose a business first')
       await withReload(() => api.addBusinessPartner(activeBusinessId, input))
@@ -224,7 +327,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     authenticated, loading, refreshing, userId, memberships, onboardingRequest,
-    activeMembership, data, canWrite, canAdmin, canApprove, activeBusinessId, reload, loadMemberships,
+    activeMembership, data, canWrite, canAdmin, canApprove, offlineQueueCount,
+    activeBusinessId, reload, loadMemberships, syncOfflineQueue,
   ])
 
   return <BusinessContext.Provider value={value}>{children}</BusinessContext.Provider>

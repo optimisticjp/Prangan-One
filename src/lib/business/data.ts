@@ -1,7 +1,7 @@
 import { supabase } from '../supabase'
 import type {
-  AccountBalance, ApprovalMode, Business, BusinessAccount, BusinessAccountKind, BusinessApproval,
-  BusinessAttachment, BusinessCategory, BusinessDayClosing, BusinessMembership, BusinessOnboardingRequest,
+  AccountBalance, ApprovalMode, Business, BusinessAccount, BusinessAccountKind, BusinessActivityLog, BusinessApproval,
+  BusinessAttachment, BusinessCategory, BusinessDayClosing, BusinessMemberSummary, BusinessMembership, BusinessOnboardingRequest,
   BusinessPartner, BusinessSnapshot, BusinessTransaction, MarkBusinessExpensePaidInput,
   PartnerPosition, PostBusinessTransactionInput,
 } from './types'
@@ -85,30 +85,34 @@ export async function requestBusinessOnboarding(input: {
 
 export async function fetchBusinessSnapshot(businessId: string): Promise<BusinessSnapshot> {
   const client = requireSupabase()
-  const [businessRes, partnersRes, accountsRes, categoriesRes, transactionsRes, approvalsRes, attachmentsRes, closingsRes, balancesRes, positionsRes] = await Promise.all([
-    client.from('businesses').select('id,name,currency,approval_mode,created_by,created_at').eq('id', businessId).maybeSingle(),
+  const [businessRes, partnersRes, membersRes, accountsRes, categoriesRes, transactionsRes, approvalsRes, attachmentsRes, closingsRes, activityRes, balancesRes, positionsRes] = await Promise.all([
+    client.from('businesses').select('id,name,currency,approval_mode,created_by,created_at,archived_at').eq('id', businessId).maybeSingle(),
     client.from('business_partners').select('*').eq('business_id', businessId).order('created_at'),
+    client.from('business_memberships').select('id,user_id,partner_id,email,display_name,role,status').eq('business_id', businessId).order('created_at'),
     client.from('business_accounts').select('*').eq('business_id', businessId).order('created_at'),
     client.from('business_categories').select('*').eq('business_id', businessId).order('name'),
     client.from('business_transactions').select('*').eq('business_id', businessId).order('occurred_at', { ascending: false }).limit(500),
     client.from('business_transaction_approvals').select('*').eq('business_id', businessId).order('decided_at', { ascending: false }).limit(500),
     client.from('business_attachments').select('*').eq('business_id', businessId).order('created_at', { ascending: false }).limit(500),
     client.from('business_day_closings').select('*').eq('business_id', businessId).order('close_date', { ascending: false }).limit(90),
+    client.from('business_activity_logs').select('*').eq('business_id', businessId).order('created_at', { ascending: false }).limit(80),
     client.rpc('get_business_account_balances', { target_business: businessId }),
     client.rpc('get_business_partner_positions', { target_business: businessId }),
   ])
-  const errors = [businessRes.error, partnersRes.error, accountsRes.error, categoriesRes.error, transactionsRes.error, approvalsRes.error, attachmentsRes.error, closingsRes.error, balancesRes.error, positionsRes.error].filter(Boolean)
+  const errors = [businessRes.error, partnersRes.error, membersRes.error, accountsRes.error, categoriesRes.error, transactionsRes.error, approvalsRes.error, attachmentsRes.error, closingsRes.error, activityRes.error, balancesRes.error, positionsRes.error].filter(Boolean)
   if (errors.length) throw new Error(message(errors[0]))
 
   return {
     business: businessRes.data as unknown as Business | null,
     partners: (partnersRes.data ?? []) as unknown as BusinessPartner[],
+    members: (membersRes.data ?? []) as unknown as BusinessMemberSummary[],
     accounts: (accountsRes.data ?? []) as unknown as BusinessAccount[],
     categories: (categoriesRes.data ?? []) as unknown as BusinessCategory[],
     transactions: (transactionsRes.data ?? []) as unknown as BusinessTransaction[],
     approvals: (approvalsRes.data ?? []) as unknown as BusinessApproval[],
     attachments: (attachmentsRes.data ?? []) as unknown as BusinessAttachment[],
     closings: (closingsRes.data ?? []) as unknown as BusinessDayClosing[],
+    activity: (activityRes.data ?? []) as unknown as BusinessActivityLog[],
     accountBalances: (balancesRes.data ?? []) as unknown as AccountBalance[],
     partnerPositions: (positionsRes.data ?? []) as unknown as PartnerPosition[],
   }
@@ -305,6 +309,16 @@ export async function editBusinessTransactionDetails(transactionId: string, inpu
     target_due_date: input.dueDate || null,
   })
   if (error) throw error
+}
+
+export async function editBusinessTransactionAmount(transactionId: string, amount: number): Promise<string> {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('edit_business_transaction_amount', {
+    target_transaction: transactionId,
+    target_amount: amount,
+  })
+  if (error) throw error
+  return data as string
 }
 
 export async function updateBusinessSettings(businessId: string, input: { name: string; approvalMode: ApprovalMode }) {

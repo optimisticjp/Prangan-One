@@ -1,19 +1,24 @@
 import { useMemo, useState } from 'react'
-import { Download, Paperclip, Pencil, Search, Trash2 } from 'lucide-react'
+import { Download, ExternalLink, Paperclip, Pencil, RefreshCw, Search, Trash2, Upload } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
 import { Badge, Button, Field, Input, Modal, Select, Textarea } from '../../components/ui'
 import { TypedConfirmModal } from '../../components/business/TypedConfirmModal'
 import { useToast } from '../../components/Toast'
 import { useBusiness } from '../../lib/business/store'
+import { getBusinessProofUrl } from '../../lib/business/data'
 import { businessMoney, businessTransactionLabels, expensePaidByLabel, transactionCashDirection } from '../../lib/business/finance'
 import { exportCsv } from '../../lib/csv'
+import type { SerializableTransactionInput } from '../../lib/business/preferences'
 import type { BusinessPaidBy, BusinessTransaction } from '../../lib/business/types'
 import type { BusinessOutletContext } from '../../components/business/BusinessLayout'
 
 const filters = ['all', 'income', 'expense', 'unpaid', 'partner', 'approval'] as const
 
 export default function BusinessLedger() {
-  const { data, canWrite, reverseTransaction, markExpensePaid, editTransactionDetails } = useBusiness()
+  const {
+    data, canWrite, reverseTransaction, markExpensePaid, editTransactionDetails,
+    editTransactionAmount, attachProof,
+  } = useBusiness()
   const { openTransaction } = useOutletContext<BusinessOutletContext>()
   const toast = useToast()
   const [filter, setFilter] = useState<typeof filters[number]>('all')
@@ -26,11 +31,13 @@ export default function BusinessLedger() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmEdit, setConfirmEdit] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [editAmount, setEditAmount] = useState('')
   const [editCounterparty, setEditCounterparty] = useState('')
   const [editNote, setEditNote] = useState('')
   const [editCategoryId, setEditCategoryId] = useState('')
   const [editDueDate, setEditDueDate] = useState('')
   const [saving, setSaving] = useState(false)
+  const [proofUploading, setProofUploading] = useState(false)
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -77,6 +84,7 @@ export default function BusinessLedger() {
 
   const openEdit = () => {
     if (!selected) return
+    setEditAmount(String(selected.amount))
     setEditCounterparty(selected.counterparty ?? '')
     setEditNote(selected.note ?? '')
     setEditCategoryId(selected.category_id ?? '')
@@ -85,16 +93,20 @@ export default function BusinessLedger() {
   }
 
   const saveEdit = async () => {
-    if (!selected) return
+    if (!selected || Number(editAmount) <= 0) return
     setSaving(true)
     try {
-      await editTransactionDetails(selected.id, {
+      let targetId = selected.id
+      if (Number(editAmount) !== Number(selected.amount)) {
+        targetId = await editTransactionAmount(selected.id, Number(editAmount))
+      }
+      await editTransactionDetails(targetId, {
         counterparty: editCounterparty,
         note: editNote,
         categoryId: editCategoryId || null,
         dueDate: editDueDate || null,
       })
-      toast.success('Transaction details updated')
+      toast.success(Number(editAmount) !== Number(selected.amount) ? 'Amount corrected with audit trail' : 'Transaction updated')
       setConfirmEdit(false)
       setEditOpen(false)
       setSelected(null)
@@ -138,6 +150,38 @@ export default function BusinessLedger() {
       toast.error(error instanceof Error ? error.message : 'Could not mark expense paid')
     } finally {
       setPaying(false)
+    }
+  }
+
+  const repeatSelected = () => {
+    if (!selected || selected.kind === 'reversal') return
+    const preset = transactionPreset(selected)
+    setSelected(null)
+    openTransaction(preset.kind as Exclude<BusinessTransaction['kind'], 'reversal' | 'personal_expense'>, preset)
+  }
+
+  const viewProof = async () => {
+    if (!selected) return
+    const attachment = data.attachments.find(a => a.transaction_id === selected.id)
+    if (!attachment) return
+    const url = await getBusinessProofUrl(attachment.storage_path)
+    if (!url) {
+      toast.error('Could not open this proof.')
+      return
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  const addProof = async (file: File | null) => {
+    if (!file || !selected) return
+    setProofUploading(true)
+    try {
+      await attachProof(selected.id, file)
+      toast.success('Proof attached')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not attach proof')
+    } finally {
+      setProofUploading(false)
     }
   }
 
@@ -192,6 +236,7 @@ export default function BusinessLedger() {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[12.5px] font-semibold text-navy-800 truncate">{businessTransactionLabels[tx.kind]}</span>
                   {proof && <Paperclip size={11} className="text-navy-300" />}
+                  {tx.supersedes_transaction_id && <Badge tone="blue">CORRECTED</Badge>}
                   {tx.kind === 'expense' && <Badge tone={tx.payment_status === 'paid' ? 'green' : 'amber'}>{tx.payment_status === 'paid' ? 'PAID' : 'UNPAID'}</Badge>}
                   {tx.approval_status === 'pending' && <Badge tone="amber">APPROVAL</Badge>}
                   {tx.approval_status === 'rejected' && <Badge tone="red">REJECTED</Badge>}
@@ -213,7 +258,7 @@ export default function BusinessLedger() {
 
       <Button full variant="soft" onClick={() => openTransaction('expense')}>Add transaction</Button>
 
-      <Modal open={!!selected} onClose={() => { if (!paying && !saving) setSelected(null) }} title="Transaction details">
+      <Modal open={!!selected} onClose={() => { if (!paying && !saving && !proofUploading) setSelected(null) }} title="Transaction details">
         {selected && (
           <>
             <div className="flex items-start justify-between gap-3">
@@ -241,6 +286,15 @@ export default function BusinessLedger() {
               </div>
             )}
 
+            {data.attachments.some(a => a.transaction_id === selected.id) ? (
+              <Button full variant="soft" onClick={() => void viewProof()}><ExternalLink size={14} /> View proof</Button>
+            ) : canWrite && ['expense','refund'].includes(selected.kind) ? (
+              <label className="min-h-[42px] rounded-xl border border-dashed border-saffron-300 bg-saffron-50 px-3 flex items-center justify-center gap-2 cursor-pointer text-[11.5px] font-bold text-saffron-800">
+                <Upload size={14} /> {proofUploading ? 'Uploading…' : 'Add proof'}
+                <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" className="sr-only" disabled={proofUploading} onChange={e => void addProof(e.target.files?.[0] ?? null)} />
+              </label>
+            ) : null}
+
             {canWrite && selected.kind === 'expense' && selected.payment_status === 'unpaid' && !selected.reversed_at && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 space-y-2.5">
                 <div>
@@ -266,33 +320,34 @@ export default function BusinessLedger() {
                     </Select>
                   </Field>
                 )}
-                <Button full loading={paying} disabled={paidBy === 'business' ? !payAccountId : !payPartnerId} onClick={markPaid}>
-                  Mark expense paid
-                </Button>
+                <Button full loading={paying} disabled={paidBy === 'business' ? !payAccountId : !payPartnerId} onClick={markPaid}>Mark expense paid</Button>
               </div>
+            )}
+
+            {!selected.reversed_at && selected.kind !== 'reversal' && (
+              <Button full variant="soft" onClick={repeatSelected}><RefreshCw size={14} /> Repeat this transaction</Button>
             )}
 
             {canWrite && !selected.reversed_at && selected.kind !== 'reversal' && (
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="soft" onClick={openEdit}>
-                  <Pencil size={14} /> Edit
-                </Button>
-                <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-                  <Trash2 size={14} /> Delete
-                </Button>
+                <Button variant="soft" onClick={openEdit}><Pencil size={14} /> Edit</Button>
+                <Button variant="danger" onClick={() => setConfirmDelete(true)}><Trash2 size={14} /> Delete</Button>
               </div>
             )}
 
             {canWrite && !selected.reversed_at && selected.kind !== 'reversal' && (
               <div className="rounded-xl border border-cream-200 bg-cream-100 px-3 py-2 text-[11px] text-navy-500">
-                Edit changes vendor/note/category/due date only. Amount, account, payer and financial movement stay locked. Delete creates a reversing audit entry rather than erasing history.
+                Amount edits are allowed. Prangan reverses the old amount and posts the corrected amount automatically so Cash/Bank/partner balances remain auditable.
               </div>
             )}
           </>
         )}
       </Modal>
 
-      <Modal open={editOpen} onClose={() => { if (!saving) setEditOpen(false) }} title="Edit transaction details">
+      <Modal open={editOpen} onClose={() => { if (!saving) setEditOpen(false) }} title="Edit transaction">
+        <Field label="Amount" hint="Changing the amount creates an automatic audited correction.">
+          <Input inputMode="decimal" value={editAmount} onChange={e => setEditAmount(e.target.value)} />
+        </Field>
         <Field label="Vendor / counterparty">
           <Input value={editCounterparty} onChange={e => setEditCounterparty(e.target.value)} />
         </Field>
@@ -303,21 +358,17 @@ export default function BusinessLedger() {
           </Select>
         </Field>
         {selected?.kind === 'expense' && selected.payment_status === 'unpaid' && (
-          <Field label="Due date">
-            <Input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} />
-          </Field>
+          <Field label="Due date"><Input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} /></Field>
         )}
-        <Field label="Note">
-          <Textarea value={editNote} onChange={e => setEditNote(e.target.value)} />
-        </Field>
-        <Button full onClick={() => setConfirmEdit(true)}>Review edit</Button>
+        <Field label="Note"><Textarea value={editNote} onChange={e => setEditNote(e.target.value)} /></Field>
+        <Button full disabled={Number(editAmount) <= 0} onClick={() => setConfirmEdit(true)}>Review edit</Button>
       </Modal>
 
       <TypedConfirmModal
         open={confirmEdit}
         mode="EDIT"
         title="Confirm transaction edit"
-        body="This edits descriptive transaction details only. Posted financial values remain unchanged and the edit is logged."
+        body="Type EDIT to apply the changes. If the amount changed, Prangan will reverse the old financial movement and create a linked corrected transaction."
         busy={saving}
         onClose={() => setConfirmEdit(false)}
         onConfirm={saveEdit}
@@ -334,6 +385,34 @@ export default function BusinessLedger() {
       />
     </div>
   )
+}
+
+function transactionPreset(tx: BusinessTransaction): SerializableTransactionInput {
+  if (tx.kind === 'personal_expense') {
+    return {
+      kind: 'expense',
+      amount: Number(tx.amount),
+      partnerId: tx.partner_id,
+      categoryId: tx.category_id,
+      counterparty: tx.counterparty ?? '',
+      note: tx.note ?? '',
+      paymentStatus: 'paid',
+      paidBy: 'partner',
+    }
+  }
+  return {
+    kind: tx.kind as SerializableTransactionInput['kind'],
+    amount: Number(tx.amount),
+    accountId: tx.account_id,
+    toAccountId: tx.to_account_id,
+    partnerId: tx.partner_id,
+    categoryId: tx.category_id,
+    counterparty: tx.counterparty ?? '',
+    note: tx.note ?? '',
+    paymentStatus: tx.kind === 'expense' ? tx.payment_status : undefined,
+    paidBy: tx.kind === 'expense' && tx.payment_status === 'paid' ? (tx.partner_id ? 'partner' : 'business') : undefined,
+    dueDate: tx.due_date,
+  }
 }
 
 function Info({ label, value }: { label: string; value: string }) {

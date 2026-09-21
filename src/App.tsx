@@ -95,6 +95,7 @@ const BMore = lazy(() => import('./pages/business/More'))
 const BAccounts = lazy(() => import('./pages/business/Accounts'))
 const BCategories = lazy(() => import('./pages/business/Categories'))
 const BReports = lazy(() => import('./pages/business/Reports'))
+const BImport = lazy(() => import('./pages/business/Import'))
 const BDayClose = lazy(() => import('./pages/business/DayClose'))
 const BSettings = lazy(() => import('./pages/business/Settings'))
 const BOnboarding = lazy(() => import('./pages/business/Onboarding'))
@@ -208,6 +209,7 @@ export default function App() {
             <Route path="accounts" element={<Lazy><BAccounts /></Lazy>} />
             <Route path="categories" element={<Lazy><BCategories /></Lazy>} />
             <Route path="reports" element={<Lazy><BReports /></Lazy>} />
+            <Route path="import" element={<Lazy><BImport /></Lazy>} />
             <Route path="day-close" element={<Lazy><BDayClose /></Lazy>} />
             <Route path="settings" element={<Lazy><BSettings /></Lazy>} />
           </Route>

@@ -18,6 +18,16 @@ export interface BusinessMembership {
   partnerId: string | null
 }
 
+export interface BusinessMemberSummary {
+  id: string
+  user_id: string | null
+  partner_id: string | null
+  email: string
+  display_name: string
+  role: BusinessRole
+  status: string
+}
+
 export interface BusinessOnboardingRequest {
   id: string
   businessName: string
@@ -40,6 +50,7 @@ export interface Business {
   approval_mode: ApprovalMode
   created_by: string
   created_at: string
+  archived_at?: string | null
 }
 
 export interface BusinessPartner {
@@ -90,6 +101,7 @@ export interface BusinessTransaction {
   created_by: string
   created_at: string
   reversed_transaction_id: string | null
+  supersedes_transaction_id: string | null
   reversed_at: string | null
   reversed_by: string | null
 }
@@ -128,6 +140,17 @@ export interface BusinessDayClosing {
   closed_at: string
 }
 
+export interface BusinessActivityLog {
+  id: string
+  business_id: string
+  actor_user_id: string | null
+  action: string
+  entity_type: string
+  entity_id: string | null
+  detail: Record<string, unknown> | null
+  created_at: string
+}
+
 export interface AccountBalance {
   account_id: string
   name: string
@@ -149,12 +172,14 @@ export interface PartnerPosition {
 export interface BusinessSnapshot {
   business: Business | null
   partners: BusinessPartner[]
+  members: BusinessMemberSummary[]
   accounts: BusinessAccount[]
   categories: BusinessCategory[]
   transactions: BusinessTransaction[]
   approvals: BusinessApproval[]
   attachments: BusinessAttachment[]
   closings: BusinessDayClosing[]
+  activity: BusinessActivityLog[]
   accountBalances: AccountBalance[]
   partnerPositions: PartnerPosition[]
 }

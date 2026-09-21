@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Pencil, Plus, Trash2, UserRound } from 'lucide-react'
-import { Button, Field, Input, Modal } from '../../components/ui'
+import { Banknote, HandCoins, Pencil, Plus, Trash2, UserRound } from 'lucide-react'
+import { Badge, Button, Field, Input, Modal, Select } from '../../components/ui'
 import { TypedConfirmModal } from '../../components/business/TypedConfirmModal'
 import { useToast } from '../../components/Toast'
 import { useBusiness } from '../../lib/business/store'
@@ -17,7 +17,7 @@ type PartnerForm = {
 const emptyForm: PartnerForm = { name: '', email: '', phone: '', ownership: '' }
 
 export default function BusinessPartners() {
-  const { data, canAdmin, addPartner, editPartner, deletePartner } = useBusiness()
+  const { data, canAdmin, canWrite, addPartner, editPartner, deletePartner, postTransaction } = useBusiness()
   const toast = useToast()
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<BusinessPartner | null>(null)
@@ -25,6 +25,11 @@ export default function BusinessPartners() {
   const [confirmEdit, setConfirmEdit] = useState(false)
   const [form, setForm] = useState<PartnerForm>(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [settling, setSettling] = useState<{ partnerId: string; name: string; due: number } | null>(null)
+  const [settleAmount, setSettleAmount] = useState('')
+  const [settleAccountId, setSettleAccountId] = useState('')
+
+  const activeAccounts = data.accounts.filter(a => a.active)
 
   const openAdd = () => {
     setEditing(null)
@@ -93,7 +98,37 @@ export default function BusinessPartners() {
       setDeleting(null)
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Could not delete partner'
-      toast.error(msg === 'last_admin_cannot_delete' ? 'The last Business Admin cannot be deleted.' : msg === 'partner_balance_must_be_zero' ? 'Settle the amount owed to this partner before deleting them.' : msg)
+      toast.error(msg === 'last_admin_cannot_delete'
+        ? 'The last Business Admin cannot be deleted.'
+        : msg === 'partner_balance_must_be_zero'
+          ? 'Settle the amount owed to this partner before deleting them.'
+          : msg)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const openSettlement = (partnerId: string, name: string, due: number) => {
+    setSettling({ partnerId, name, due })
+    setSettleAmount(String(due))
+    setSettleAccountId(activeAccounts[0]?.id ?? '')
+  }
+
+  const settle = async () => {
+    if (!settling || Number(settleAmount) <= 0 || !settleAccountId) return
+    setSaving(true)
+    try {
+      await postTransaction({
+        kind: 'reimbursement',
+        amount: Number(settleAmount),
+        accountId: settleAccountId,
+        partnerId: settling.partnerId,
+        note: 'Partner settlement',
+      })
+      toast.success('Partner settlement recorded')
+      setSettling(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not settle partner')
     } finally {
       setSaving(false)
     }
@@ -104,7 +139,7 @@ export default function BusinessPartners() {
       <div className="flex items-center justify-between gap-2">
         <div>
           <h1 className="text-[17px] font-bold text-navy-900">Partners</h1>
-          <p className="text-[11.5px] text-navy-400">Contributions, personal spending, dues and withdrawals.</p>
+          <p className="text-[11.5px] text-navy-400">Who put money in, paid personally, withdrew, or needs reimbursement.</p>
         </div>
         {canAdmin && (
           <button onClick={openAdd} className="h-9 px-3 rounded-xl bg-navy-900 text-white text-[11.5px] font-semibold flex items-center gap-1">
@@ -116,7 +151,9 @@ export default function BusinessPartners() {
       <div className="space-y-2">
         {data.partnerPositions.map(position => {
           const partner = data.partners.find(p => p.id === position.partner_id)
-          if (!partner) return null
+          if (!partner || !partner.active) return null
+          const membership = data.members.find(m => m.partner_id === partner.id)
+          const due = Number(position.outstanding_due)
           return (
             <div key={position.partner_id} className="rounded-2xl border border-cream-200 bg-white p-3">
               <div className="flex items-center gap-2.5 mb-2.5">
@@ -124,19 +161,29 @@ export default function BusinessPartners() {
                   <UserRound size={17} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-bold text-navy-900 truncate">{position.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="text-[13px] font-bold text-navy-900 truncate">{position.name}</div>
+                    <Badge tone={membership?.status === 'active' && membership.email ? 'green' : 'gray'}>
+                      {membership?.status === 'active' && membership.email ? 'APP ACCESS' : 'NO LOGIN'}
+                    </Badge>
+                  </div>
                   <div className="text-[10.5px] text-navy-400 truncate">
                     {partner.ownership_percent != null ? String(partner.ownership_percent) + '% ownership · ' : ''}
-                    {partner.email || partner.phone || 'No login invite yet'}
+                    {partner.email || partner.phone || 'Financial partner only'}
                   </div>
                 </div>
-                {Number(position.outstanding_due) > 0 && (
-                  <div className="text-right">
-                    <div className="text-[9.5px] text-pend font-semibold">BUSINESS OWES</div>
-                    <div className="num text-[14px] font-bold text-pend">{businessMoney(position.outstanding_due)}</div>
-                  </div>
-                )}
               </div>
+
+              {due > 0 && (
+                <div className="rounded-xl bg-saffron-50 border border-saffron-200 px-3 py-2.5 flex items-center gap-2 mb-2.5">
+                  <HandCoins size={17} className="text-saffron-700" />
+                  <div className="flex-1">
+                    <div className="text-[9.5px] font-bold text-saffron-700">BUSINESS OWES {position.name.toUpperCase()}</div>
+                    <div className="num text-[17px] font-bold text-navy-900">{businessMoney(due)}</div>
+                  </div>
+                  {canWrite && <Button variant="accent" className="!min-h-[36px] !px-3 !text-[11px]" onClick={() => openSettlement(position.partner_id, position.name, due)}>Pay</Button>}
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-1.5">
                 <Mini label="Capital" value={position.capital} />
@@ -166,31 +213,34 @@ export default function BusinessPartners() {
         })}
       </div>
 
-      <Modal
-        open={open}
-        onClose={() => { if (!saving) { setOpen(false); setEditing(null) } }}
-        title={editing ? 'Edit partner' : 'Add partner'}
-      >
-        <Field label="Partner name">
-          <Input value={form.name} onChange={e => setForm(v => ({ ...v, name: e.target.value }))} autoFocus />
+      <Modal open={!!settling} onClose={() => { if (!saving) setSettling(null) }} title={settling ? 'Pay ' + settling.name : 'Pay partner'}>
+        {settling && (
+          <div className="rounded-xl bg-saffron-50 border border-saffron-200 px-3 py-2">
+            <div className="text-[10px] font-bold text-saffron-700">OUTSTANDING</div>
+            <div className="num text-[18px] font-bold text-navy-900">{businessMoney(settling.due)}</div>
+          </div>
+        )}
+        <Field label="Amount to pay">
+          <Input inputMode="decimal" value={settleAmount} onChange={e => setSettleAmount(e.target.value)} />
         </Field>
-        <Field label="Email" hint="If present, this email gets Business login access.">
-          <Input type="email" value={form.email} onChange={e => setForm(v => ({ ...v, email: e.target.value }))} />
+        <Field label="Pay from">
+          <Select value={settleAccountId} onChange={e => setSettleAccountId(e.target.value)}>
+            {activeAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </Select>
         </Field>
+        <Button full loading={saving} disabled={!settleAccountId || Number(settleAmount) <= 0 || (settling ? Number(settleAmount) > settling.due : true)} onClick={settle}>
+          <Banknote size={15} /> Record payment
+        </Button>
+      </Modal>
+
+      <Modal open={open} onClose={() => { if (!saving) { setOpen(false); setEditing(null) } }} title={editing ? 'Edit partner' : 'Add partner'}>
+        <Field label="Partner name"><Input value={form.name} onChange={e => setForm(v => ({ ...v, name: e.target.value }))} autoFocus /></Field>
+        <Field label="Email" hint="If present, this email gets Business login access."><Input type="email" value={form.email} onChange={e => setForm(v => ({ ...v, email: e.target.value }))} /></Field>
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Phone">
-            <Input value={form.phone} onChange={e => setForm(v => ({ ...v, phone: e.target.value }))} />
-          </Field>
-          <Field label="Ownership %">
-            <Input inputMode="decimal" value={form.ownership} onChange={e => setForm(v => ({ ...v, ownership: e.target.value }))} />
-          </Field>
+          <Field label="Phone"><Input value={form.phone} onChange={e => setForm(v => ({ ...v, phone: e.target.value }))} /></Field>
+          <Field label="Ownership %"><Input inputMode="decimal" value={form.ownership} onChange={e => setForm(v => ({ ...v, ownership: e.target.value }))} /></Field>
         </div>
-        <Button
-          full
-          loading={saving}
-          disabled={!form.name.trim()}
-          onClick={editing ? () => setConfirmEdit(true) : submitAdd}
-        >
+        <Button full loading={saving} disabled={!form.name.trim()} onClick={editing ? () => setConfirmEdit(true) : submitAdd}>
           {editing ? 'Review edit' : 'Add partner'}
         </Button>
       </Modal>
