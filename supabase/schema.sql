@@ -4035,7 +4035,9 @@ $$;
 revoke execute on function archive_business_account(uuid) from public, anon;
 grant execute on function archive_business_account(uuid) to authenticated;
 
-\n\n-- Allow users to edit posted transaction amounts without rewriting history.
+
+
+-- Allow users to edit posted transaction amounts without rewriting history.
 -- The old transaction is reversed and a linked replacement is posted.
 
 alter table business_transactions
