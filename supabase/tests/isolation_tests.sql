@@ -1108,7 +1108,7 @@ select test_assert(
 );
 
 select test_become('10000000-0000-0000-0000-0000000000a2');
-select test_assert((select count(*) from business_transactions) = 4, 'viewer can read their business transactions including unpaid/paid expense lifecycle');
+select test_assert((select count(*) from business_transactions) = 6, 'viewer can read business transactions including the audit-safe deleted transaction and its reversal');
 select test_assert(test_try_write($w$insert into business_accounts (business_id, name, kind) values ('11000000-0000-0000-0000-000000000001', 'Viewer cash', 'cash')$w$) = -1, 'viewer cannot create a business money account');
 
 select test_become('10000000-0000-0000-0000-0000000000b1');
