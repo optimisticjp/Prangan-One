@@ -2,8 +2,8 @@ import { supabase } from '../supabase'
 import type {
   AccountBalance, ApprovalMode, Business, BusinessAccount, BusinessAccountKind, BusinessActivityLog, BusinessApproval,
   BusinessAttachment, BusinessCategory, BusinessDayClosing, BusinessMemberSummary, BusinessMembership, BusinessOnboardingRequest,
-  BusinessPartner, BusinessSnapshot, BusinessTransaction, MarkBusinessExpensePaidInput,
-  PartnerPosition, PostBusinessTransactionInput,
+  BusinessPartner, BusinessPartnerEditInput, BusinessSnapshot, BusinessTransaction, BusinessTransactionEditInput,
+  BusinessDayClosingEditInput, MarkBusinessExpensePaidInput, PartnerPosition, PostBusinessTransactionInput,
 } from './types'
 
 const requireSupabase = () => {
@@ -12,6 +12,41 @@ const requireSupabase = () => {
 }
 
 const message = (error: { message?: string } | null) => error?.message || 'Something went wrong'
+
+async function removeProofFilesForTransactions(transactionIds: string[]) {
+  if (transactionIds.length === 0) return
+  const client = requireSupabase()
+  const { data } = await client.from('business_attachments').select('storage_path').in('transaction_id', transactionIds)
+  const paths = (data ?? []).map(row => row.storage_path as string).filter(Boolean)
+  if (paths.length) await client.storage.from('business-proofs').remove(paths)
+}
+
+async function transactionIdsForPartner(partnerId: string) {
+  const client = requireSupabase()
+  const { data } = await client.from('business_transactions').select('id').eq('partner_id', partnerId)
+  return (data ?? []).map(row => row.id as string)
+}
+
+async function transactionIdsForAccount(accountId: string) {
+  const client = requireSupabase()
+  const [direct, destination, ledger] = await Promise.all([
+    client.from('business_transactions').select('id').eq('account_id', accountId),
+    client.from('business_transactions').select('id').eq('to_account_id', accountId),
+    client.from('business_ledger_entries').select('transaction_id').eq('account_id', accountId),
+  ])
+  return Array.from(new Set([
+    ...(direct.data ?? []).map(row => row.id as string),
+    ...(destination.data ?? []).map(row => row.id as string),
+    ...(ledger.data ?? []).map(row => row.transaction_id as string),
+  ]))
+}
+
+async function transactionIdsForDelete(transactionId: string) {
+  const client = requireSupabase()
+  const { data } = await client.from('business_transactions').select('id').eq('reversed_transaction_id', transactionId)
+  return [transactionId, ...(data ?? []).map(row => row.id as string)]
+}
+
 
 export async function claimBusinessMemberships(): Promise<BusinessMembership[]> {
   const client = requireSupabase()
@@ -230,21 +265,24 @@ export async function addBusinessPartner(businessId: string, input: { name: stri
   return data as string
 }
 
-export async function updateBusinessPartner(partnerId: string, input: { name: string; email?: string; phone?: string; ownership?: number | null }) {
+export async function updateBusinessPartner(partnerId: string, input: BusinessPartnerEditInput) {
   const client = requireSupabase()
-  const { error } = await client.rpc('update_business_partner', {
+  const { error } = await client.rpc('update_business_partner_full', {
     target_partner: partnerId,
     partner_name: input.name.trim(),
     partner_email: input.email?.trim() || null,
     partner_phone: input.phone?.trim() || null,
     partner_ownership: input.ownership ?? null,
+    member_role: input.role,
+    member_status: input.status,
   })
   if (error) throw error
 }
 
-export async function archiveBusinessPartner(partnerId: string) {
+export async function hardDeleteBusinessPartner(partnerId: string) {
   const client = requireSupabase()
-  const { error } = await client.rpc('archive_business_partner', { target_partner: partnerId })
+  await removeProofFilesForTransactions(await transactionIdsForPartner(partnerId))
+  const { error } = await client.rpc('hard_delete_business_partner', { target_partner: partnerId })
   if (error) throw error
 }
 
@@ -256,19 +294,21 @@ export async function addBusinessAccount(businessId: string, input: { name: stri
   if (error) throw error
 }
 
-export async function updateBusinessAccount(accountId: string, input: { name: string; kind: BusinessAccountKind }) {
+export async function updateBusinessAccount(accountId: string, input: { name: string; kind: BusinessAccountKind; openingBalance: number }) {
   const client = requireSupabase()
-  const { error } = await client.rpc('update_business_account', {
+  const { error } = await client.rpc('update_business_account_full', {
     target_account: accountId,
     target_name: input.name.trim(),
     target_kind: input.kind,
+    target_opening_balance: input.openingBalance,
   })
   if (error) throw error
 }
 
-export async function archiveBusinessAccount(accountId: string) {
+export async function hardDeleteBusinessAccount(accountId: string) {
   const client = requireSupabase()
-  const { error } = await client.rpc('archive_business_account', { target_account: accountId })
+  await removeProofFilesForTransactions(await transactionIdsForAccount(accountId))
+  const { error } = await client.rpc('hard_delete_business_account', { target_account: accountId })
   if (error) throw error
 }
 
@@ -293,32 +333,38 @@ export async function updateBusinessCategory(categoryId: string, input: { name: 
   if (error) throw error
 }
 
-export async function archiveBusinessCategory(categoryId: string) {
+export async function hardDeleteBusinessCategory(categoryId: string) {
   const client = requireSupabase()
-  const { error } = await client.rpc('archive_business_category', { target_category: categoryId })
+  const { error } = await client.rpc('hard_delete_business_category', { target_category: categoryId })
   if (error) throw error
 }
 
-export async function editBusinessTransactionDetails(transactionId: string, input: { counterparty?: string; note?: string; categoryId?: string | null; dueDate?: string | null }) {
+export async function updateBusinessTransactionFull(transactionId: string, input: BusinessTransactionEditInput) {
   const client = requireSupabase()
-  const { error } = await client.rpc('edit_business_transaction_details', {
+  const { error } = await client.rpc('update_business_transaction_full', {
     target_transaction: transactionId,
+    target_kind: input.kind,
+    target_amount: input.amount,
+    target_account: input.accountId || null,
+    target_to_account: input.toAccountId || null,
+    target_partner: input.partnerId || null,
+    target_category: input.categoryId || null,
     target_counterparty: input.counterparty?.trim() || null,
     target_note: input.note?.trim() || null,
-    target_category: input.categoryId || null,
+    target_occurred_at: input.occurredAt,
+    target_payment_status: input.paymentStatus,
+    target_paid_by: input.paidBy,
     target_due_date: input.dueDate || null,
+    target_approval_status: input.approvalStatus,
   })
   if (error) throw error
 }
 
-export async function editBusinessTransactionAmount(transactionId: string, amount: number): Promise<string> {
+export async function hardDeleteBusinessTransaction(transactionId: string) {
   const client = requireSupabase()
-  const { data, error } = await client.rpc('edit_business_transaction_amount', {
-    target_transaction: transactionId,
-    target_amount: amount,
-  })
+  await removeProofFilesForTransactions(await transactionIdsForDelete(transactionId))
+  const { error } = await client.rpc('hard_delete_business_transaction', { target_transaction: transactionId })
   if (error) throw error
-  return data as string
 }
 
 export async function updateBusinessSettings(businessId: string, input: { name: string; approvalMode: ApprovalMode }) {
@@ -331,9 +377,12 @@ export async function updateBusinessSettings(businessId: string, input: { name: 
   if (error) throw error
 }
 
-export async function archiveBusiness(businessId: string) {
+export async function hardDeleteBusiness(businessId: string) {
   const client = requireSupabase()
-  const { error } = await client.rpc('archive_business', { target_business: businessId })
+  const { data } = await client.from('business_attachments').select('storage_path').eq('business_id', businessId)
+  const paths = (data ?? []).map(row => row.storage_path as string).filter(Boolean)
+  if (paths.length) await client.storage.from('business-proofs').remove(paths)
+  const { error } = await client.rpc('hard_delete_business', { target_business: businessId })
   if (error) throw error
 }
 
@@ -344,8 +393,21 @@ export async function closeBusinessDay(accountId: string, counted: number, note 
   return data as string
 }
 
-export async function reopenBusinessDay(closingId: string, reason: string) {
+export async function updateBusinessDayClosing(closingId: string, input: BusinessDayClosingEditInput) {
   const client = requireSupabase()
-  const { error } = await client.rpc('reopen_business_day', { target_closing: closingId, target_reason: reason.trim() })
+  const { error } = await client.rpc('update_business_day_closing', {
+    target_closing: closingId,
+    target_account: input.accountId,
+    target_close_date: input.closeDate,
+    target_expected: input.expectedBalance,
+    target_counted: input.countedBalance,
+    target_note: input.note?.trim() || null,
+  })
+  if (error) throw error
+}
+
+export async function hardDeleteBusinessDayClosing(closingId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('hard_delete_business_day_closing', { target_closing: closingId })
   if (error) throw error
 }

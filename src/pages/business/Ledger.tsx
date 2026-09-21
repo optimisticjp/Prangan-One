@@ -9,43 +9,57 @@ import { getBusinessProofUrl } from '../../lib/business/data'
 import { businessMoney, businessTransactionLabels, expensePaidByLabel, transactionCashDirection } from '../../lib/business/finance'
 import { exportCsv } from '../../lib/csv'
 import type { SerializableTransactionInput } from '../../lib/business/preferences'
-import type { BusinessPaidBy, BusinessTransaction } from '../../lib/business/types'
+import type {
+  BusinessApprovalStatus, BusinessPaidBy, BusinessPaymentStatus,
+  BusinessTransaction, BusinessTransactionKind,
+} from '../../lib/business/types'
 import type { BusinessOutletContext } from '../../components/business/BusinessLayout'
 
 const filters = ['all', 'income', 'expense', 'unpaid', 'partner', 'approval'] as const
+const editableKinds: Array<Exclude<BusinessTransactionKind, 'reversal'>> = [
+  'income', 'expense', 'partner_capital', 'partner_advance', 'personal_expense',
+  'reimbursement', 'withdrawal', 'transfer', 'refund',
+]
+
+const toLocalInput = (iso: string) => {
+  const date = new Date(iso)
+  const offset = date.getTimezoneOffset() * 60_000
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+}
 
 export default function BusinessLedger() {
-  const {
-    data, canWrite, reverseTransaction, markExpensePaid, editTransactionDetails,
-    editTransactionAmount, attachProof,
-  } = useBusiness()
+  const { data, canWrite, deleteTransaction, editTransaction, attachProof } = useBusiness()
   const { openTransaction } = useOutletContext<BusinessOutletContext>()
   const toast = useToast()
   const [filter, setFilter] = useState<typeof filters[number]>('all')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<BusinessTransaction | null>(null)
-  const [paidBy, setPaidBy] = useState<BusinessPaidBy>('business')
-  const [payAccountId, setPayAccountId] = useState('')
-  const [payPartnerId, setPayPartnerId] = useState('')
-  const [paying, setPaying] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [confirmEdit, setConfirmEdit] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [editKind, setEditKind] = useState<Exclude<BusinessTransactionKind, 'reversal'>>('expense')
   const [editAmount, setEditAmount] = useState('')
+  const [editAccountId, setEditAccountId] = useState('')
+  const [editToAccountId, setEditToAccountId] = useState('')
+  const [editPartnerId, setEditPartnerId] = useState('')
+  const [editCategoryId, setEditCategoryId] = useState('')
   const [editCounterparty, setEditCounterparty] = useState('')
   const [editNote, setEditNote] = useState('')
-  const [editCategoryId, setEditCategoryId] = useState('')
+  const [editOccurredAt, setEditOccurredAt] = useState('')
+  const [editPaymentStatus, setEditPaymentStatus] = useState<BusinessPaymentStatus>('paid')
+  const [editPaidBy, setEditPaidBy] = useState<BusinessPaidBy>('business')
   const [editDueDate, setEditDueDate] = useState('')
+  const [editApprovalStatus, setEditApprovalStatus] = useState<BusinessApprovalStatus>('not_required')
   const [saving, setSaving] = useState(false)
   const [proofUploading, setProofUploading] = useState(false)
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase()
     return data.transactions.filter(tx => {
-      if (filter === 'income' && !['income','refund'].includes(tx.kind)) return false
-      if (filter === 'expense' && !['expense','personal_expense','reimbursement'].includes(tx.kind)) return false
-      if (filter === 'unpaid' && !(tx.kind === 'expense' && tx.payment_status === 'unpaid' && !tx.reversed_at)) return false
-      if (filter === 'partner' && !['partner_capital','partner_advance','personal_expense','reimbursement','withdrawal'].includes(tx.kind) && !(tx.kind === 'expense' && !!tx.partner_id)) return false
+      if (filter === 'income' && !['income', 'refund'].includes(tx.kind)) return false
+      if (filter === 'expense' && !['expense', 'personal_expense', 'reimbursement'].includes(tx.kind)) return false
+      if (filter === 'unpaid' && !(tx.kind === 'expense' && tx.payment_status === 'unpaid')) return false
+      if (filter === 'partner' && !['partner_capital', 'partner_advance', 'personal_expense', 'reimbursement', 'withdrawal'].includes(tx.kind) && !(tx.kind === 'expense' && !!tx.partner_id)) return false
       if (filter === 'approval' && tx.approval_status !== 'pending') return false
       if (!q) return true
 
@@ -53,13 +67,13 @@ export default function BusinessLedger() {
       const category = data.categories.find(c => c.id === tx.category_id)?.name ?? ''
       const payer = expensePaidByLabel(tx, data.accounts, data.partners) ?? ''
       return [tx.amount, tx.counterparty, tx.note, partner, category, payer, tx.payment_status, tx.approval_status, businessTransactionLabels[tx.kind]]
-        .some(v => String(v ?? '').toLowerCase().includes(q))
+        .some(value => String(value ?? '').toLowerCase().includes(q))
     })
   }, [data.transactions, data.partners, data.categories, data.accounts, filter, query])
 
   const download = () => exportCsv(
     'business-ledger.csv',
-    ['Date','Type','Amount','Payment','Paid by','Account','Partner','Category','Approval','Party','Note'],
+    ['Date', 'Type', 'Amount', 'Payment', 'Paid by', 'From account', 'To account', 'Partner', 'Category', 'Approval', 'Party', 'Note'],
     list.map(tx => [
       new Date(tx.occurred_at).toLocaleString('en-IN'),
       businessTransactionLabels[tx.kind],
@@ -67,6 +81,7 @@ export default function BusinessLedger() {
       tx.kind === 'expense' ? tx.payment_status : '',
       tx.kind === 'expense' ? expensePaidByLabel(tx, data.accounts, data.partners) ?? '' : '',
       data.accounts.find(a => a.id === tx.account_id)?.name,
+      data.accounts.find(a => a.id === tx.to_account_id)?.name,
       data.partners.find(p => p.id === tx.partner_id)?.name,
       data.categories.find(c => c.id === tx.category_id)?.name,
       tx.approval_status,
@@ -75,38 +90,59 @@ export default function BusinessLedger() {
     ]),
   )
 
-  const openDetails = (tx: BusinessTransaction) => {
-    setSelected(tx)
-    setPaidBy('business')
-    setPayAccountId(data.accounts.find(a => a.active)?.id ?? '')
-    setPayPartnerId(data.partners.find(p => p.active)?.id ?? '')
-  }
-
   const openEdit = () => {
-    if (!selected) return
+    if (!selected || selected.kind === 'reversal') return
+    setEditKind(selected.kind)
     setEditAmount(String(selected.amount))
+    setEditAccountId(selected.account_id ?? '')
+    setEditToAccountId(selected.to_account_id ?? '')
+    setEditPartnerId(selected.partner_id ?? '')
+    setEditCategoryId(selected.category_id ?? '')
     setEditCounterparty(selected.counterparty ?? '')
     setEditNote(selected.note ?? '')
-    setEditCategoryId(selected.category_id ?? '')
+    setEditOccurredAt(toLocalInput(selected.occurred_at))
+    setEditPaymentStatus(selected.payment_status)
+    setEditPaidBy(selected.kind === 'expense' && selected.payment_status === 'paid' && selected.partner_id ? 'partner' : 'business')
     setEditDueDate(selected.due_date ?? '')
+    setEditApprovalStatus(selected.approval_status)
     setEditOpen(true)
   }
 
+  const showAccount = ['income', 'partner_capital', 'partner_advance', 'reimbursement', 'withdrawal', 'refund', 'transfer'].includes(editKind)
+    || (editKind === 'expense' && editPaymentStatus === 'paid' && editPaidBy === 'business')
+  const showPartner = ['partner_capital', 'partner_advance', 'personal_expense', 'reimbursement', 'withdrawal'].includes(editKind)
+    || (editKind === 'expense' && editPaymentStatus === 'paid' && editPaidBy === 'partner')
+
+  const categoriesForEdit = data.categories.filter(category => {
+    if (['income', 'refund'].includes(editKind)) return category.kind !== 'expense'
+    if (['expense', 'personal_expense'].includes(editKind)) return category.kind !== 'income'
+    return true
+  })
+
   const saveEdit = async () => {
-    if (!selected || Number(editAmount) <= 0) return
+    if (!selected || selected.kind === 'reversal' || Number(editAmount) <= 0 || !editOccurredAt) return
     setSaving(true)
     try {
-      let targetId = selected.id
-      if (Number(editAmount) !== Number(selected.amount)) {
-        targetId = await editTransactionAmount(selected.id, Number(editAmount))
-      }
-      await editTransactionDetails(targetId, {
+      if (showAccount && !editAccountId) throw new Error('Choose an account.')
+      if (editKind === 'transfer' && (!editToAccountId || editToAccountId === editAccountId)) throw new Error('Choose a different destination account.')
+      if (showPartner && !editPartnerId) throw new Error('Choose a partner.')
+
+      await editTransaction(selected.id, {
+        kind: editKind,
+        amount: Number(editAmount),
+        accountId: showAccount ? editAccountId : null,
+        toAccountId: editKind === 'transfer' ? editToAccountId : null,
+        partnerId: showPartner ? editPartnerId : null,
+        categoryId: editCategoryId || null,
         counterparty: editCounterparty,
         note: editNote,
-        categoryId: editCategoryId || null,
-        dueDate: editDueDate || null,
+        occurredAt: new Date(editOccurredAt).toISOString(),
+        paymentStatus: editKind === 'expense' ? editPaymentStatus : 'paid',
+        paidBy: editKind === 'expense' ? editPaidBy : 'business',
+        dueDate: editKind === 'expense' && editPaymentStatus === 'unpaid' ? (editDueDate || null) : null,
+        approvalStatus: editApprovalStatus,
       })
-      toast.success(Number(editAmount) !== Number(selected.amount) ? 'Amount corrected with audit trail' : 'Transaction updated')
+      toast.success('Transaction updated')
       setConfirmEdit(false)
       setEditOpen(false)
       setSelected(null)
@@ -117,39 +153,18 @@ export default function BusinessLedger() {
     }
   }
 
-  const deleteTransaction = async () => {
+  const removeTransaction = async () => {
     if (!selected) return
     setSaving(true)
     try {
-      await reverseTransaction(selected.id, 'Deleted after typed DELETE confirmation')
-      toast.success('Transaction deleted with audit trail')
+      await deleteTransaction(selected.id)
+      toast.success('Transaction permanently deleted')
       setConfirmDelete(false)
       setSelected(null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not delete transaction')
     } finally {
       setSaving(false)
-    }
-  }
-
-  const markPaid = async () => {
-    if (!selected || selected.kind !== 'expense' || selected.payment_status !== 'unpaid') return
-    if (paidBy === 'business' && !payAccountId) return
-    if (paidBy === 'partner' && !payPartnerId) return
-
-    setPaying(true)
-    try {
-      await markExpensePaid(selected.id, {
-        paidBy,
-        accountId: paidBy === 'business' ? payAccountId : null,
-        partnerId: paidBy === 'partner' ? payPartnerId : null,
-      })
-      toast.success(paidBy === 'business' ? 'Expense paid from business funds' : 'Expense marked paid by partner')
-      setSelected(null)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not mark expense paid')
-    } finally {
-      setPaying(false)
     }
   }
 
@@ -185,43 +200,27 @@ export default function BusinessLedger() {
     }
   }
 
-  const editableCategories = data.categories.filter(c => {
-    if (!c.active) return false
-    if (!selected) return true
-    if (selected.kind === 'income' || selected.kind === 'refund') return c.kind !== 'expense'
-    if (selected.kind === 'expense' || selected.kind === 'personal_expense') return c.kind !== 'income'
-    return true
-  })
-
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2.5 min-w-0">
       <div className="rounded-xl bg-navy-50 border border-navy-100 px-3 py-2 text-[11px] text-navy-600">
-        <strong>UNPAID</strong> = recorded expense, no money moved yet. <strong>APPROVAL</strong> = another partner still needs to accept it.
+        Tap any transaction to view it. <strong>Edit</strong> can change all Business fields. <strong>Delete</strong> permanently removes it.
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="relative flex-1 min-w-0">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-300" />
           <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search amount, partner, note…" className="!min-h-[40px] !text-[13px] !pl-9" />
         </div>
-        <button onClick={download} aria-label="Export ledger CSV" className="h-10 w-10 rounded-xl border border-cream-300 bg-white flex items-center justify-center text-navy-600">
-          <Download size={16} />
-        </button>
+        <button onClick={download} aria-label="Export ledger CSV" className="h-10 w-10 shrink-0 rounded-xl border border-cream-300 bg-white flex items-center justify-center text-navy-600"><Download size={16} /></button>
       </div>
 
-      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-        {filters.map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={'shrink-0 rounded-full border px-3 min-h-[34px] text-[11px] font-semibold capitalize ' + (filter === f ? 'bg-navy-900 border-navy-900 text-white' : 'bg-white border-cream-300 text-navy-500')}
-          >
-            {f}
-          </button>
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 max-w-full">
+        {filters.map(item => (
+          <button key={item} onClick={() => setFilter(item)} className={'shrink-0 rounded-full border px-3 min-h-[34px] text-[11px] font-semibold capitalize ' + (filter === item ? 'bg-navy-900 border-navy-900 text-white' : 'bg-white border-cream-300 text-navy-500')}>{item}</button>
         ))}
       </div>
 
-      <div className="rounded-2xl border border-cream-200 bg-white overflow-hidden">
+      <div className="rounded-2xl border border-cream-200 bg-white overflow-hidden min-w-0">
         {list.length === 0 ? (
           <div className="px-4 py-10 text-center text-[13px] text-navy-400">No matching transactions.</div>
         ) : list.map(tx => {
@@ -229,26 +228,21 @@ export default function BusinessLedger() {
           const partner = data.partners.find(p => p.id === tx.partner_id)?.name
           const proof = data.attachments.some(a => a.transaction_id === tx.id)
           const payer = expensePaidByLabel(tx, data.accounts, data.partners)
-
           return (
-            <button key={tx.id} onClick={() => openDetails(tx)} className="w-full min-h-[58px] flex items-center gap-2 px-3 py-2 border-b border-cream-100 last:border-0 text-left active:bg-cream-50">
+            <button key={tx.id} onClick={() => setSelected(tx)} className="w-full min-w-0 min-h-[58px] flex items-center gap-2 px-3 py-2 border-b border-cream-100 last:border-0 text-left active:bg-cream-50">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                   <span className="text-[12.5px] font-semibold text-navy-800 truncate">{businessTransactionLabels[tx.kind]}</span>
-                  {proof && <Paperclip size={11} className="text-navy-300" />}
-                  {tx.supersedes_transaction_id && <Badge tone="blue">CORRECTED</Badge>}
+                  {proof && <Paperclip size={11} className="text-navy-300 shrink-0" />}
                   {tx.kind === 'expense' && <Badge tone={tx.payment_status === 'paid' ? 'green' : 'amber'}>{tx.payment_status === 'paid' ? 'PAID' : 'UNPAID'}</Badge>}
                   {tx.approval_status === 'pending' && <Badge tone="amber">APPROVAL</Badge>}
                   {tx.approval_status === 'rejected' && <Badge tone="red">REJECTED</Badge>}
-                  {tx.reversed_at && <Badge tone="gray">DELETED / REVERSED</Badge>}
                 </div>
                 <div className="text-[10.5px] text-navy-400 truncate">
-                  {tx.kind === 'expense' ? payer : partner || tx.counterparty || data.accounts.find(a => a.id === tx.account_id)?.name || 'Business'}
-                  {' · '}
-                  {new Date(tx.occurred_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short' })}
+                  {tx.kind === 'expense' ? payer : partner || tx.counterparty || data.accounts.find(a => a.id === tx.account_id)?.name || 'Business'} · {new Date(tx.occurred_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                 </div>
               </div>
-              <div className={'num text-[13px] font-bold whitespace-nowrap ' + (direction === 'in' ? 'text-paid' : direction === 'out' ? 'text-over' : 'text-navy-700')}>
+              <div className={'num shrink-0 text-[13px] font-bold whitespace-nowrap ' + (direction === 'in' ? 'text-paid' : direction === 'out' ? 'text-over' : 'text-navy-700')}>
                 {direction === 'in' ? '+' : direction === 'out' ? '-' : ''}{businessMoney(tx.amount)}
               </div>
             </button>
@@ -258,147 +252,72 @@ export default function BusinessLedger() {
 
       <Button full variant="soft" onClick={() => openTransaction('expense')}>Add transaction</Button>
 
-      <Modal open={!!selected} onClose={() => { if (!paying && !saving && !proofUploading) setSelected(null) }} title="Transaction details">
+      <Modal open={!!selected} onClose={() => { if (!saving && !proofUploading) setSelected(null) }} title="Transaction details">
         {selected && (
           <>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="font-bold text-navy-900">{businessTransactionLabels[selected.kind]}</div>
-                <div className="text-[12px] text-navy-400">{new Date(selected.occurred_at).toLocaleString('en-IN')}</div>
-              </div>
-              <div className="num text-[20px] font-bold">{businessMoney(selected.amount)}</div>
+            <div className="flex items-start justify-between gap-3 min-w-0">
+              <div className="min-w-0"><div className="font-bold text-navy-900 truncate">{businessTransactionLabels[selected.kind]}</div><div className="text-[12px] text-navy-400">{new Date(selected.occurred_at).toLocaleString('en-IN')}</div></div>
+              <div className="num shrink-0 text-[20px] font-bold">{businessMoney(selected.amount)}</div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-[12px]">
-              {selected.kind === 'expense' && <Info label="Payment" value={selected.payment_status === 'paid' ? 'Paid' : 'Unpaid'} />}
-              {selected.kind === 'expense' && <Info label="Paid by" value={expensePaidByLabel(selected, data.accounts, data.partners) || '—'} />}
-              <Info label="Account" value={data.accounts.find(a => a.id === selected.account_id)?.name || '—'} />
+              <Info label="Payment" value={selected.kind === 'expense' ? selected.payment_status : 'Paid'} />
+              <Info label="Approval" value={selected.approval_status.replace('_', ' ')} />
+              <Info label="From account" value={data.accounts.find(a => a.id === selected.account_id)?.name || '—'} />
+              <Info label="To account" value={data.accounts.find(a => a.id === selected.to_account_id)?.name || '—'} />
               <Info label="Partner" value={data.partners.find(p => p.id === selected.partner_id)?.name || '—'} />
               <Info label="Category" value={data.categories.find(c => c.id === selected.category_id)?.name || '—'} />
-              <Info label="Approval" value={selected.approval_status.replace('_',' ')} />
-              {selected.kind === 'expense' && selected.due_date && <Info label="Due date" value={new Date(selected.due_date + 'T00:00:00').toLocaleDateString('en-IN')} />}
             </div>
 
-            {(selected.counterparty || selected.note) && (
-              <div className="rounded-xl bg-cream-100 px-3 py-2 text-[12.5px] text-navy-600">
-                {selected.counterparty && <div className="font-semibold">{selected.counterparty}</div>}
-                {selected.note && <div>{selected.note}</div>}
-              </div>
-            )}
+            {(selected.counterparty || selected.note) && <div className="rounded-xl bg-cream-100 px-3 py-2 text-[12.5px] text-navy-600 break-words">{selected.counterparty && <div className="font-semibold">{selected.counterparty}</div>}{selected.note && <div>{selected.note}</div>}</div>}
 
             {data.attachments.some(a => a.transaction_id === selected.id) ? (
               <Button full variant="soft" onClick={() => void viewProof()}><ExternalLink size={14} /> View proof</Button>
-            ) : canWrite && ['expense','refund'].includes(selected.kind) ? (
+            ) : canWrite && ['expense', 'refund'].includes(selected.kind) ? (
               <label className="min-h-[42px] rounded-xl border border-dashed border-saffron-300 bg-saffron-50 px-3 flex items-center justify-center gap-2 cursor-pointer text-[11.5px] font-bold text-saffron-800">
                 <Upload size={14} /> {proofUploading ? 'Uploading…' : 'Add proof'}
                 <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" className="sr-only" disabled={proofUploading} onChange={e => void addProof(e.target.files?.[0] ?? null)} />
               </label>
             ) : null}
 
-            {canWrite && selected.kind === 'expense' && selected.payment_status === 'unpaid' && !selected.reversed_at && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 space-y-2.5">
-                <div>
-                  <div className="text-[10px] font-bold tracking-wide text-pend">MARK AS PAID</div>
-                  <div className="text-[11.5px] text-navy-600">Choose who actually paid. This is when the financial balance will move.</div>
-                </div>
-                <Field label="Paid by">
-                  <Select value={paidBy} onChange={e => setPaidBy(e.target.value as BusinessPaidBy)}>
-                    <option value="business">Business funds</option>
-                    <option value="partner">Partner personally</option>
-                  </Select>
-                </Field>
-                {paidBy === 'business' ? (
-                  <Field label="Paid from account">
-                    <Select value={payAccountId} onChange={e => setPayAccountId(e.target.value)}>
-                      {data.accounts.filter(a => a.active).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </Select>
-                  </Field>
-                ) : (
-                  <Field label="Partner who paid">
-                    <Select value={payPartnerId} onChange={e => setPayPartnerId(e.target.value)}>
-                      {data.partners.filter(p => p.active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </Select>
-                  </Field>
-                )}
-                <Button full loading={paying} disabled={paidBy === 'business' ? !payAccountId : !payPartnerId} onClick={markPaid}>Mark expense paid</Button>
-              </div>
-            )}
-
-            {!selected.reversed_at && selected.kind !== 'reversal' && (
-              <Button full variant="soft" onClick={repeatSelected}><RefreshCw size={14} /> Repeat this transaction</Button>
-            )}
-
-            {canWrite && !selected.reversed_at && selected.kind !== 'reversal' && (
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="soft" onClick={openEdit}><Pencil size={14} /> Edit</Button>
-                <Button variant="danger" onClick={() => setConfirmDelete(true)}><Trash2 size={14} /> Delete</Button>
-              </div>
-            )}
-
-            {canWrite && !selected.reversed_at && selected.kind !== 'reversal' && (
-              <div className="rounded-xl border border-cream-200 bg-cream-100 px-3 py-2 text-[11px] text-navy-500">
-                Amount edits are allowed. Prangan reverses the old amount and posts the corrected amount automatically so Cash/Bank/partner balances remain auditable.
-              </div>
-            )}
+            {selected.kind !== 'reversal' && <Button full variant="soft" onClick={repeatSelected}><RefreshCw size={14} /> Repeat this transaction</Button>}
+            {canWrite && selected.kind !== 'reversal' && <div className="grid grid-cols-2 gap-2"><Button variant="soft" onClick={openEdit}><Pencil size={14} /> Edit</Button><Button variant="danger" onClick={() => setConfirmDelete(true)}><Trash2 size={14} /> Delete</Button></div>}
           </>
         )}
       </Modal>
 
-      <Modal open={editOpen} onClose={() => { if (!saving) setEditOpen(false) }} title="Edit transaction">
-        <Field label="Amount" hint="Changing the amount creates an automatic audited correction.">
-          <Input inputMode="decimal" value={editAmount} onChange={e => setEditAmount(e.target.value)} />
-        </Field>
-        <Field label="Vendor / counterparty">
-          <Input value={editCounterparty} onChange={e => setEditCounterparty(e.target.value)} />
-        </Field>
-        <Field label="Category">
-          <Select value={editCategoryId} onChange={e => setEditCategoryId(e.target.value)}>
-            <option value="">No category</option>
-            {editableCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </Select>
-        </Field>
-        {selected?.kind === 'expense' && selected.payment_status === 'unpaid' && (
-          <Field label="Due date"><Input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} /></Field>
-        )}
+      <Modal open={editOpen} onClose={() => { if (!saving) setEditOpen(false) }} title="Edit all transaction fields" wide>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Type"><Select value={editKind} onChange={e => setEditKind(e.target.value as Exclude<BusinessTransactionKind, 'reversal'>)}>{editableKinds.map(kind => <option key={kind} value={kind}>{businessTransactionLabels[kind]}</option>)}</Select></Field>
+          <Field label="Amount"><Input inputMode="decimal" value={editAmount} onChange={e => setEditAmount(e.target.value)} /></Field>
+        </div>
+        <Field label="Date & time"><Input type="datetime-local" value={editOccurredAt} onChange={e => setEditOccurredAt(e.target.value)} /></Field>
+
+        {editKind === 'expense' && <div className="grid grid-cols-2 gap-2">
+          <Field label="Payment status"><Select value={editPaymentStatus} onChange={e => setEditPaymentStatus(e.target.value as BusinessPaymentStatus)}><option value="paid">Paid</option><option value="unpaid">Unpaid</option></Select></Field>
+          {editPaymentStatus === 'paid' && <Field label="Paid by"><Select value={editPaidBy} onChange={e => setEditPaidBy(e.target.value as BusinessPaidBy)}><option value="business">Business funds</option><option value="partner">Partner personally</option></Select></Field>}
+        </div>}
+
+        {showAccount && <Field label={editKind === 'transfer' ? 'From account' : 'Account'}><Select value={editAccountId} onChange={e => setEditAccountId(e.target.value)}><option value="">Choose account</option>{data.accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></Field>}
+        {editKind === 'transfer' && <Field label="To account"><Select value={editToAccountId} onChange={e => setEditToAccountId(e.target.value)}><option value="">Choose account</option>{data.accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></Field>}
+        {showPartner && <Field label="Partner"><Select value={editPartnerId} onChange={e => setEditPartnerId(e.target.value)}><option value="">Choose partner</option>{data.partners.map(partner => <option key={partner.id} value={partner.id}>{partner.name}</option>)}</Select></Field>}
+        <Field label="Category"><Select value={editCategoryId} onChange={e => setEditCategoryId(e.target.value)}><option value="">No category</option>{categoriesForEdit.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</Select></Field>
+        <Field label="Approval status"><Select value={editApprovalStatus} onChange={e => setEditApprovalStatus(e.target.value as BusinessApprovalStatus)}><option value="not_required">Not required</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></Select></Field>
+        {editKind === 'expense' && editPaymentStatus === 'unpaid' && <Field label="Due date"><Input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} /></Field>}
+        <Field label="Vendor / counterparty"><Input value={editCounterparty} onChange={e => setEditCounterparty(e.target.value)} /></Field>
         <Field label="Note"><Textarea value={editNote} onChange={e => setEditNote(e.target.value)} /></Field>
-        <Button full disabled={Number(editAmount) <= 0} onClick={() => setConfirmEdit(true)}>Review edit</Button>
+        <Button full disabled={Number(editAmount) <= 0 || !editOccurredAt} onClick={() => setConfirmEdit(true)}>Review edit</Button>
       </Modal>
 
-      <TypedConfirmModal
-        open={confirmEdit}
-        mode="EDIT"
-        title="Confirm transaction edit"
-        body="Type EDIT to apply the changes. If the amount changed, Prangan will reverse the old financial movement and create a linked corrected transaction."
-        busy={saving}
-        onClose={() => setConfirmEdit(false)}
-        onConfirm={saveEdit}
-      />
-
-      <TypedConfirmModal
-        open={confirmDelete}
-        mode="DELETE"
-        title="Delete transaction"
-        body="For financial integrity this will reverse the transaction and keep both the original and reversing entry in the audit trail."
-        busy={saving}
-        onClose={() => setConfirmDelete(false)}
-        onConfirm={deleteTransaction}
-      />
+      <TypedConfirmModal open={confirmEdit} mode="EDIT" title="Confirm transaction edit" body="This directly updates the transaction and recalculates Business balances from the values you entered." busy={saving} onClose={() => setConfirmEdit(false)} onConfirm={saveEdit} />
+      <TypedConfirmModal open={confirmDelete} mode="DELETE" title="Delete transaction permanently" body="This permanently deletes this transaction, its balance entries, approvals and proof record. Type DELETE to continue." busy={saving} onClose={() => setConfirmDelete(false)} onConfirm={removeTransaction} />
     </div>
   )
 }
 
 function transactionPreset(tx: BusinessTransaction): SerializableTransactionInput {
   if (tx.kind === 'personal_expense') {
-    return {
-      kind: 'expense',
-      amount: Number(tx.amount),
-      partnerId: tx.partner_id,
-      categoryId: tx.category_id,
-      counterparty: tx.counterparty ?? '',
-      note: tx.note ?? '',
-      paymentStatus: 'paid',
-      paidBy: 'partner',
-    }
+    return { kind: 'expense', amount: Number(tx.amount), partnerId: tx.partner_id, categoryId: tx.category_id, counterparty: tx.counterparty ?? '', note: tx.note ?? '', paymentStatus: 'paid', paidBy: 'partner' }
   }
   return {
     kind: tx.kind as SerializableTransactionInput['kind'],
@@ -416,10 +335,5 @@ function transactionPreset(tx: BusinessTransaction): SerializableTransactionInpu
 }
 
 function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-cream-200 bg-white px-3 py-2">
-      <div className="text-[10px] text-navy-400">{label}</div>
-      <div className="font-semibold text-navy-700 truncate">{value}</div>
-    </div>
-  )
+  return <div className="rounded-xl border border-cream-200 bg-white px-3 py-2 min-w-0"><div className="text-[10px] text-navy-400">{label}</div><div className="font-semibold text-navy-700 truncate">{value}</div></div>
 }

@@ -29,7 +29,7 @@ export default function BusinessOnboarding() {
   }, [onboardingRequest])
 
   if (loading) return null
-  if (!authenticated) return <Navigate to="/login" replace />
+  if (!authenticated) return <Navigate to="/business/login" replace />
   if (memberships.length > 0) return <Navigate to="/business" replace />
 
   const submit = async () => {
@@ -81,7 +81,7 @@ export default function BusinessOnboarding() {
   }
 
   return (
-    <main className="min-h-screen bg-cream-50 px-4 py-6">
+    <main className="min-h-[100dvh] bg-cream-50 px-4 py-6">
       <div className="max-w-md mx-auto">
         <div className="text-center mb-4">
           <PranganBrand variant="symbol-navy" height={36} className="mx-auto mb-2" />
@@ -163,7 +163,7 @@ function StatusScreen({ icon: Icon, eyebrow, title, body, children }: {
   children: ReactNode
 }) {
   return (
-    <main className="min-h-screen bg-cream-50 px-4 py-8 flex items-start justify-center">
+    <main className="min-h-[100dvh] bg-cream-50 px-4 py-8 flex items-start justify-center">
       <div className="max-w-md w-full text-center">
         <PranganBrand variant="symbol-navy" height={36} className="mx-auto mb-4" />
         <div className="mx-auto h-14 w-14 rounded-2xl bg-amber-50 text-pend flex items-center justify-center">

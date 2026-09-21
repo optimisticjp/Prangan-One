@@ -92,7 +92,7 @@ export default function ShareLink() {
           </div>
           <h1 className="font-bold text-navy-900 text-[19px]">આ સોસાયટીની લિંક મળી નહીં</h1>
           <p className="text-[13.5px] text-navy-500 mt-1.5">લિંક ખોટી હોઈ શકે છે. કૃપા કરીને આપની કમિટીને સાચી લિંક માટે પૂછો.</p>
-          <Button variant="soft" className="mt-4" onClick={() => nav('/login')}>લોગિન પર જાઓ</Button>
+          <Button variant="soft" className="mt-4" onClick={() => nav('/user-login')}>લોગિન પર જાઓ</Button>
         </div>
       </div>
     )
@@ -107,7 +107,7 @@ export default function ShareLink() {
           <p className="text-[13.5px] text-navy-400 mt-0.5">{[society.area, society.city].filter(Boolean).join(', ')}</p>
         )}
         <p className="text-[12.5px] text-saffron-600 font-semibold mt-2">પ્રાંગણવન પર</p>
-        <Button variant="accent" full className="mt-5" onClick={() => nav('/login')}>લોગિન કરો</Button>
+        <Button variant="accent" full className="mt-5" onClick={() => nav('/user-login')}>લોગિન કરો</Button>
       </div>
     </div>
   )

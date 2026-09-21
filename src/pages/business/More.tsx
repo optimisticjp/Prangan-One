@@ -1,7 +1,8 @@
-import { ArrowRight, Banknote, BarChart3, CalendarCheck2, Languages, Settings, Tags, Upload } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { ArrowRight, Banknote, BarChart3, CalendarCheck2, Languages, LogOut, Settings, Tags, Upload } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useBusinessLanguage } from '../../lib/business/i18n'
 import type { BusinessLanguage } from '../../lib/business/i18n'
+import { signOut } from '../../lib/auth'
 
 const tools = [
   { to: '/business/accounts', icon: Banknote, title: 'Money accounts', sub: 'Cash, bank and optional payment accounts' },
@@ -14,6 +15,8 @@ const tools = [
 
 export default function BusinessMore() {
   const { language, setLanguage } = useBusinessLanguage()
+  const navigate = useNavigate()
+  const logout = async () => { await signOut(); navigate('/business/login', { replace: true }) }
 
   return (
     <div className="space-y-3">
@@ -48,6 +51,7 @@ export default function BusinessMore() {
           </Link>
         ))}
       </div>
+      <button onClick={() => void logout()} className="w-full min-h-[48px] rounded-2xl border border-cream-200 bg-white text-[12.5px] font-semibold text-navy-600 flex items-center justify-center gap-2"><LogOut size={15} /> Log out of Business</button>
     </div>
   )
 }

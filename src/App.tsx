@@ -25,6 +25,7 @@ import { lazyWithRetry as lazy } from './lib/lazyWithRetry'
 import Home from './pages/public/Home'
 
 const Login = lazy(() => import('./pages/Login'))
+const PortalLogin = lazy(() => import('./pages/PortalLogin'))
 const Demo = lazy(() => import('./pages/Demo'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
@@ -145,6 +146,9 @@ export default function App() {
         <Route path="/privacy" element={<Lazy><Privacy /></Lazy>} />
         <Route path="/terms" element={<Lazy><Terms /></Lazy>} />
         <Route path="/login" element={<Lazy><Login /></Lazy>} />
+        <Route path="/user-login" element={<Lazy><PortalLogin portal="resident" /></Lazy>} />
+        <Route path="/admin-login" element={<Lazy><PortalLogin portal="admin" /></Lazy>} />
+        <Route path="/business/login" element={<Lazy><PortalLogin portal="business" /></Lazy>} />
         <Route path="/demo" element={<Lazy><Demo /></Lazy>} />
         <Route path="/auth/callback" element={<Lazy><AuthCallback /></Lazy>} />
         <Route path="/auth/reset-password" element={<Lazy><ResetPassword /></Lazy>} />
@@ -153,7 +157,7 @@ export default function App() {
 
         {/* Shareable, society-branded entry point: pranganone.com/s/rajhans-tower.
             Looks up the society by slug (public metadata only: name, logo,
-            theme, area), shows their branding, then hands off to /login
+            theme, area), shows their branding, then hands off to /user-login
             with that society pre-selected as context. */}
         <Route path="/s/:slug" element={<Lazy><ShareLink /></Lazy>} />
 

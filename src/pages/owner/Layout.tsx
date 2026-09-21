@@ -48,7 +48,7 @@ export default function OwnerLayout() {
         ))}
       </nav>
       <div className="p-3 border-t border-navy-800">
-        <button onClick={() => { logout(); nav_('/login') }}
+        <button onClick={() => { logout(); nav_('/admin-login') }}
           className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
           {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
           {session.isRealSession ? 'લોગ આઉટ' : 'રોલ બદલો'}
@@ -59,7 +59,7 @@ export default function OwnerLayout() {
   )
 
   return (
-    <div className="min-h-screen bg-cream-100 flex">
+    <div className="min-h-[100dvh] bg-cream-100 flex">
       <FetchErrorBanner />
       <SyncFailureBanner />
       <aside className="hidden md:flex md:w-64 md:flex-col bg-brand-navy shrink-0">{sidebar}</aside>

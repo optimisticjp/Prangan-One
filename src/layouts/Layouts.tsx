@@ -169,7 +169,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
           </div>
         )}
         {session.isRealSession ? (
-          <Link to="/login" onClick={logout}
+          <Link to="/admin-login" onClick={logout}
             className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
             <LogOut size={17} /> લોગ આઉટ
           </Link>

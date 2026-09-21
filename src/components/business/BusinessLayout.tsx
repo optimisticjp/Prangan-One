@@ -26,10 +26,10 @@ export default function BusinessLayout() {
     if (navigator.onLine && offlineQueueCount > 0) void syncOfflineQueue()
   }, [offlineQueueCount, syncOfflineQueue])
 
-  if (loading) return <div className="min-h-screen bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business workspace..." /></div>
-  if (!authenticated) return <Navigate to="/login" replace />
+  if (loading) return <div className="min-h-[100dvh] bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business workspace..." /></div>
+  if (!authenticated) return <Navigate to="/business/login" replace />
   if (!activeMembership) return <Navigate to="/business/onboarding" replace />
-  if (!data.business) return <div className="min-h-screen bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business data..." /></div>
+  if (!data.business) return <div className="min-h-[100dvh] bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business data..." /></div>
 
   const tabs = [
     { to: '/business', label: t('home'), icon: Home, end: true },
@@ -50,7 +50,7 @@ export default function BusinessLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-50 max-w-2xl mx-auto border-x border-cream-200/70">
+    <div className="min-h-[100dvh] w-full max-w-2xl mx-auto overflow-x-hidden bg-cream-50 border-x border-cream-200/70">
       <header className="sticky top-0 z-40 bg-cream-50/95 backdrop-blur border-b border-cream-200 px-3 py-2.5">
         <div className="flex items-center gap-2.5">
           <PranganBrand variant="symbol-navy" height={30} />
@@ -74,7 +74,7 @@ export default function BusinessLayout() {
         </div>
       </header>
 
-      <main className="px-3 pt-3 pb-24">
+      <main className="w-full min-w-0 overflow-x-hidden px-3 pt-3 pb-24">
         <Outlet context={{ openTransaction } satisfies BusinessOutletContext} />
       </main>
 

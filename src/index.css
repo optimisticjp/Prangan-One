@@ -38,7 +38,22 @@
     --color-saffron-600: 201 119 16;
     --color-saffron-700: 160 94 12;
   }
-  html { -webkit-tap-highlight-color: transparent; }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+  }
+  body, #root {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+  }
+  #root { min-height: 100dvh; }
+  img, video, canvas, svg { max-width: 100%; }
   body {
     @apply bg-cream-100 text-navy-800 font-guj antialiased;
     font-size: 16.5px;
@@ -90,4 +105,12 @@
     -webkit-print-color-adjust: exact;
   }
   .no-print { display: none !important; }
+}
+
+
+/* Mobile web should behave like an app: the page never drifts sideways.
+   Explicit horizontal chip/carousel rows remain scrollable within themselves. */
+.overflow-x-auto {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
 }

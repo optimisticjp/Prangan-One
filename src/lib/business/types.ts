@@ -205,3 +205,37 @@ export interface MarkBusinessExpensePaidInput {
   accountId?: string | null
   partnerId?: string | null
 }
+
+
+export interface BusinessTransactionEditInput {
+  kind: Exclude<BusinessTransactionKind, 'reversal'>
+  amount: number
+  accountId?: string | null
+  toAccountId?: string | null
+  partnerId?: string | null
+  categoryId?: string | null
+  counterparty?: string
+  note?: string
+  occurredAt: string
+  paymentStatus: BusinessPaymentStatus
+  paidBy: BusinessPaidBy
+  dueDate?: string | null
+  approvalStatus: BusinessApprovalStatus
+}
+
+export interface BusinessPartnerEditInput {
+  name: string
+  email?: string
+  phone?: string
+  ownership?: number | null
+  role: BusinessRole
+  status: 'active' | 'disabled'
+}
+
+export interface BusinessDayClosingEditInput {
+  accountId: string
+  closeDate: string
+  expectedBalance: number
+  countedBalance: number
+  note?: string
+}

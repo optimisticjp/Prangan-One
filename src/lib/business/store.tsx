@@ -8,8 +8,8 @@ import {
   removeOfflineBusinessTransaction,
 } from './preferences'
 import type {
-  ApprovalMode, BusinessAccountKind, BusinessMembership, BusinessOnboardingRequest,
-  BusinessSnapshot, MarkBusinessExpensePaidInput, PostBusinessTransactionInput,
+  ApprovalMode, BusinessAccountKind, BusinessDayClosingEditInput, BusinessMembership, BusinessOnboardingRequest,
+  BusinessPartnerEditInput, BusinessSnapshot, BusinessTransactionEditInput, MarkBusinessExpensePaidInput, PostBusinessTransactionInput,
 } from './types'
 
 const EMPTY: BusinessSnapshot = {
@@ -51,22 +51,22 @@ interface BusinessContextValue {
   markExpensePaid: (id: string, input: MarkBusinessExpensePaidInput) => Promise<void>
   approveTransaction: (id: string, note?: string) => Promise<void>
   rejectTransaction: (id: string, note?: string) => Promise<void>
-  reverseTransaction: (id: string, reason: string) => Promise<void>
-  editTransactionAmount: (id: string, amount: number) => Promise<string>
+  deleteTransaction: (id: string) => Promise<void>
+  editTransaction: (id: string, input: BusinessTransactionEditInput) => Promise<void>
   addPartner: (input: { name: string; email?: string; phone?: string; ownership?: number | null }) => Promise<void>
-  editPartner: (id: string, input: { name: string; email?: string; phone?: string; ownership?: number | null }) => Promise<void>
+  editPartner: (id: string, input: BusinessPartnerEditInput) => Promise<void>
   deletePartner: (id: string) => Promise<void>
   addAccount: (input: { name: string; kind: BusinessAccountKind; openingBalance: number }) => Promise<void>
-  editAccount: (id: string, input: { name: string; kind: BusinessAccountKind }) => Promise<void>
+  editAccount: (id: string, input: { name: string; kind: BusinessAccountKind; openingBalance: number }) => Promise<void>
   deleteAccount: (id: string) => Promise<void>
   addCategory: (input: { name: string; kind: 'income' | 'expense' | 'both' }) => Promise<void>
   editCategory: (id: string, input: { name: string; kind: 'income' | 'expense' | 'both' }) => Promise<void>
   deleteCategory: (id: string) => Promise<void>
-  editTransactionDetails: (id: string, input: { counterparty?: string; note?: string; categoryId?: string | null; dueDate?: string | null }) => Promise<void>
   saveSettings: (input: { name: string; approvalMode: ApprovalMode }) => Promise<void>
   deleteBusiness: () => Promise<void>
   closeDay: (accountId: string, counted: number, note?: string) => Promise<void>
-  reopenDay: (closingId: string, reason: string) => Promise<void>
+  editDayClose: (closingId: string, input: BusinessDayClosingEditInput) => Promise<void>
+  deleteDayClose: (closingId: string) => Promise<void>
 }
 
 const BusinessContext = createContext<BusinessContextValue | null>(null)
@@ -283,19 +283,15 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     markExpensePaid: async (id, input) => withReload(() => api.markBusinessExpensePaid(id, input)),
     approveTransaction: async (id, note = '') => withReload(() => api.approveBusinessTransaction(id, note)),
     rejectTransaction: async (id, note = '') => withReload(() => api.rejectBusinessTransaction(id, note)),
-    reverseTransaction: async (id, reason) => withReload(() => api.reverseBusinessTransaction(id, reason)),
-    editTransactionAmount: async (id, amount) => {
-      const replacement = await api.editBusinessTransactionAmount(id, amount)
-      await reload()
-      return replacement
-    },
+    deleteTransaction: async id => withReload(() => api.hardDeleteBusinessTransaction(id)),
+    editTransaction: async (id, input) => withReload(() => api.updateBusinessTransactionFull(id, input)),
     addPartner: async input => {
       if (!activeBusinessId) throw new Error('Choose a business first')
       await withReload(() => api.addBusinessPartner(activeBusinessId, input))
     },
     editPartner: async (id, input) => withReload(() => api.updateBusinessPartner(id, input)),
     deletePartner: async id => {
-      await withReload(() => api.archiveBusinessPartner(id))
+      await withReload(() => api.hardDeleteBusinessPartner(id))
       await loadMemberships()
     },
     addAccount: async input => {
@@ -303,14 +299,13 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       await withReload(() => api.addBusinessAccount(activeBusinessId, input))
     },
     editAccount: async (id, input) => withReload(() => api.updateBusinessAccount(id, input)),
-    deleteAccount: async id => withReload(() => api.archiveBusinessAccount(id)),
+    deleteAccount: async id => withReload(() => api.hardDeleteBusinessAccount(id)),
     addCategory: async input => {
       if (!activeBusinessId) throw new Error('Choose a business first')
       await withReload(() => api.addBusinessCategory(activeBusinessId, input))
     },
     editCategory: async (id, input) => withReload(() => api.updateBusinessCategory(id, input)),
-    deleteCategory: async id => withReload(() => api.archiveBusinessCategory(id)),
-    editTransactionDetails: async (id, input) => withReload(() => api.editBusinessTransactionDetails(id, input)),
+    deleteCategory: async id => withReload(() => api.hardDeleteBusinessCategory(id)),
     saveSettings: async input => {
       if (!activeBusinessId) throw new Error('Choose a business first')
       await withReload(() => api.updateBusinessSettings(activeBusinessId, input))
@@ -318,12 +313,13 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     },
     deleteBusiness: async () => {
       if (!activeBusinessId) throw new Error('Choose a business first')
-      await api.archiveBusiness(activeBusinessId)
+      await api.hardDeleteBusiness(activeBusinessId)
       setData(EMPTY)
       await loadMemberships()
     },
     closeDay: async (accountId, counted, note = '') => withReload(() => api.closeBusinessDay(accountId, counted, note)),
-    reopenDay: async (closingId, reason) => withReload(() => api.reopenBusinessDay(closingId, reason)),
+    editDayClose: async (closingId, input) => withReload(() => api.updateBusinessDayClosing(closingId, input)),
+    deleteDayClose: async closingId => withReload(() => api.hardDeleteBusinessDayClosing(closingId)),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     authenticated, loading, refreshing, userId, memberships, onboardingRequest,

@@ -69,7 +69,7 @@ export default function BusinessCategories() {
     setSaving(true)
     try {
       await deleteCategory(deleting.id)
-      toast.success('Category deleted from active use')
+      toast.success('Category deleted')
       setDeleting(null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not delete category')
@@ -153,7 +153,7 @@ export default function BusinessCategories() {
         open={!!deleting}
         mode="DELETE"
         title="Delete category"
-        body="The category will disappear from new transaction forms, but historical transactions will keep their existing reference."
+        body="This permanently deletes the category. Existing transactions keep working with an empty category. Type DELETE to continue."
         busy={saving}
         onClose={() => setDeleting(null)}
         onConfirm={remove}

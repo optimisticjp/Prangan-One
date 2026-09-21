@@ -106,7 +106,11 @@ export default function Home() {
             <p className="mt-4 text-[16px] sm:text-[17px] text-navy-500 leading-relaxed max-w-2xl mx-auto lg:mx-0">{t.sub}</p>
             <div className="mt-7 flex flex-col min-[380px]:flex-row justify-center lg:justify-start gap-3">
               <Link to={primaryCta.to} className="inline-flex items-center justify-center gap-2 rounded-xl bg-navy-900 text-cream-50 px-5 py-3 text-[15px] font-bold hover:bg-navy-800">{primaryCta.label} <ArrowRight size={16} /></Link>
-              <Link to="/login" className="inline-flex items-center justify-center gap-2 rounded-xl border border-navy-200 px-5 py-3 text-[15px] font-semibold text-navy-700 hover:bg-navy-50">{t.ctaSecondary}</Link>
+              <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
+                <Link to="/user-login" aria-label={lang === 'en' ? 'Resident login' : 'રહેવાસી લોગિન'} className="min-h-[48px] inline-flex flex-col items-center justify-center gap-0.5 rounded-xl border border-saffron-200 bg-saffron-50 px-3 text-[11px] font-bold text-saffron-800"><Users size={16} />{lang === 'en' ? 'Resident' : 'રહેવાસી'}</Link>
+                <Link to="/admin-login" aria-label={lang === 'en' ? 'Admin login' : 'એડમિન લોગિન'} className="min-h-[48px] inline-flex flex-col items-center justify-center gap-0.5 rounded-xl border border-navy-200 bg-white px-3 text-[11px] font-bold text-navy-700"><ShieldCheck size={16} />{lang === 'en' ? 'Admin' : 'એડમિન'}</Link>
+                <Link to="/business/login" aria-label={lang === 'en' ? 'Business login' : 'બિઝનેસ લોગિન'} className="min-h-[48px] inline-flex flex-col items-center justify-center gap-0.5 rounded-xl border border-green-200 bg-green-50 px-3 text-[11px] font-bold text-paid"><BriefcaseBusiness size={16} />{lang === 'en' ? 'Business' : 'બિઝનેસ'}</Link>
+              </div>
             </div>
           </div>
 
@@ -150,7 +154,7 @@ export default function Home() {
               {(lang === 'en' ? ['Partner funds', 'Expense approvals', 'Personal-paid expenses', 'Daily cash close'] : ['ભાગીદાર ફંડ', 'ખર્ચ મંજૂરી', 'પર્સનલ ખર્ચ', 'દૈનિક કેશ ક્લોઝ']).map(x => <span key={x} className="rounded-full border border-cream-50/10 bg-cream-50/5 px-2.5 py-1">{x}</span>)}
             </div>
           </div>
-          <Link to="/business" className="relative inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-saffron-500 px-4 text-[13px] font-bold text-navy-950 hover:bg-saffron-400">
+          <Link to="/business/login" className="relative inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-saffron-500 px-4 text-[13px] font-bold text-navy-950 hover:bg-saffron-400">
             {lang === 'en' ? 'Open Business Money' : 'Business Money ખોલો'} <ArrowRight size={15} />
           </Link>
         </div>

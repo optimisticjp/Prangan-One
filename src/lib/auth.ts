@@ -13,11 +13,26 @@
  */
 import { supabase } from './supabase'
 
-export async function sendMagicLink(email: string): Promise<void> {
+export type LoginPortal = 'resident' | 'admin' | 'business'
+const LOGIN_PORTAL_KEY = 'prangan-login-portal'
+
+export function setLoginPortalIntent(portal: LoginPortal) {
+  localStorage.setItem(LOGIN_PORTAL_KEY, portal)
+}
+
+export function getLoginPortalIntent(): LoginPortal | null {
+  const value = localStorage.getItem(LOGIN_PORTAL_KEY)
+  return value === 'resident' || value === 'admin' || value === 'business' ? value : null
+}
+
+const callbackUrl = (portal: LoginPortal) => window.location.origin + '/auth/callback?portal=' + portal
+
+export async function sendMagicLink(email: string, portal: LoginPortal = 'resident'): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  setLoginPortalIntent(portal)
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.origin + '/auth/callback' },
+    options: { emailRedirectTo: callbackUrl(portal) },
   })
   if (error) throw error
 }
@@ -33,11 +48,12 @@ export async function sendMagicLink(email: string): Promise<void> {
  * they're now a real, verified Supabase user with an email Prangan One
  * can match against real memberships the same way either path works.
  */
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(portal: LoginPortal = 'resident'): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured')
+  setLoginPortalIntent(portal)
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin + '/auth/callback' },
+    options: { redirectTo: callbackUrl(portal) },
   })
   if (error) throw error
 }
