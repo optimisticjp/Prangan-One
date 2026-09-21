@@ -860,3 +860,58 @@ end $$;
 
 \echo ''
 \echo 'All isolation tests completed successfully.'
+
+
+-- ============================================================================
+-- Business workspace isolation and financial semantics.
+-- Separate from society tenancy: two businesses, unrelated users, one viewer.
+-- ============================================================================
+reset role;
+
+insert into auth.users (id, email) values
+  ('10000000-0000-0000-0000-0000000000a1', 'biz-admin-a@test.local'),
+  ('10000000-0000-0000-0000-0000000000a2', 'biz-viewer-a@test.local'),
+  ('10000000-0000-0000-0000-0000000000b1', 'biz-admin-b@test.local');
+
+insert into businesses (id, name, approval_mode, created_by) values
+  ('11000000-0000-0000-0000-000000000001', 'Business A', 'one_partner', '10000000-0000-0000-0000-0000000000a1'),
+  ('12000000-0000-0000-0000-000000000001', 'Business B', 'none', '10000000-0000-0000-0000-0000000000b1');
+
+insert into business_partners (id, business_id, name, email) values
+  ('11100000-0000-0000-0000-000000000001', '11000000-0000-0000-0000-000000000001', 'Admin A', 'biz-admin-a@test.local'),
+  ('12100000-0000-0000-0000-000000000001', '12000000-0000-0000-0000-000000000001', 'Admin B', 'biz-admin-b@test.local');
+
+insert into business_memberships (business_id, user_id, partner_id, email, display_name, role) values
+  ('11000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-0000000000a1', '11100000-0000-0000-0000-000000000001', 'biz-admin-a@test.local', 'Admin A', 'admin'),
+  ('11000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-0000000000a2', null, 'biz-viewer-a@test.local', 'Viewer A', 'viewer'),
+  ('12000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-0000000000b1', '12100000-0000-0000-0000-000000000001', 'biz-admin-b@test.local', 'Admin B', 'admin');
+
+insert into business_accounts (id, business_id, name, kind, opening_balance) values
+  ('11200000-0000-0000-0000-000000000001', '11000000-0000-0000-0000-000000000001', 'Cash A', 'cash', 1000),
+  ('12200000-0000-0000-0000-000000000001', '12000000-0000-0000-0000-000000000001', 'Cash B', 'cash', 500);
+
+set role authenticated;
+select test_become('10000000-0000-0000-0000-0000000000a1');
+select test_assert((select count(*) from businesses) = 1, 'business admin A sees exactly one business');
+select test_assert((select count(*) from businesses where id = '12000000-0000-0000-0000-000000000001') = 0, 'business admin A cannot see Business B');
+select test_assert((select count(*) from business_accounts) = 1, 'business account rows are scoped to the active user businesses');
+
+select post_business_transaction(
+  '11000000-0000-0000-0000-000000000001', 'income', 10000,
+  '11200000-0000-0000-0000-000000000001', null, null, null, 'Customer', 'Cash sale', now()
+);
+select post_business_transaction(
+  '11000000-0000-0000-0000-000000000001', 'personal_expense', 3000,
+  null, null, '11100000-0000-0000-0000-000000000001', null, 'Supplier', 'Paid personally', now()
+);
+select test_assert((select balance from get_business_account_balances('11000000-0000-0000-0000-000000000001') where account_id = '11200000-0000-0000-0000-000000000001') = 11000, 'business account balance includes opening cash plus posted income');
+select test_assert((select outstanding_due from get_business_partner_positions('11000000-0000-0000-0000-000000000001') where partner_id = '11100000-0000-0000-0000-000000000001') = 3000, 'partner-paid expense becomes amount owed to that partner without reducing business cash');
+
+select test_become('10000000-0000-0000-0000-0000000000a2');
+select test_assert((select count(*) from business_transactions) = 2, 'viewer can read their business transactions');
+select test_assert(test_try_write($w$insert into business_accounts (business_id, name, kind) values ('11000000-0000-0000-0000-000000000001', 'Viewer cash', 'cash')$w$) = -1, 'viewer cannot create a business money account');
+
+select test_become('10000000-0000-0000-0000-0000000000b1');
+select test_assert((select count(*) from business_transactions) = 0, 'Business B admin sees none of Business A transactions');
+select test_assert((select count(*) from business_partners where business_id = '11000000-0000-0000-0000-000000000001') = 0, 'Business B admin sees none of Business A partners');
+

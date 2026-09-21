@@ -1,0 +1,25 @@
+# Tasks
+
+- [x] Define business roles, transactions, approval semantics and partner positions.
+- [x] Design additive database model separate from Society.
+- [x] Add RLS helpers and policies.
+- [x] Add atomic transaction, approval, reversal and cash-close RPCs.
+- [x] Add private business proof storage rules.
+- [x] Add business Supabase adapter and isolated BusinessProvider.
+- [x] Add workspace-aware login resolution.
+- [x] Add Business onboarding.
+- [x] Add compact mobile Business shell and quick transaction sheet.
+- [x] Add dashboard and account balance overview.
+- [x] Add searchable/filterable ledger and CSV export.
+- [x] Add partner positions and partner creation.
+- [x] Add approval queue.
+- [x] Add accounts management.
+- [x] Add reports.
+- [x] Add daily cash closing and admin reopen.
+- [x] Add business settings.
+- [x] Add secondary Business promotion on the Society-first homepage.
+- [x] Add financial helper unit tests.
+- [x] Extend database isolation coverage for Business A vs Business B.
+- [ ] Pass CI after the integrated commit.
+- [ ] Apply migration to live Supabase and verify advisors.
+- [ ] Complete live smoke checklist after deployment.

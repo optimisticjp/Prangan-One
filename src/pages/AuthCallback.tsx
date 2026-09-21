@@ -1,51 +1,48 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, AlertCircle, Building2 } from 'lucide-react'
+import { AlertCircle, BriefcaseBusiness, Building2, Loader2 } from 'lucide-react'
 import { useData } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { claimMemberships } from '../lib/auth'
+import { claimBusinessMemberships } from '../lib/business/data'
 import { roleLabel, roleHomeRoute } from '../lib/permissions'
 import { DEFAULT_SOCIETY_ID } from '../lib/store'
 import { Button } from '../components/ui'
 import { PranganBrand } from '../components/PranganBrand'
 import { useAppLang } from '../lib/useAppLang'
 import type { Role } from '../lib/types'
+import type { BusinessRole } from '../lib/business/types'
 
-/**
- * Where a real magic-link click actually lands (see emailRedirectTo in
- * auth.ts). This is the one page in the whole identity flow that needs a
- * real Supabase project to ever actually run - it cannot be exercised
- * against the local demo data layer, since it depends on a real
- * authenticated user existing. Written carefully, following the same
- * claimMemberships contract auth.ts already defines, but genuinely
- * unverified against a live project as of this writing - see
- * CLAUDE_CODE_NEXT_STEPS.md for exactly what to check once real
- * memberships exist to test against.
- *
- * Three outcomes once a real user resolves:
- *   - exactly one membership -> straight to that role's dashboard
- *   - more than one (same email, multiple societies) -> pick one
- *   - none at all -> /no-access, and the attempt gets logged so the
- *     owner console can see it (see logUnmatchedLoginAttempt)
- */
+type WorkspaceChoice =
+  | { kind: 'society'; key: string; societyId: string | null; name: string; role: Role; flatId: string | null }
+  | { kind: 'business'; key: string; businessId: string; name: string; role: BusinessRole }
+
+const businessRoleLabel: Record<BusinessRole, string> = { admin: 'Business admin', partner: 'Partner', bookkeeper: 'Bookkeeper', viewer: 'View only' }
+
 export default function AuthCallback() {
   useAppLang()
   const nav = useNavigate()
   const { resolveRealSession, logUnmatchedLoginAttempt } = useData()
   const [state, setState] = useState<'loading' | 'error' | 'choose'>('loading')
-  const [choices, setChoices] = useState<{ membershipId: string; societyId: string | null; societyName: string; role: Role; flatId: string | null }[]>([])
+  const [choices, setChoices] = useState<WorkspaceChoice[]>([])
+
+  const openChoice = (choice: WorkspaceChoice) => {
+    if (choice.kind === 'business') {
+      localStorage.setItem('prangan-business-id', choice.businessId)
+      localStorage.setItem('prangan-last-workspace', 'business')
+      nav('/business', { replace: true })
+      return
+    }
+    resolveRealSession({ role: choice.role, societyId: choice.societyId ?? DEFAULT_SOCIETY_ID, flatId: choice.flatId })
+    localStorage.setItem('prangan-last-workspace', 'society')
+    nav(roleHomeRoute[choice.role] ?? '/login', { replace: true })
+  }
 
   useEffect(() => {
     let cancelled = false
-
     async function resolve() {
       if (!supabase) { setState('error'); return }
-
       try {
-        // Supabase's client parses the magic-link tokens from the URL and
-        // sets up the session automatically (detectSessionInUrl, on by
-        // default) - but that can be a tick behind this component mounting,
-        // so wait briefly for a real user rather than checking exactly once.
         let user = (await supabase.auth.getUser()).data.user
         for (let attempt = 0; !user && attempt < 10 && !cancelled; attempt++) {
           await new Promise(r => setTimeout(r, 300))
@@ -54,84 +51,52 @@ export default function AuthCallback() {
         if (cancelled) return
         if (!user?.email) { setState('error'); return }
 
-        const claimed = await claimMemberships(user.id, user.email)
+        const [societyMemberships, businessMemberships] = await Promise.all([
+          claimMemberships(user.id, user.email),
+          claimBusinessMemberships(),
+        ])
         if (cancelled) return
 
-        if (claimed.length === 0) {
+        const all: WorkspaceChoice[] = [
+          ...societyMemberships.map(m => ({ kind: 'society' as const, key: `society-${m.membershipId}`, societyId: m.societyId, name: m.societyName, role: m.role as Role, flatId: m.flatId })),
+          ...businessMemberships.map(m => ({ kind: 'business' as const, key: `business-${m.membershipId}`, businessId: m.businessId, name: m.businessName, role: m.role })),
+        ]
+
+        if (all.length === 0) {
           logUnmatchedLoginAttempt(user.email)
           nav('/no-access', { replace: true })
-        } else if (claimed.length === 1) {
-          const m = claimed[0]
-          const role = m.role as Role
-          resolveRealSession({ role, societyId: m.societyId ?? DEFAULT_SOCIETY_ID, flatId: m.flatId })
-          nav(roleHomeRoute[role] ?? '/login', { replace: true })
+        } else if (all.length === 1) {
+          openChoice(all[0])
         } else {
-          setChoices(claimed.map(m => ({ membershipId: m.membershipId, societyId: m.societyId, societyName: m.societyName, role: m.role as Role, flatId: m.flatId })))
+          setChoices(all)
           setState('choose')
         }
       } catch {
-        // Covers a failure anywhere above, not just claimMemberships -
-        // without this, an unexpected failure in the getUser() polling
-        // loop would leave someone stuck on the loading screen forever,
-        // during the single highest-stakes flow in the app: actual login.
         if (!cancelled) setState('error')
       }
     }
-
     resolve()
     return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nav, resolveRealSession, logUnmatchedLoginAttempt])
 
-  const chooseSociety = (choice: typeof choices[number]) => {
-    resolveRealSession({ role: choice.role, societyId: choice.societyId ?? DEFAULT_SOCIETY_ID, flatId: choice.flatId })
-    nav(roleHomeRoute[choice.role] ?? '/login', { replace: true })
-  }
-
-  if (state === 'choose') {
-    return (
-      <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
-        <div className="text-center max-w-sm w-full">
-          <PranganBrand variant="symbol-navy" height={36} className="mx-auto mb-4" />
-          <h1 className="font-bold text-navy-900 text-[19px]">કઈ સોસાયટી ખોલવી છે?</h1>
-          <p className="text-[13.5px] text-navy-500 mt-1.5 mb-5">તમારો ઈમેલ એક કરતાં વધુ સોસાયટીમાં નોંધાયેલો છે.</p>
-          <div className="space-y-2.5">
-            {choices.map(c => (
-              <button key={c.membershipId} onClick={() => chooseSociety(c)}
-                className="w-full flex items-center gap-3 rounded-xl border border-cream-300 bg-white px-4 py-3.5 text-left hover:border-saffron-400">
-                <div className="h-10 w-10 rounded-lg bg-navy-50 text-navy-700 flex items-center justify-center shrink-0"><Building2 size={18} /></div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-navy-900 text-[14.5px]">{c.societyName}</div>
-                  <div className="text-[12.5px] text-navy-400">{roleLabel[c.role]}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (state === 'error') {
-    return (
-      <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
-        <div className="text-center max-w-sm">
-          <div className="mx-auto mb-3 h-14 w-14 rounded-2xl bg-navy-50 border border-navy-100 flex items-center justify-center text-navy-400">
-            <AlertCircle size={26} />
-          </div>
-          <h1 className="font-bold text-navy-900 text-[19px]">લિંક માન્ય નથી અથવા સમય પૂરો થયો છે</h1>
-          <p className="text-[13.5px] text-navy-500 mt-1.5">કૃપા કરીને લોગિન પેજ પરથી નવી લિંક મંગાવો.</p>
-          <Button variant="soft" className="mt-4" onClick={() => nav('/login')}>લોગિન પર જાઓ</Button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
+  if (state === 'choose') return (
     <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6">
-      <div className="text-center">
-        <Loader2 size={28} className="animate-spin text-navy-400 mx-auto mb-3" />
-        <p className="text-[14px] text-navy-500">લોગિન ચકાસી રહ્યા છીએ...</p>
+      <div className="text-center max-w-sm w-full">
+        <PranganBrand variant="symbol-navy" height={36} className="mx-auto mb-4" />
+        <h1 className="font-bold text-navy-900 text-[19px]">What do you want to open?</h1>
+        <p className="text-[13.5px] text-navy-500 mt-1.5 mb-5">Your login has access to more than one Prangan One workspace.</p>
+        <div className="space-y-2.5">{choices.map(c => <button key={c.key} onClick={() => openChoice(c)} className="w-full flex items-center gap-3 rounded-xl border border-cream-300 bg-white px-4 py-3.5 text-left hover:border-saffron-400">
+          <div className="h-10 w-10 rounded-lg bg-navy-50 text-navy-700 flex items-center justify-center shrink-0">{c.kind === 'society' ? <Building2 size={18} /> : <BriefcaseBusiness size={18} />}</div>
+          <div className="min-w-0"><div className="font-semibold text-navy-900 text-[14.5px] truncate">{c.name}</div><div className="text-[12.5px] text-navy-400">{c.kind === 'society' ? roleLabel[c.role] : businessRoleLabel[c.role]}</div></div>
+        </button>)}</div>
       </div>
     </div>
   )
+
+  if (state === 'error') return (
+    <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6"><div className="text-center max-w-sm"><div className="mx-auto mb-3 h-14 w-14 rounded-2xl bg-navy-50 border border-navy-100 flex items-center justify-center text-navy-400"><AlertCircle size={26} /></div><h1 className="font-bold text-navy-900 text-[19px]">Login link is invalid or expired</h1><p className="text-[13.5px] text-navy-500 mt-1.5">Please request a fresh login link.</p><Button variant="soft" className="mt-4" onClick={() => nav('/login')}>Go to login</Button></div></div>
+  )
+
+  return <div className="min-h-screen bg-cream-100 flex items-center justify-center p-6"><div className="text-center"><Loader2 size={28} className="animate-spin text-navy-400 mx-auto mb-3" /><p className="text-[14px] text-navy-500">Opening your workspace…</p></div></div>
 }

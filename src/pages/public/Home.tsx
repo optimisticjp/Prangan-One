@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight, Receipt, ShieldCheck, Users, Wrench, Bell, Vote,
   PartyPopper, Car, FolderOpen, BarChart3, Building2,
-  ClipboardCheck, Lock, Database, UploadCloud,
+  ClipboardCheck, Lock, Database, UploadCloud, BriefcaseBusiness,
 } from 'lucide-react'
 import { PublicLayout } from './PublicLayout'
 import { usePublicLang } from './usePublicLang'
@@ -129,6 +129,32 @@ export default function Home() {
       <section className="px-5 py-10 bg-navy-900 text-cream-50"><div className="max-w-5xl mx-auto"><h2 className="font-bold text-[24px] text-center mb-6">{t.trustTitle}</h2><div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">{[...trust, demoEnabled ? demoTrust.enabled : demoTrust.disabled].map(item => <div key={item.en} className="rounded-2xl border border-cream-50/10 bg-cream-50/5 p-4"><item.icon size={20} className="text-saffron-400 mb-2" /><p className="text-[13.5px] leading-relaxed text-cream-100/85">{lang === 'en' ? item.en : item.gu}</p></div>)}</div></div></section>
 
       <section className="px-5 py-10 max-w-5xl mx-auto"><h2 className="font-bold text-[22px] text-center mb-6">{t.modulesTitle}</h2><div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{modules.map(m => <div key={m.en} className="rounded-xl border border-cream-200 bg-white px-3 py-4 text-center"><m.icon size={20} className="mx-auto text-saffron-500 mb-1.5" /><div className="text-[12.5px] font-semibold text-navy-700">{lang === 'en' ? m.en : m.gu}</div></div>)}</div></section>
+
+
+      <section className="px-5 py-10 bg-cream-100 border-y border-cream-200">
+        <div className="max-w-5xl mx-auto rounded-3xl bg-navy-900 text-cream-50 p-5 sm:p-7 grid md:grid-cols-[1fr_auto] gap-5 items-center overflow-hidden relative">
+          <div className="absolute -right-14 -top-16 h-40 w-40 rounded-full bg-saffron-500/15" aria-hidden />
+          <div className="relative">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-cream-50/10 bg-cream-50/5 px-2.5 py-1 text-[11px] font-bold text-saffron-400">
+              <BriefcaseBusiness size={13} /> {lang === 'en' ? 'Also in Prangan One' : 'પ્રાંગણવનમાં હવે વધુ'}
+            </div>
+            <h2 className="mt-3 text-[22px] sm:text-[26px] font-bold leading-tight">
+              {lang === 'en' ? 'A simple money workspace for small businesses and partners.' : 'નાના વ્યવસાય અને ભાગીદારો માટે સરળ પૈસાનું વર્કસ્પેસ.'}
+            </h2>
+            <p className="mt-2 max-w-2xl text-[13.5px] sm:text-[14.5px] leading-relaxed text-cream-100/75">
+              {lang === 'en'
+                ? 'Track who added funds, business expenses, partner-paid costs, approvals, reimbursements, withdrawals, cash/bank/UPI balances and day closing. No invoicing or accounting jargon.'
+                : 'કોણે કેટલા પૈસા ઉમેર્યા, ખર્ચ કોણે કર્યો, મંજૂરી, ભાગીદારને પરત આપવાના પૈસા, ઉપાડ, કેશ/બેંક/UPI બેલેન્સ અને દિવસનું કેશ ક્લોઝિંગ ટ્રેક કરો. ઇન્વૉઇસિંગ વગર.'}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-cream-100/75">
+              {(lang === 'en' ? ['Partner funds', 'Expense approvals', 'Personal-paid expenses', 'Daily cash close'] : ['ભાગીદાર ફંડ', 'ખર્ચ મંજૂરી', 'પર્સનલ ખર્ચ', 'દૈનિક કેશ ક્લોઝ']).map(x => <span key={x} className="rounded-full border border-cream-50/10 bg-cream-50/5 px-2.5 py-1">{x}</span>)}
+            </div>
+          </div>
+          <Link to="/business" className="relative inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-saffron-500 px-4 text-[13px] font-bold text-navy-950 hover:bg-saffron-400">
+            {lang === 'en' ? 'Open Business Money' : 'Business Money ખોલો'} <ArrowRight size={15} />
+          </Link>
+        </div>
+      </section>
 
       <section className="px-5 py-10 max-w-4xl mx-auto grid sm:grid-cols-3 gap-4 text-center">
         {/* Informational pricing copy is a plain, non-interactive caption; only

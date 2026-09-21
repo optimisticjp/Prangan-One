@@ -1,0 +1,101 @@
+# Business Money Workspace
+
+## Goal
+
+Add a first-class Business workspace to Prangan One without changing the existing housing-society data model. The homepage remains society-first. Business is presented as an additional Prangan One workspace and establishes the pattern for future niche workspaces.
+
+The product is for small, partner-led and unorganised businesses that need trustworthy day-to-day money records without invoicing, GST filing, inventory, payroll, CRM, or accounting jargon.
+
+## Primary users
+
+- Business admin: configures the business, partners, accounts and approval rules.
+- Partner: sees business finances, records money movement, contributes funds and participates in approvals.
+- Bookkeeper: records day-to-day transactions but cannot administer partners/settings or approve partner expenses.
+- Viewer: read-only access for an auditor, family member or trusted stakeholder.
+
+## Core journeys
+
+1. An authenticated user with no business creates a workspace, becomes its first admin partner and starts with a Cash account.
+2. A business records money received, business expenses, partner capital, partner advances, partner-paid personal expenses, reimbursements, partner withdrawals, refunds and account transfers.
+3. A partner can see exactly how much capital they contributed, how much they advanced temporarily, what they personally paid, what the business still owes them and what they withdrew.
+4. An expense that requires approval changes real account balances when money actually moved, while its accountability status remains pending until the configured partner approvals are completed.
+5. Posted transactions are never silently edited. A correction creates a reversal that preserves the original record and an audit trail.
+6. A cash account can be closed for the day by comparing ledger-expected cash with physically counted cash.
+7. A user with both Society and Business memberships chooses the workspace after login. A user with only one workspace still goes directly to it.
+8. Business A can never read or change Business B through client queries or direct API calls.
+
+## Financial semantics
+
+- income: increases a selected business account.
+- expense: decreases a selected business account.
+- partner_capital: increases a business account and the partner's permanent capital contribution.
+- partner_advance: increases a business account and the amount the business owes that partner.
+- personal_expense: does not change a business cash/bank balance; increases the amount the business owes that partner.
+- reimbursement: decreases a business account and reduces the amount owed to the partner. It cannot exceed the outstanding due.
+- withdrawal: decreases a business account and records that partner's withdrawal.
+- transfer: decreases one account and increases another by the same amount.
+- refund: increases a selected business account.
+- reversal: mirrors the original ledger entries with opposite signs and links permanently to the original.
+
+Approval status and cash movement are deliberately separate. A real expense paid from business cash is reflected in the balance immediately even if approval is pending.
+
+## Approval rules
+
+Business setting:
+
+- none
+- one other partner
+- all other active partners
+
+Only admin/partner memberships can approve. The transaction creator cannot approve their own pending expense. Rejection marks the accountability decision; it does not pretend money returned to the business. A correction/refund/reversal must be recorded separately.
+
+## Mobile UX
+
+The Business workspace is mobile-first and deliberately denser than the housing committee UI.
+
+- Centered max-width phone/tablet surface on larger displays.
+- Five-position bottom navigation: Home, Ledger, raised Add, Approvals, Partners.
+- Compact header with business switcher.
+- 34-40px visual controls may be used where appropriate, while touch targets remain roughly 44px or larger.
+- Dense one-line ledger rows and small account/partner cards.
+- Bottom-sheet transaction entry.
+- No large hero panels or excessive vertical whitespace inside the workspace.
+- Test at 320, 360, 390, 412, 768 and 1024+ widths.
+- No accidental horizontal page scrolling.
+
+## Security and integrity
+
+- Every business-domain row is scoped by business_id where applicable.
+- Postgres RLS, not the React UI, is the authorization boundary.
+- Financial posting, approval, reversal and day closing use database functions so multi-row changes are atomic.
+- Important actions create immutable activity records.
+- Receipt/proof files use a private Supabase Storage bucket.
+- Cross-business isolation is covered by the Postgres isolation suite.
+
+## First release includes
+
+- Business onboarding
+- Multiple business memberships and switching
+- Cash/bank/UPI/wallet/other accounts
+- Partner records and login-linked partner membership
+- Core transaction types listed above
+- Partner positions
+- Expense approvals
+- Private proof upload
+- Ledger search/filter/detail/reversal
+- Daily cash closing and admin reopen with reason
+- Summary reports and CSV export
+- Secondary homepage promotion while Society remains the primary homepage story
+
+## Out of scope
+
+- Invoicing
+- GST returns/e-invoicing/e-way bills
+- Inventory
+- CRM
+- Payroll/attendance
+- Purchase orders
+- Bank API synchronization
+- Payment gateways
+- Full double-entry accounting screens
+- Tally replacement

@@ -84,6 +84,19 @@ const OLeads = lazy(() => import('./pages/owner/Leads'))
 const OActivity = lazy(() => import('./pages/owner/Activity'))
 const OwnerLegacyRedirect = lazy(() => import('./pages/owner/LegacyRedirect'))
 
+const BusinessRoot = lazy(() => import('./components/business/BusinessRoot'))
+const BusinessLayout = lazy(() => import('./components/business/BusinessLayout'))
+const BDashboard = lazy(() => import('./pages/business/Dashboard'))
+const BLedger = lazy(() => import('./pages/business/Ledger'))
+const BApprovals = lazy(() => import('./pages/business/Approvals'))
+const BPartners = lazy(() => import('./pages/business/Partners'))
+const BMore = lazy(() => import('./pages/business/More'))
+const BAccounts = lazy(() => import('./pages/business/Accounts'))
+const BReports = lazy(() => import('./pages/business/Reports'))
+const BDayClose = lazy(() => import('./pages/business/DayClose'))
+const BSettings = lazy(() => import('./pages/business/Settings'))
+const BOnboarding = lazy(() => import('./pages/business/Onboarding'))
+
 const adminNav: NavItem[] = [
   { to: '/admin', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true, group: 'ઓવરવ્યૂ' },
   { to: '/admin/billing', label: 'બિલિંગ અને બાકી', icon: ReceiptText, module: 'billing', group: 'હિસાબ', roles: ['society_admin'] },
@@ -179,6 +192,22 @@ export default function App() {
           <Route index element={<Lazy><CDashboard /></Lazy>} />
           <Route path="reports" element={<Lazy><CReports /></Lazy>} />
           <Route path="adjustments" element={<Lazy><CAdjustments /></Lazy>} />
+        </Route>
+
+
+        <Route path="/business" element={<Lazy><BusinessRoot /></Lazy>}>
+          <Route path="onboarding" element={<Lazy><BOnboarding /></Lazy>} />
+          <Route element={<Lazy><BusinessLayout /></Lazy>}>
+            <Route index element={<Lazy><BDashboard /></Lazy>} />
+            <Route path="ledger" element={<Lazy><BLedger /></Lazy>} />
+            <Route path="approvals" element={<Lazy><BApprovals /></Lazy>} />
+            <Route path="partners" element={<Lazy><BPartners /></Lazy>} />
+            <Route path="more" element={<Lazy><BMore /></Lazy>} />
+            <Route path="accounts" element={<Lazy><BAccounts /></Lazy>} />
+            <Route path="reports" element={<Lazy><BReports /></Lazy>} />
+            <Route path="day-close" element={<Lazy><BDayClose /></Lazy>} />
+            <Route path="settings" element={<Lazy><BSettings /></Lazy>} />
+          </Route>
         </Route>
 
         <Route path="/owner" element={<RoleGate allow={['owner']}><Lazy><OwnerShell /></Lazy></RoleGate>}>
