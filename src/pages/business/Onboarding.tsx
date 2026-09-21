@@ -148,7 +148,7 @@ export default function BusinessOnboarding() {
 
 function Step({ n, text, active = false }: { n: string; text: string; active?: boolean }) {
   return (
-    <div className={\`rounded-xl border px-1.5 py-2 \${active ? 'bg-saffron-50 border-saffron-200 text-saffron-800' : 'bg-white border-cream-200 text-navy-400'}\`}>
+    <div className={`rounded-xl border px-1.5 py-2 ${active ? 'bg-saffron-50 border-saffron-200 text-saffron-800' : 'bg-white border-cream-200 text-navy-400'}`}>
       <div className="text-[10px] font-bold">{n}</div>
       <div className="text-[10.5px] font-semibold leading-tight">{text}</div>
     </div>

@@ -137,7 +137,7 @@ export async function uploadBusinessProof(businessId: string, transactionId: str
   if (!allowed.includes(file.type)) throw new Error('Use JPG, PNG, WebP or PDF proof files.')
   if (file.size > 8 * 1024 * 1024) throw new Error('Proof file must be 8 MB or smaller.')
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100) || 'proof'
-  const path = \`\${businessId}/\${transactionId}/\${crypto.randomUUID()}-\${safeName}\`
+  const path = `${businessId}/${transactionId}/${crypto.randomUUID()}-${safeName}`
   const { error: uploadError } = await client.storage.from('business-proofs').upload(path, file, { upsert: false, contentType: file.type })
   if (uploadError) throw uploadError
   const user = (await client.auth.getUser()).data.user
