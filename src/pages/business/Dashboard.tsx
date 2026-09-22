@@ -55,13 +55,13 @@ export default function BusinessDashboard() {
     + (offlineQueueCount ? 1 : 0)
 
   return (
-    <div className="space-y-3">
-      <section className="rounded-2xl bg-navy-900 text-cream-50 px-4 py-3.5 shadow-soft">
+    <div className="space-y-2.5">
+      <section className="rounded-xl bg-navy-900 text-cream-50 px-3.5 py-3 shadow-soft">
         <div className="text-[10.5px] text-cream-100/60 font-semibold uppercase tracking-wide">{t('totalFunds')}</div>
-        <div className="num text-[28px] font-bold leading-tight mt-0.5">{businessMoney(totalBalance)}</div>
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5">
+        <div className="num text-[25px] font-bold leading-tight mt-0.5">{businessMoney(totalBalance)}</div>
+        <div className="dense-scroll mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5">
           {activeBalances.map(a => (
-            <div key={a.account_id} className="shrink-0 rounded-xl bg-white/10 border border-white/10 px-3 py-2 min-w-[112px]">
+            <div key={a.account_id} className="shrink-0 rounded-lg bg-white/10 border border-white/10 px-2.5 py-1.5 min-w-[104px]">
               <div className="text-[9.5px] uppercase tracking-wide text-cream-100/45">{a.kind}</div>
               <div className="text-[11px] text-cream-100/75 truncate">{a.name}</div>
               <div className="num text-[14px] font-bold">{businessMoney(a.balance)}</div>
@@ -84,8 +84,8 @@ export default function BusinessDashboard() {
       </section>
 
       {lastTransaction && (
-        <button onClick={repeat} className="w-full rounded-xl border border-cream-200 bg-white px-3 py-2.5 flex items-center gap-2.5 text-left">
-          <div className="h-9 w-9 rounded-xl bg-saffron-50 text-saffron-700 flex items-center justify-center"><RefreshCw size={16} /></div>
+        <button onClick={repeat} className="w-full rounded-xl border border-cream-200 bg-white px-3 py-2 flex items-center gap-2.5 text-left">
+          <div className="h-8 w-8 rounded-lg bg-saffron-50 text-saffron-700 flex items-center justify-center"><RefreshCw size={16} /></div>
           <div className="min-w-0 flex-1">
             <div className="text-[9.5px] font-bold text-saffron-700">REPEAT LAST</div>
             <div className="text-[12px] font-semibold text-navy-800 truncate">
@@ -101,9 +101,9 @@ export default function BusinessDashboard() {
           <h2 className="text-[14px] font-bold text-navy-900">{t('needsYou')}</h2>
           <Badge tone={actionCount ? 'amber' : 'green'}>{actionCount || 'Clear'}</Badge>
         </div>
-        <div className="rounded-2xl border border-cream-200 bg-white overflow-hidden">
+        <div className="rounded-xl border border-cream-200 bg-white overflow-hidden">
           {actionCount === 0 ? (
-            <div className="px-4 py-6 text-center">
+            <div className="px-4 py-4 text-center">
               <div className="text-[13px] font-semibold text-paid">Nothing needs attention.</div>
               <div className="text-[11px] text-navy-400 mt-0.5">Money book is tidy for now.</div>
             </div>
@@ -139,13 +139,13 @@ export default function BusinessDashboard() {
         </div>
         <div className="rounded-2xl border border-cream-200 bg-white overflow-hidden">
           {data.activity.length === 0 ? (
-            <div className="px-4 py-7 text-center text-[12.5px] text-navy-400">Activity will appear here as the team uses the money book.</div>
+            <div className="px-4 py-5 text-center text-[12px] text-navy-400">Activity will appear here as the team uses the money book.</div>
           ) : data.activity.slice(0, 10).map(log => {
             const actor = log.actor_user_id === userId
               ? 'You'
               : data.members.find(m => m.user_id === log.actor_user_id)?.display_name || 'Team member'
             return (
-              <div key={log.id} className="px-3 py-2.5 border-b border-cream-100 last:border-0 flex gap-2.5">
+              <div key={log.id} className="px-3 py-2 border-b border-cream-100 last:border-0 flex gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-navy-50 text-navy-600 flex items-center justify-center shrink-0"><ReceiptText size={14} /></div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[11.5px] text-navy-700"><strong>{actor}</strong> {activityLabel(log.action)}</div>
@@ -222,7 +222,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone: 'g
 
 function Quick({ icon: Icon, label, tag, onClick }: { icon: typeof ArrowDownLeft; label: string; tag: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="min-h-[66px] rounded-xl border border-cream-200 bg-white px-1.5 py-2 flex flex-col items-center justify-center text-center active:scale-[0.99]">
+    <button onClick={onClick} className="min-h-[58px] rounded-xl border border-cream-200 bg-white px-1.5 py-1.5 flex flex-col items-center justify-center text-center active:scale-[0.99]">
       <Icon size={18} className="text-saffron-700" />
       <div className="text-[8.5px] font-bold text-saffron-700 tracking-wide mt-0.5">{tag}</div>
       <div className="text-[10px] font-semibold text-navy-700 leading-tight">{label}</div>
@@ -247,7 +247,7 @@ function ActionLink({
         ? 'bg-saffron-50 text-saffron-700'
         : 'bg-navy-50 text-navy-600'
   return (
-    <Link to={to} className="min-h-[56px] px-3 py-2 flex items-center gap-2.5 border-b border-cream-100 last:border-0 active:bg-cream-50">
+    <Link to={to} className="min-h-[52px] px-3 py-1.5 flex items-center gap-2.5 border-b border-cream-100 last:border-0 active:bg-cream-50">
       <div className={'h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ' + classes}><Icon size={15} /></div>
       <div className="min-w-0 flex-1">
         <div className="text-[12px] font-semibold text-navy-800">{title}</div>

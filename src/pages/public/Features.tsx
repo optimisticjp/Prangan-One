@@ -39,23 +39,23 @@ export default function Features() {
 
   return (
     <PublicLayout lang={lang} setLang={setLang}>
-      <section className="px-5 pt-14 pb-8 text-center max-w-2xl mx-auto">
-        <h1 className="text-[30px] font-bold">{t.h1}</h1>
-        <p className="text-[15px] text-navy-500 mt-2">{t.sub}</p>
+      <section className="px-4 sm:px-5 pt-10 pb-5 text-center max-w-2xl mx-auto">
+        <h1 className="text-[27px] font-bold">{t.h1}</h1>
+        <p className="text-[14px] text-navy-500 mt-1.5">{t.sub}</p>
       </section>
-      <section className="px-5 pb-14 max-w-4xl mx-auto grid sm:grid-cols-2 gap-4">
+      <section className="px-4 sm:px-5 pb-10 max-w-4xl mx-auto grid sm:grid-cols-2 gap-2.5">
         {features.map(f => {
           const [title, body] = lang === 'en' ? f.en : f.gu
           return (
-            <div key={title} className="rounded-2xl border border-cream-200 bg-white p-5">
-              <f.icon size={22} className="text-saffron-500 mb-2.5" />
-              <h2 className="font-bold text-[15.5px] mb-1">{title}</h2>
-              <p className="text-[13.5px] text-navy-500 leading-relaxed">{body}</p>
+            <div key={title} className="rounded-xl border border-cream-200 bg-white p-4">
+              <f.icon size={22} className="text-saffron-500 mb-2" />
+              <h2 className="font-bold text-[15px] mb-1">{title}</h2>
+              <p className="text-[12.75px] text-navy-500 leading-relaxed">{body}</p>
             </div>
           )
         })}
       </section>
-      <section className="px-5 pb-16 text-center">
+      <section className="px-4 sm:px-5 pb-12 text-center">
         <p className="text-[13.5px] text-navy-500 max-w-md mx-auto mb-4">{t.ctaSupport}</p>
         <Link to="/contact" className="inline-flex items-center gap-2 rounded-xl bg-navy-900 text-cream-50 px-5 py-3 text-[15px] font-bold hover:bg-navy-800">
           {t.cta} <ArrowRight size={16} />

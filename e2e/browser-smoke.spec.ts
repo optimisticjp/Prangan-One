@@ -22,6 +22,18 @@ test.describe('public homepage', () => {
     await expect(page.getByRole('heading', { name: /રોજ ઉપયોગી/i })).toBeVisible()
   })
 
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    test(`keeps the redesigned public shell overflow-safe across representative widths: ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: width < 700 ? 844 : 900 })
+      await page.goto('/')
+
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      await expect(page.getByRole('link', { name: /લોગિન/i }).first()).toBeVisible()
+      const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
+      expect(hasOverflow, `public home overflows at ${width}px`).toBe(false)
+    })
+  }
+
   test('switches to English and persists the public language preference', async ({ page }) => {
     await page.goto('/')
 

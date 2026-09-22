@@ -77,3 +77,19 @@ Chosen deliberately over Chart.js/Recharts: these charts need to render instantl
 ## Extending this system
 
 New pages should reuse `Card`, `Button`, `Badge`, `PageHeader`, `Field`/`Input`/`Select`/`Textarea` from `ui.tsx` before reaching for custom markup. If a new pattern shows up three times, it belongs in `ui.tsx`, not copy-pasted.
+
+
+## Compact density principles (2026 refresh)
+
+Prangan One now treats **useful information per viewport** as a first-class design constraint, especially on mobile. Compact does not mean tiny: primary controls still keep roughly 44px touch targets, Gujarati body copy stays readable, and secondary detail is compressed through grouping rather than microscopic type.
+
+- Default cards use a tighter radius and 12-16px internal padding. Use a large standalone card only when the content is genuinely the page's primary decision.
+- Product page titles are normally 20-22px on mobile. Marketing headlines may be larger, but should not push useful product proof or actions multiple screens down.
+- Dashboard quick actions should share a grouped surface or compact grid where possible instead of becoming four independent oversized cards.
+- Mobile shells target a compact sticky header plus persistent primary navigation. Important status, primary action, and at least one block of real content should appear in the first viewport on common 360-430px phones.
+- Section rhythm is intentionally tighter: roughly 12-24px inside product screens and 24-40px on public marketing sections unless the content warrants more.
+- Horizontal scrollers are reserved for naturally comparable compact items such as account balances or category chips, and use the `.dense-scroll` helper when a visually quiet scrollbar improves the mobile feel.
+- Tablet layouts should begin using available width earlier. Admin dashboards switch to two working columns at the medium breakpoint rather than waiting for large desktop widths.
+- Shadows are restrained; borders, alignment, type weight, and semantic color do most of the hierarchy work.
+
+The intended feel is a calm Gujarati operations tool: closer to a well-organized ledger and committee noticeboard than a generic oversized SaaS dashboard.

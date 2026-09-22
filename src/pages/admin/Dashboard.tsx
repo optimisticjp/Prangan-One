@@ -26,39 +26,39 @@ export default function Dashboard() {
     <div>
       <PageHeader title="કમિટી ડેશબોર્ડ" sub={`${fmtMonth(month)} · આજની સ્થિતિ`} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <StatCard label="આ મહિને જમા" value={inr(monthIncome(month))} tone="green" icon={<IndianRupee size={19} />} />
         <StatCard label="આ મહિને ખર્ચ" value={inr(monthExpense(month))} icon={<Wallet size={19} />} />
         <StatCard label="કુલ બાકી" value={inr(totalPending())} tone={totalPending() > 0 ? 'red' : 'green'} sub={`${dues.length} ફ્લેટ`} icon={<AlertTriangle size={19} />} />
         <StatCard label="ખુલ્લી ફરિયાદ" value={String(openComplaints.length)} tone={openComplaints.length ? 'amber' : 'green'} icon={<Wrench size={19} />} />
       </div>
 
-      <div className="flex flex-wrap gap-2 mt-4">
-        <Link to="/admin/billing"><Button variant="accent"><ReceiptText size={16} /> બિલ બનાવો</Button></Link>
-        <Link to="/admin/payments"><Button><IndianRupee size={16} /> ચુકવણી નોંધો</Button></Link>
-        <Link to="/admin/notices"><Button variant="soft"><Bell size={16} /> નોટિસ મૂકો</Button></Link>
+      <div className="grid grid-cols-3 gap-2 mt-3">
+        <Link to="/admin/billing" className="min-w-0"><Button full variant="accent" className="!px-2"><ReceiptText size={16} /> બિલ બનાવો</Button></Link>
+        <Link to="/admin/payments" className="min-w-0"><Button full className="!px-2"><IndianRupee size={16} /> ચુકવણી નોંધો</Button></Link>
+        <Link to="/admin/notices" className="min-w-0"><Button full variant="soft" className="!px-2"><Bell size={16} /> નોટિસ મૂકો</Button></Link>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4 mt-2">
+      <div className="grid md:grid-cols-2 gap-3 mt-1">
         <div>
           <SectionTitle action={<Link to="/admin/billing" className="text-[13px] font-semibold text-saffron-600">બધું જુઓ</Link>}>સૌથી વધુ બાકી</SectionTitle>
           <Card pad={false}>
             {dues.length === 0 && <div className="p-5 text-[14px] text-paid font-semibold">બધા ફ્લેટનું ચૂકવેલ છે 🎉</div>}
             {dues.slice(0, 5).map(({ flat, pending }) => (
-              <div key={flat.id} className="flex items-center gap-3 px-4 py-3 border-b border-cream-100 last:border-0">
-                <div className="h-9 w-11 rounded-lg bg-navy-50 border border-navy-100 flex items-center justify-center font-bold text-navy-700 num text-[13.5px]">{flat.number}</div>
+              <div key={flat.id} className="flex items-center gap-2.5 px-3 py-2.5 border-b border-cream-100 last:border-0">
+                <div className="h-8 w-10 rounded-lg bg-navy-50 border border-navy-100 flex items-center justify-center font-bold text-navy-700 num text-[13.5px]">{flat.number}</div>
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-navy-800 text-[14px] truncate">{flat.ownerName}</div>
                   <div className="num text-over text-[13px] font-bold">{inr(pending)}</div>
                 </div>
                 <a target="_blank" rel="noreferrer" title="WhatsApp રિમાઇન્ડર"
                   href={waShare(waTemplates.maintenanceReminder(society.name, flat.ownerName, flat.number, pending, month))}
-                  className="h-9 w-9 rounded-xl bg-green-50 border border-green-200 text-paid flex items-center justify-center hover:bg-green-100">
+                  className="h-9 w-9 rounded-lg bg-green-50 border border-green-200 text-paid flex items-center justify-center hover:bg-green-100">
                   <MessageCircle size={17} />
                 </a>
                 {!session.isRealSession && (
                   <button title="આ રહેવાસી તરીકે જુઓ" onClick={() => { login('resident_owner', flat.id); nav('/app') }}
-                    className="h-9 w-9 rounded-xl bg-saffron-50 border border-saffron-200 text-saffron-600 flex items-center justify-center hover:bg-saffron-100">
+                    className="h-9 w-9 rounded-lg bg-saffron-50 border border-saffron-200 text-saffron-600 flex items-center justify-center hover:bg-saffron-100">
                     <UserRound size={17} />
                   </button>
                 )}
@@ -71,7 +71,7 @@ export default function Dashboard() {
             {recentPays.map(p => {
               const f = flatById(p.flatId)
               return (
-                <div key={p.id} className="flex items-center justify-between px-4 py-3 border-b border-cream-100 last:border-0 text-[14px]">
+                <div key={p.id} className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-cream-100 last:border-0 text-[14px]">
                   <div>
                     <span className="font-semibold text-navy-800">ફ્લેટ {f?.number}</span>
                     <span className="text-navy-400 ml-2 text-[12.5px]">{fmtDate(p.date)} · {p.receiptNo}</span>
@@ -109,7 +109,7 @@ export default function Dashboard() {
               const f = flatById(c.flatId)
               return (
                 <Link key={c.id} to="/admin/complaints" className="block">
-                  <Card className="hover:shadow-lift transition-shadow flex items-center gap-3">
+                  <Card className="hover:bg-cream-50 transition-colors flex items-center gap-2.5">
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-navy-800 text-[14.5px] truncate">{c.title}</div>
                       <div className="text-[12.5px] text-navy-400">ફ્લેટ {f?.number} · {fmtDate(c.createdAt)}</div>

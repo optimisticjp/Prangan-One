@@ -37,7 +37,7 @@ export function ResidentLayout() {
   const tabs = residentTabs.filter(t => !t.module || moduleEnabled(t.module))
 
   return (
-    <div className="min-h-screen max-w-2xl mx-auto flex flex-col">
+    <div className="min-h-[100dvh] max-w-2xl mx-auto flex flex-col bg-cream-50">
       <DemoIdentityBanner />
       <FetchErrorBanner />
       <DemoGuideBanner />
@@ -46,8 +46,8 @@ export function ResidentLayout() {
           genuinely visible (name included, not just the mark) on every
           resident screen without competing with the society's own branding
           just below it. */}
-      <div className="bg-navy-900 px-4 py-1 flex items-center justify-center gap-1.5 relative">
-        <span className="text-[10.5px] text-cream-100/60">Powered by</span>
+      <div className="bg-navy-900 px-3 py-0.5 flex items-center justify-center gap-1.5 relative">
+        <span className="text-[9.5px] text-cream-100/60">Powered by</span>
         <PranganBrand variant="wordmark-white" height={12} decorative />
         {!session.isRealSession && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -56,20 +56,20 @@ export function ResidentLayout() {
         )}
       </div>
       <SubscriptionBanner audience="resident" />
-      <header className="glass sticky top-0 z-40 px-4 py-3 flex items-center gap-3">
-        <SocietyLogo />
+      <header className="glass sticky top-0 z-40 px-3 py-2 flex items-center gap-2.5">
+        <SocietyLogo size={34} />
         <div className="min-w-0 flex-1">
-          <div className="font-bold text-navy-900 leading-tight truncate">{society.name}</div>
-          <div className="text-[12px] text-navy-400 leading-tight">{society.address}</div>
+          <div className="font-bold text-[14px] text-navy-900 leading-tight truncate">{society.name}</div>
+          <div className="text-[10.5px] text-navy-400 leading-tight truncate">{society.address}</div>
         </div>
         {flat && (
-          <Link to="/app/profile" className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-navy-800 text-cream-50 px-3 py-1.5 text-[13px] font-semibold">
+          <Link to="/app/profile" className="shrink-0 min-h-[38px] inline-flex items-center gap-1 rounded-xl bg-navy-800 text-cream-50 px-2.5 text-[12px] font-semibold">
             <UserCircle2 size={15} /> ફ્લેટ {flat.number}
           </Link>
         )}
       </header>
 
-      <main className="flex-1 px-4 py-4 pb-28">
+      <main className="flex-1 px-3 py-3 pb-24">
         {financialsLoading ? <PageSkeleton label="તમારી માહિતી લોડ થાય છે..." /> : <Outlet />}
       </main>
 
@@ -78,9 +78,9 @@ export function ResidentLayout() {
           {tabs.map(tab => (
             <NavLink key={tab.to} to={tab.to} end={tab.end} {...prefetchHandlers(tab.to)}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 py-2.5 text-[11.5px] font-semibold transition-colors ${isActive ? 'text-saffron-600' : 'text-navy-400 hover:text-navy-600'}`}>
+                `min-h-[54px] flex flex-col items-center justify-center gap-0.5 py-1.5 text-[10.5px] font-semibold transition-colors ${isActive ? 'text-saffron-600' : 'text-navy-400 hover:text-navy-600'}`}>
               {({ isActive }) => (<>
-                <tab.icon size={22} strokeWidth={isActive ? 2.4 : 2} />
+                <tab.icon size={20} strokeWidth={isActive ? 2.4 : 2} />
                 {tab.label}
               </>)}
             </NavLink>
@@ -133,15 +133,15 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
   )
 
   const nav = (
-    <nav className="flex-1 overflow-y-auto py-3 space-y-0.5">
+    <nav className="flex-1 overflow-y-auto py-2 space-y-0.5">
       {visibleItems.map((it, i) => (
         <div key={it.to}>
           {it.group && it.group !== visibleItems[i - 1]?.group && (
-            <div className="mx-3 mt-4 mb-1 text-[10.5px] font-bold tracking-wide text-navy-400 uppercase first:mt-1">{it.group}</div>
+            <div className="mx-3 mt-3 mb-1 text-[10px] font-bold tracking-wide text-navy-400 uppercase first:mt-1">{it.group}</div>
           )}
           <NavLink to={it.to} end={it.end} onClick={() => setOpen(false)} {...prefetchHandlers(it.to)}
             className={({ isActive }) =>
-              `mx-3 flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14.5px] font-medium transition-colors ${isActive ? 'bg-navy-700 text-cream-50 shadow-soft' : 'text-navy-100/75 hover:bg-navy-800 hover:text-cream-50'}`}>
+              `mx-2.5 flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13.5px] font-medium transition-colors ${isActive ? 'bg-navy-700 text-cream-50 shadow-soft' : 'text-navy-100/75 hover:bg-navy-800 hover:text-cream-50'}`}>
             {({ isActive }) => (<>
               <it.icon size={18} className={isActive ? 'text-saffron-400' : ''} />
               {it.label}
@@ -154,8 +154,8 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
 
   const sidebarInner = (
     <>
-      <div className="px-5 py-4 flex items-center gap-3 border-b border-navy-800">
-        <SocietyLogo size={36} dark />
+      <div className="px-4 py-3 flex items-center gap-2.5 border-b border-navy-800">
+        <SocietyLogo size={34} dark />
         <div>
           <div className="font-bold text-cream-50 leading-tight">{society.name}</div>
           <div className="text-[12px] text-saffron-400 font-semibold">{title}</div>
@@ -200,7 +200,7 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
       <DemoGuideBanner />
       <SyncFailureBanner />
       {/* desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col w-64 shrink-0 bg-navy-900 min-h-screen sticky top-0 max-h-screen">
+      <aside className="hidden md:flex md:flex-col w-60 shrink-0 bg-navy-900 min-h-screen sticky top-0 max-h-screen">
         {sidebarInner}
       </aside>
 
@@ -237,12 +237,12 @@ export function Shell({ items, title }: { items: NavItem[]; title: string }) {
           </div>
         )}
         <SubscriptionBanner audience="admin" />
-        <header className="glass sticky top-0 z-40 px-4 py-3 flex items-center gap-3 md:hidden">
+        <header className="glass sticky top-0 z-40 px-3 py-2 flex items-center gap-2.5 md:hidden">
           <button onClick={() => setOpen(true)} aria-label="મેનુ ખોલો" aria-expanded={open} aria-controls={drawerId} className="h-10 w-10 rounded-xl bg-navy-800 text-cream-50 flex items-center justify-center"><Menu size={19} /></button>
           <div className="font-bold text-navy-900 flex-1">{title}</div>
           <PranganBrand variant="wordmark-navy" height={16} className="opacity-70" />
         </header>
-        <main className="p-4 sm:p-6 max-w-6xl">
+        <main className="p-3 sm:p-4 lg:p-5 max-w-6xl">
           {financialsLoading ? <PageSkeleton label="માહિતી લોડ થાય છે..." /> : <Outlet />}
         </main>
       </div>

@@ -38,38 +38,38 @@ export default function Pricing() {
 
   return (
     <PublicLayout lang={lang} setLang={setLang}>
-      <section className="px-5 pt-14 pb-16 text-center">
-        <h1 className="text-[30px] font-bold">{t.h1}</h1>
-        <p className="text-[15px] text-navy-500 mt-2">{t.sub}</p>
+      <section className="px-4 sm:px-5 pt-10 pb-12 text-center">
+        <h1 className="text-[27px] font-bold">{t.h1}</h1>
+        <p className="text-[14px] text-navy-500 mt-1.5">{t.sub}</p>
 
-        <div className="max-w-sm mx-auto mt-8 rounded-3xl border-2 border-saffron-300 bg-white p-7 relative overflow-hidden">
-          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-saffron-500/10" aria-hidden />
+        <div className="max-w-md mx-auto mt-6 rounded-2xl border border-saffron-300 bg-white p-5 relative overflow-hidden">
+          <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-saffron-500/10" aria-hidden />
           <div className="inline-flex items-center gap-1.5 rounded-full bg-paid/10 text-green-800 text-[12.5px] font-bold px-3 py-1 relative">
             {lang === 'en' ? '90 days free, no card needed' : '90 દિવસ મફત, કાર્ડની જરૂર નથી'}
           </div>
-          <div className="flex items-end justify-center gap-1 relative mt-4">
-            <IndianRupee size={26} className="mb-2" />
-            <span className="text-[54px] font-bold leading-none">10</span>
+          <div className="flex items-end justify-center gap-1 relative mt-3">
+            <IndianRupee size={22} className="mb-1.5" />
+            <span className="text-[44px] font-bold leading-none">10</span>
           </div>
           <div className="text-[13.5px] text-navy-400 relative">{t.perFlat}</div>
           <div className="text-[12px] text-navy-400 relative mt-1">{t.minimumNote}</div>
-          <p className="text-[12.5px] text-navy-600 bg-cream-100 border border-cream-200 rounded-xl px-3.5 py-2.5 mt-3 relative leading-relaxed text-left">{t.dailyNote}</p>
-          <ul className="mt-5 space-y-2.5 text-left text-[14px] relative">
+          <p className="text-[12px] text-navy-600 bg-cream-100 border border-cream-200 rounded-xl px-3 py-2 mt-3 relative leading-relaxed text-left">{t.dailyNote}</p>
+          <ul className="mt-4 grid sm:grid-cols-2 gap-x-4 gap-y-2 text-left text-[13px] relative">
             {t.features.map(f => (
               <li key={f} className="flex items-start gap-2"><Check size={16} className="text-paid shrink-0 mt-0.5" /> {f}</li>
             ))}
           </ul>
-          <Link to="/contact" className="mt-6 block w-full rounded-xl bg-navy-900 text-cream-50 py-3 text-[15px] font-bold hover:bg-navy-800 relative">
+          <Link to="/contact" className="mt-5 block w-full rounded-xl bg-navy-900 text-cream-50 py-2.5 text-[14px] font-bold hover:bg-navy-800 relative">
             {t.cta}
           </Link>
         </div>
-        <p className="max-w-md mx-auto text-[13px] text-navy-400 mt-6">{t.note}</p>
+        <p className="max-w-lg mx-auto text-[12.5px] text-navy-400 mt-4">{t.note}</p>
 
-        <div className="max-w-sm mx-auto mt-8">
+        <div className="max-w-md mx-auto mt-6">
           <div className="text-[12.5px] font-bold tracking-wide text-navy-400 uppercase mb-3">{t.examplesTitle}</div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {t.examples.map(([label, price]) => (
-              <div key={label} className="rounded-xl border border-cream-200 bg-white px-4 py-3.5 text-left">
+              <div key={label} className="rounded-xl border border-cream-200 bg-white px-3 py-2.5 text-left">
                 <div className="text-[12.5px] text-navy-400">{label}</div>
                 <div className="text-[15px] font-bold text-navy-900 mt-0.5">{price}</div>
               </div>
