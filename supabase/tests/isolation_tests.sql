@@ -1306,3 +1306,177 @@ select test_assert(
   ) = 15,
   'approved business expense categories match the standard names'
 );
+
+
+-- ============================================================================
+-- Business staff/task isolation: staff can use only their own work/money surface.
+-- Partners/admins manage the team; staff never become finance members.
+-- ============================================================================
+reset role;
+
+insert into auth.users (id,email) values
+  ('14000000-0000-0000-0000-000000000001','staff-a@test.local');
+
+set role authenticated;
+select test_become('10000000-0000-0000-0000-0000000000a1');
+
+do $$
+declare
+  staff_id uuid;
+  task_id uuid;
+begin
+  staff_id := add_business_staff(
+    '11000000-0000-0000-0000-000000000001',
+    'Staff A',
+    'staff-a@test.local',
+    '9000000099',
+    'Operations',
+    15000,
+    'monthly'
+  );
+  task_id := create_business_task(
+    '11000000-0000-0000-0000-000000000001',
+    'Pack marketplace orders',
+    'Pack and hand over today''s orders to courier.',
+    'Operations',
+    'high',
+    null,
+    staff_id,
+    now() + interval '6 hours'
+  );
+  perform record_business_staff_money(
+    '11000000-0000-0000-0000-000000000001',
+    staff_id,
+    'advance',
+    1000,
+    '11200000-0000-0000-0000-000000000001',
+    null,
+    null,
+    'Petty cash for courier and packing',
+    now()
+  );
+  perform set_config('test.staff_a_id',staff_id::text,false);
+  perform set_config('test.staff_a_task',task_id::text,false);
+end $$;
+
+select test_assert(
+  (select count(*) from business_staff where id=current_setting('test.staff_a_id')::uuid)=1,
+  'partner/admin can add staff'
+);
+select test_assert(
+  (select count(*) from business_tasks where id=current_setting('test.staff_a_task')::uuid)=1,
+  'partner/admin can create and assign a task to staff'
+);
+select test_assert(
+  (select advance_balance from get_business_staff_positions('11000000-0000-0000-0000-000000000001')
+   where staff_id=current_setting('test.staff_a_id')::uuid)=1000,
+  'business advance becomes staff-held money'
+);
+
+select test_become('14000000-0000-0000-0000-000000000001');
+
+select test_assert(
+  (select count(*) from claim_business_staff_memberships()
+   where business_id='11000000-0000-0000-0000-000000000001' and role='staff')=1,
+  'staff login claims exactly its staff workspace'
+);
+select test_assert(
+  (select count(*) from business_staff)=1,
+  'staff can see only their own staff profile'
+);
+select test_assert(
+  (select count(*) from business_tasks)=1,
+  'staff can see the task assigned to them'
+);
+select test_assert(
+  (select count(*) from business_staff_money)=1,
+  'staff can see their own business advance'
+);
+select test_assert(
+  (select count(*) from business_accounts)=0,
+  'staff cannot read Business money accounts'
+);
+select test_assert(
+  (select count(*) from business_transactions)=0,
+  'staff cannot read the main Business transaction ledger'
+);
+select test_assert(
+  (select count(*) from business_partners)=0,
+  'staff cannot read partner finance profiles'
+);
+
+select record_business_staff_money(
+  '11000000-0000-0000-0000-000000000001',
+  current_setting('test.staff_a_id')::uuid,
+  'advance_expense',
+  200,
+  null,
+  null,
+  'Courier',
+  'Courier paid from business advance',
+  now()
+);
+select record_business_staff_money(
+  '11000000-0000-0000-0000-000000000001',
+  current_setting('test.staff_a_id')::uuid,
+  'pocket_expense',
+  300,
+  null,
+  null,
+  'Packing supplier',
+  'Paid personally for packing material',
+  now()
+);
+
+select test_assert(
+  (select advance_balance from get_business_staff_positions('11000000-0000-0000-0000-000000000001')
+   where staff_id=current_setting('test.staff_a_id')::uuid)=800,
+  'staff expense from advance reduces only their held advance'
+);
+select test_assert(
+  (select outstanding_due from get_business_staff_positions('11000000-0000-0000-0000-000000000001')
+   where staff_id=current_setting('test.staff_a_id')::uuid)=300,
+  'staff pocket expense becomes amount business owes staff'
+);
+
+select set_business_task_status(
+  current_setting('test.staff_a_task')::uuid,
+  'completed',
+  'Packed all orders and handed them to courier'
+);
+select test_assert(
+  (select status from business_tasks where id=current_setting('test.staff_a_task')::uuid)='completed',
+  'assigned staff can complete their task'
+);
+select test_assert(
+  (select count(*) from business_task_notes where task_id=current_setting('test.staff_a_task')::uuid and status_snapshot='completed')=1,
+  'completion note is retained with the task'
+);
+
+do $$
+begin
+  begin
+    perform create_business_task(
+      '11000000-0000-0000-0000-000000000001',
+      'Staff must not create team task',
+      null,'General','normal',null,null,null
+    );
+    raise exception 'FAIL: staff created a team task';
+  exception
+    when others then
+      if sqlerrm <> 'not_allowed' then raise; end if;
+      raise notice 'PASS: staff cannot create team tasks';
+  end;
+end $$;
+
+select test_become('10000000-0000-0000-0000-0000000000a1');
+select test_assert(
+  (select outstanding_due from get_business_staff_positions('11000000-0000-0000-0000-000000000001')
+   where staff_id=current_setting('test.staff_a_id')::uuid)=300,
+  'partner/admin sees staff reimbursement due'
+);
+select test_assert(
+  (select advance_balance from get_business_staff_positions('11000000-0000-0000-0000-000000000001')
+   where staff_id=current_setting('test.staff_a_id')::uuid)=800,
+  'partner/admin sees remaining staff advance'
+);
