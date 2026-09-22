@@ -25,6 +25,12 @@ const EMPTY: BusinessSnapshot = {
   activity: [],
   accountBalances: [],
   partnerPositions: [],
+  staff: [],
+  tasks: [],
+  taskNotes: [],
+  notifications: [],
+  staffMoney: [],
+  staffPositions: [],
 }
 
 interface BusinessContextValue {
@@ -39,6 +45,8 @@ interface BusinessContextValue {
   canWrite: boolean
   canAdmin: boolean
   canApprove: boolean
+  isStaff: boolean
+  canManageTeam: boolean
   offlineQueueCount: number
   switchBusiness: (businessId: string) => void
   reload: () => Promise<void>
@@ -67,6 +75,19 @@ interface BusinessContextValue {
   closeDay: (accountId: string, counted: number, note?: string) => Promise<void>
   editDayClose: (closingId: string, input: BusinessDayClosingEditInput) => Promise<void>
   deleteDayClose: (closingId: string) => Promise<void>
+  addStaff: (input: { name: string; email?: string; phone?: string; title?: string; salary: number; salaryPeriod: 'monthly' | 'weekly' | 'daily' }) => Promise<void>
+  editStaff: (id: string, input: { name: string; email?: string; phone?: string; title?: string; salary: number; salaryPeriod: 'monthly' | 'weekly' | 'daily'; active: boolean }) => Promise<void>
+  deleteStaff: (id: string) => Promise<void>
+  addTask: (input: { title: string; description?: string; category: string; priority: 'urgent' | 'high' | 'normal' | 'low'; partnerId?: string | null; staffId?: string | null; dueAt?: string | null }) => Promise<void>
+  editTask: (id: string, input: { title: string; description?: string; category: string; priority: 'urgent' | 'high' | 'normal' | 'low'; partnerId?: string | null; staffId?: string | null; dueAt?: string | null }) => Promise<void>
+  setTaskStatus: (id: string, status: 'pending' | 'in_progress' | 'completed', note?: string) => Promise<void>
+  addTaskNote: (id: string, note: string, notify?: boolean) => Promise<void>
+  sendTaskReminder: (id: string, message?: string) => Promise<void>
+  deleteTask: (id: string) => Promise<void>
+  addStaffMoney: (input: { staffId: string; kind: 'advance' | 'advance_expense' | 'pocket_expense' | 'reimbursement' | 'salary' | 'advance_return'; amount: number; accountId?: string | null; categoryId?: string | null; counterparty?: string; note?: string; occurredAt?: string }) => Promise<void>
+  deleteStaffMoney: (id: string) => Promise<void>
+  markNotificationRead: (id: string) => Promise<void>
+  markAllNotificationsRead: () => Promise<void>
 }
 
 const BusinessContext = createContext<BusinessContextValue | null>(null)
@@ -125,13 +146,23 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       setData(EMPTY)
       return
     }
+    const membership = memberships.find(item => item.businessId === activeBusinessId)
+    if (!membership) {
+      setData(EMPTY)
+      return
+    }
     setRefreshing(true)
     try {
-      setData(await api.fetchBusinessSnapshot(activeBusinessId))
+      setData(await api.fetchBusinessSnapshot(
+        activeBusinessId,
+        membership.role,
+        membership.businessName,
+        membership.staffId ?? null,
+      ))
     } finally {
       setRefreshing(false)
     }
-  }, [activeBusinessId])
+  }, [activeBusinessId, memberships])
 
   const syncOfflineQueue = useCallback(async () => {
     if (!activeBusinessId || !navigator.onLine) return 0
@@ -193,6 +224,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const canWrite = role === 'admin' || role === 'partner' || role === 'bookkeeper'
   const canAdmin = role === 'admin'
   const canApprove = role === 'admin' || role === 'partner'
+  const isStaff = role === 'staff'
+  const canManageTeam = role === 'admin' || role === 'partner'
 
   const switchBusiness = (businessId: string) => {
     if (!memberships.some(m => m.businessId === businessId)) return
@@ -267,6 +300,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     canWrite,
     canAdmin,
     canApprove,
+    isStaff,
+    canManageTeam,
     offlineQueueCount,
     switchBusiness,
     reload,
@@ -320,10 +355,35 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     closeDay: async (accountId, counted, note = '') => withReload(() => api.closeBusinessDay(accountId, counted, note)),
     editDayClose: async (closingId, input) => withReload(() => api.updateBusinessDayClosing(closingId, input)),
     deleteDayClose: async closingId => withReload(() => api.hardDeleteBusinessDayClosing(closingId)),
+    addStaff: async input => {
+      if (!activeBusinessId) throw new Error('Choose a business first')
+      await withReload(() => api.addBusinessStaff(activeBusinessId, input))
+    },
+    editStaff: async (id, input) => withReload(() => api.updateBusinessStaff(id, input)),
+    deleteStaff: async id => withReload(() => api.deleteBusinessStaff(id)),
+    addTask: async input => {
+      if (!activeBusinessId) throw new Error('Choose a business first')
+      await withReload(() => api.createBusinessTask(activeBusinessId, input))
+    },
+    editTask: async (id, input) => withReload(() => api.updateBusinessTask(id, input)),
+    setTaskStatus: async (id, status, note) => withReload(() => api.setBusinessTaskStatus(id, status, note)),
+    addTaskNote: async (id, note, notify = true) => withReload(() => api.addBusinessTaskNote(id, note, notify)),
+    sendTaskReminder: async (id, message) => withReload(() => api.sendBusinessTaskReminder(id, message)),
+    deleteTask: async id => withReload(() => api.deleteBusinessTask(id)),
+    addStaffMoney: async input => {
+      if (!activeBusinessId) throw new Error('Choose a business first')
+      await withReload(() => api.recordBusinessStaffMoney(activeBusinessId, input))
+    },
+    deleteStaffMoney: async id => withReload(() => api.deleteBusinessStaffMoney(id)),
+    markNotificationRead: async id => withReload(() => api.markBusinessNotificationRead(id)),
+    markAllNotificationsRead: async () => {
+      if (!activeBusinessId) return
+      await withReload(() => api.markAllBusinessNotificationsRead(activeBusinessId))
+    },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     authenticated, loading, refreshing, userId, memberships, onboardingRequest,
-    activeMembership, data, canWrite, canAdmin, canApprove, offlineQueueCount,
+    activeMembership, data, canWrite, canAdmin, canApprove, isStaff, canManageTeam, offlineQueueCount,
     activeBusinessId, reload, loadMemberships, syncOfflineQueue,
   ])
 

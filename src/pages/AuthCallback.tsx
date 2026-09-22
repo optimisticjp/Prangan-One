@@ -17,7 +17,7 @@ type WorkspaceChoice =
   | { kind: 'society'; key: string; societyId: string | null; name: string; role: Role; flatId: string | null }
   | { kind: 'business'; key: string; businessId: string; name: string; role: BusinessRole }
 
-const businessRoleLabel: Record<BusinessRole, string> = { admin: 'Business admin', partner: 'Partner', bookkeeper: 'Bookkeeper', viewer: 'View only' }
+const businessRoleLabel: Record<BusinessRole, string> = { admin: 'Business admin', partner: 'Partner', bookkeeper: 'Bookkeeper', viewer: 'View only', staff: 'Staff' }
 const residentRoles: Role[] = ['resident_owner', 'resident_tenant']
 const adminRoles: Role[] = ['owner', 'society_admin', 'committee_member', 'accountant', 'auditor']
 const portalLoginRoute: Record<LoginPortal, string> = { resident: '/user-login', admin: '/admin-login', business: '/business/login' }

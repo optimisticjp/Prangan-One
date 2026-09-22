@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet } from 'react-router-dom'
-import { CheckSquare2, Home, LayoutGrid, List, Plus, Users, WifiOff } from 'lucide-react'
+import { Bell, CheckSquare2, Home, LayoutGrid, List, ListTodo, Plus, Users, WalletCards, WifiOff } from 'lucide-react'
 import { PranganBrand } from '../PranganBrand'
 import { PageSkeleton } from '../Skeleton'
 import { useBusiness } from '../../lib/business/store'
@@ -16,7 +16,7 @@ export interface BusinessOutletContext {
 }
 
 export default function BusinessLayout() {
-  const { authenticated, loading, memberships, activeMembership, switchBusiness, data, refreshing, offlineQueueCount, syncOfflineQueue } = useBusiness()
+  const { authenticated, loading, memberships, activeMembership, switchBusiness, data, refreshing, offlineQueueCount, syncOfflineQueue, isStaff } = useBusiness()
   const { t } = useBusinessLanguage()
   const [composer, setComposer] = useState<BusinessComposerKind | null>(null)
   const [preset, setPreset] = useState<SerializableTransactionInput | null>(null)
@@ -31,10 +31,15 @@ export default function BusinessLayout() {
   if (!activeMembership) return <Navigate to="/business/onboarding" replace />
   if (!data.business) return <div className="min-h-[100dvh] bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business data..." /></div>
 
-  const tabs = [
+  const tabs = isStaff ? [
+    { to: '/business', label: 'Home', icon: Home, end: true },
+    { to: '/business/tasks', label: 'Tasks', icon: ListTodo },
+    { to: '/business/my-money', label: 'My money', icon: WalletCards },
+    { to: '/business/notifications', label: 'Alerts', icon: Bell },
+  ] : [
     { to: '/business', label: t('home'), icon: Home, end: true },
     { to: '/business/ledger', label: t('ledger'), icon: List },
-    { to: '/business/approvals', label: t('approvals'), icon: CheckSquare2 },
+    { to: '/business/tasks', label: 'Tasks', icon: ListTodo },
     { to: '/business/partners', label: t('partners'), icon: Users },
   ]
 
@@ -61,15 +66,15 @@ export default function BusinessLayout() {
                 {memberships.map(m => <option key={m.membershipId} value={m.businessId}>{m.businessName}</option>)}
               </select>
             ) : <div className="font-bold text-[15px] text-navy-900 truncate">{data.business.name}</div>}
-            <div className="text-[10.5px] text-navy-400 font-semibold uppercase tracking-wide">Business money · {activeMembership.role}</div>
+            <div className="text-[10.5px] text-navy-400 font-semibold uppercase tracking-wide">{isStaff ? 'Staff workspace' : 'Business money'} · {activeMembership.role}</div>
           </div>
           {offlineQueueCount > 0 ? (
             <button onClick={() => void syncOfflineQueue()} className="min-h-[34px] rounded-xl bg-amber-50 border border-amber-200 px-2 flex items-center gap-1 text-[10px] font-semibold text-pend" title="Offline entries waiting to sync">
               <WifiOff size={13} /> {offlineQueueCount}
             </button>
           ) : refreshing ? <span className="text-[10px] text-navy-300">Syncing…</span> : null}
-          <Link to="/business/more" aria-label="More business tools" className="h-9 w-9 rounded-xl border border-cream-300 bg-white flex items-center justify-center text-navy-700 active:scale-95">
-            <LayoutGrid size={17} />
+          <Link to={isStaff ? "/business/notifications" : "/business/more"} aria-label="More business tools" className="h-9 w-9 rounded-xl border border-cream-300 bg-white flex items-center justify-center text-navy-700 active:scale-95">
+            {isStaff ? <Bell size={17} /> : <LayoutGrid size={17} />}
           </Link>
         </div>
       </header>
@@ -80,15 +85,17 @@ export default function BusinessLayout() {
 
       <nav className="fixed bottom-0 inset-x-0 z-40 max-w-2xl mx-auto border-t border-cream-200 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-5 items-end px-1">
-          {tabs.slice(0, 2).map(tab => <BusinessTab key={tab.to} {...tab} />)}
-          <button onClick={() => openTransaction('expense')} aria-label="Add transaction" className="relative -top-3 mx-auto h-12 w-12 rounded-2xl bg-saffron-500 text-navy-950 shadow-lift flex items-center justify-center active:scale-95">
-            <Plus size={24} strokeWidth={2.6} />
-          </button>
-          {tabs.slice(2).map(tab => <BusinessTab key={tab.to} {...tab} />)}
+          {isStaff ? tabs.map(tab => <BusinessTab key={tab.to} {...tab} />) : <>
+            {tabs.slice(0, 2).map(tab => <BusinessTab key={tab.to} {...tab} />)}
+            <button onClick={() => openTransaction('expense')} aria-label="Add transaction" className="relative -top-3 mx-auto h-12 w-12 rounded-2xl bg-saffron-500 text-navy-950 shadow-lift flex items-center justify-center active:scale-95">
+              <Plus size={24} strokeWidth={2.6} />
+            </button>
+            {tabs.slice(2).map(tab => <BusinessTab key={tab.to} {...tab} />)}
+          </>}
         </div>
       </nav>
 
-      <QuickTransactionSheet open={composerOpen} initialKind={composer ?? 'expense'} initialPreset={preset} onClose={closeComposer} />
+      {!isStaff && <QuickTransactionSheet open={composerOpen} initialKind={composer ?? 'expense'} initialPreset={preset} onClose={closeComposer} />}
     </div>
   )
 }

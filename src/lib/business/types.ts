@@ -1,4 +1,4 @@
-export type BusinessRole = 'admin' | 'partner' | 'bookkeeper' | 'viewer'
+export type BusinessRole = 'admin' | 'partner' | 'bookkeeper' | 'viewer' | 'staff'
 export type ApprovalMode = 'none' | 'one_partner' | 'all_partners'
 export type BusinessAccountKind = 'cash' | 'bank' | 'upi' | 'wallet' | 'other'
 export type BusinessTransactionKind =
@@ -16,6 +16,7 @@ export interface BusinessMembership {
   businessName: string
   role: BusinessRole
   partnerId: string | null
+  staffId?: string | null
 }
 
 export interface BusinessMemberSummary {
@@ -182,6 +183,12 @@ export interface BusinessSnapshot {
   activity: BusinessActivityLog[]
   accountBalances: AccountBalance[]
   partnerPositions: PartnerPosition[]
+  staff: BusinessStaff[]
+  tasks: BusinessTask[]
+  taskNotes: BusinessTaskNote[]
+  notifications: BusinessNotification[]
+  staffMoney: BusinessStaffMoney[]
+  staffPositions: BusinessStaffPosition[]
 }
 
 export interface PostBusinessTransactionInput {
@@ -238,4 +245,100 @@ export interface BusinessDayClosingEditInput {
   expectedBalance: number
   countedBalance: number
   note?: string
+}
+
+
+export type BusinessTaskPriority = 'urgent' | 'high' | 'normal' | 'low'
+export type BusinessTaskStatus = 'pending' | 'in_progress' | 'completed'
+export type BusinessStaffSalaryPeriod = 'monthly' | 'weekly' | 'daily'
+export type BusinessStaffMoneyKind = 'advance' | 'advance_expense' | 'pocket_expense' | 'reimbursement' | 'salary' | 'advance_return'
+
+export interface BusinessStaff {
+  id: string
+  business_id: string
+  user_id: string | null
+  name: string
+  email: string | null
+  phone: string | null
+  title: string | null
+  salary_amount: number
+  salary_period: BusinessStaffSalaryPeriod
+  active: boolean
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BusinessTask {
+  id: string
+  business_id: string
+  title: string
+  description: string | null
+  category: string
+  priority: BusinessTaskPriority
+  status: BusinessTaskStatus
+  assignee_partner_id: string | null
+  assignee_staff_id: string | null
+  due_at: string | null
+  status_note: string | null
+  completed_at: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BusinessTaskNote {
+  id: string
+  business_id: string
+  task_id: string
+  author_user_id: string
+  note: string
+  status_snapshot: string | null
+  created_at: string
+}
+
+export interface BusinessNotification {
+  id: string
+  business_id: string
+  task_id: string | null
+  sender_user_id: string | null
+  target_partner_id: string | null
+  target_staff_id: string | null
+  kind: string
+  title: string
+  body: string | null
+  read_at: string | null
+  created_at: string
+}
+
+export interface BusinessStaffMoney {
+  id: string
+  business_id: string
+  staff_id: string
+  kind: BusinessStaffMoneyKind
+  amount: number
+  account_id: string | null
+  category_id: string | null
+  counterparty: string | null
+  note: string | null
+  occurred_at: string
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BusinessStaffPosition {
+  staff_id: string
+  name: string
+  title: string | null
+  salary_amount: number
+  salary_period: BusinessStaffSalaryPeriod
+  advance_received: number
+  advance_spent: number
+  advance_returned: number
+  advance_balance: number
+  pocket_expenses: number
+  reimbursements: number
+  outstanding_due: number
+  salary_paid: number
 }

@@ -1,10 +1,13 @@
-import { ArrowRight, Banknote, BarChart3, CalendarCheck2, Languages, LogOut, Settings, Tags, Upload } from 'lucide-react'
+import { ArrowRight, Banknote, BarChart3, Bell, CalendarCheck2, Languages, ListTodo, LogOut, Settings, Tags, Upload, UsersRound } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useBusinessLanguage } from '../../lib/business/i18n'
 import type { BusinessLanguage } from '../../lib/business/i18n'
 import { signOut } from '../../lib/auth'
 
 const tools = [
+  { to: '/business/tasks', icon: ListTodo, title: 'Tasks', sub: 'Assign work, due dates, priorities, notes and reminders' },
+  { to: '/business/staff', icon: UsersRound, title: 'Staff & salary', sub: 'Staff login, salary, advances and reimbursements' },
+  { to: '/business/notifications', icon: Bell, title: 'Notifications', sub: 'Task assignments, updates and reminders' },
   { to: '/business/accounts', icon: Banknote, title: 'Money accounts', sub: 'Cash, bank and optional payment accounts' },
   { to: '/business/categories', icon: Tags, title: 'Categories', sub: 'Edit or delete income and expense labels' },
   { to: '/business/day-close', icon: CalendarCheck2, title: 'Day close', sub: 'Count notes and compare actual cash' },

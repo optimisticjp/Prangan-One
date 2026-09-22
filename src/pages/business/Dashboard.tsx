@@ -12,11 +12,14 @@ import {
 import type { SerializableTransactionInput } from '../../lib/business/preferences'
 import type { BusinessTransaction } from '../../lib/business/types'
 import type { BusinessOutletContext } from '../../components/business/BusinessLayout'
+import BusinessStaffHome from './StaffHome'
 
 export default function BusinessDashboard() {
-  const { data, userId, offlineQueueCount, syncOfflineQueue } = useBusiness()
+  const { data, userId, offlineQueueCount, syncOfflineQueue, isStaff } = useBusiness()
   const { openTransaction } = useOutletContext<BusinessOutletContext>()
   const { t } = useBusinessLanguage()
+
+  if (isStaff) return <BusinessStaffHome />
 
   const todayKey = todayBusinessISO()
   const today = summarizeTransactions(data.transactions, todayKey)

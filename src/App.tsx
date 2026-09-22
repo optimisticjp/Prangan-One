@@ -8,6 +8,7 @@ import {
 import { ResidentLayout, Shell } from './layouts/Layouts'
 import type { NavItem } from './layouts/Layouts'
 import { RoleGate } from './components/RoleGate'
+import { BusinessFinanceGate, BusinessStaffOnlyGate, BusinessTeamGate } from './components/business/BusinessAccessGate'
 import { ModuleGate } from './components/ModuleGate'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { PageLoading } from './components/PageLoading'
@@ -99,6 +100,10 @@ const BReports = lazy(() => import('./pages/business/Reports'))
 const BImport = lazy(() => import('./pages/business/Import'))
 const BDayClose = lazy(() => import('./pages/business/DayClose'))
 const BSettings = lazy(() => import('./pages/business/Settings'))
+const BTasks = lazy(() => import('./pages/business/Tasks'))
+const BStaff = lazy(() => import('./pages/business/Staff'))
+const BMyMoney = lazy(() => import('./pages/business/MyMoney'))
+const BNotifications = lazy(() => import('./pages/business/Notifications'))
 const BOnboarding = lazy(() => import('./pages/business/Onboarding'))
 
 const adminNav: NavItem[] = [
@@ -206,16 +211,20 @@ export default function App() {
           <Route path="onboarding" element={<Lazy><BOnboarding /></Lazy>} />
           <Route element={<Lazy><BusinessLayout /></Lazy>}>
             <Route index element={<Lazy><BDashboard /></Lazy>} />
-            <Route path="ledger" element={<Lazy><BLedger /></Lazy>} />
-            <Route path="approvals" element={<Lazy><BApprovals /></Lazy>} />
-            <Route path="partners" element={<Lazy><BPartners /></Lazy>} />
-            <Route path="more" element={<Lazy><BMore /></Lazy>} />
-            <Route path="accounts" element={<Lazy><BAccounts /></Lazy>} />
-            <Route path="categories" element={<Lazy><BCategories /></Lazy>} />
-            <Route path="reports" element={<Lazy><BReports /></Lazy>} />
-            <Route path="import" element={<Lazy><BImport /></Lazy>} />
-            <Route path="day-close" element={<Lazy><BDayClose /></Lazy>} />
-            <Route path="settings" element={<Lazy><BSettings /></Lazy>} />
+            <Route path="tasks" element={<BusinessTeamGate><Lazy><BTasks /></Lazy></BusinessTeamGate>} />
+            <Route path="staff" element={<BusinessTeamGate><Lazy><BStaff /></Lazy></BusinessTeamGate>} />
+            <Route path="my-money" element={<BusinessStaffOnlyGate><Lazy><BMyMoney /></Lazy></BusinessStaffOnlyGate>} />
+            <Route path="notifications" element={<BusinessTeamGate><Lazy><BNotifications /></Lazy></BusinessTeamGate>} />
+            <Route path="ledger" element={<BusinessFinanceGate><Lazy><BLedger /></Lazy></BusinessFinanceGate>} />
+            <Route path="approvals" element={<BusinessFinanceGate><Lazy><BApprovals /></Lazy></BusinessFinanceGate>} />
+            <Route path="partners" element={<BusinessFinanceGate><Lazy><BPartners /></Lazy></BusinessFinanceGate>} />
+            <Route path="more" element={<BusinessFinanceGate><Lazy><BMore /></Lazy></BusinessFinanceGate>} />
+            <Route path="accounts" element={<BusinessFinanceGate><Lazy><BAccounts /></Lazy></BusinessFinanceGate>} />
+            <Route path="categories" element={<BusinessFinanceGate><Lazy><BCategories /></Lazy></BusinessFinanceGate>} />
+            <Route path="reports" element={<BusinessFinanceGate><Lazy><BReports /></Lazy></BusinessFinanceGate>} />
+            <Route path="import" element={<BusinessFinanceGate><Lazy><BImport /></Lazy></BusinessFinanceGate>} />
+            <Route path="day-close" element={<BusinessFinanceGate><Lazy><BDayClose /></Lazy></BusinessFinanceGate>} />
+            <Route path="settings" element={<BusinessFinanceGate><Lazy><BSettings /></Lazy></BusinessFinanceGate>} />
           </Route>
         </Route>
 

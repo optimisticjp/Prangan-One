@@ -3,7 +3,7 @@ import type {
   AccountBalance, ApprovalMode, Business, BusinessAccount, BusinessAccountKind, BusinessActivityLog, BusinessApproval,
   BusinessAttachment, BusinessCategory, BusinessDayClosing, BusinessMemberSummary, BusinessMembership, BusinessOnboardingRequest,
   BusinessPartner, BusinessPartnerEditInput, BusinessSnapshot, BusinessTransaction, BusinessTransactionEditInput,
-  BusinessDayClosingEditInput, MarkBusinessExpensePaidInput, PartnerPosition, PostBusinessTransactionInput,
+  BusinessDayClosingEditInput, BusinessNotification, BusinessRole, BusinessStaff, BusinessStaffMoney, BusinessStaffPosition, BusinessTask, BusinessTaskNote, MarkBusinessExpensePaidInput, PartnerPosition, PostBusinessTransactionInput,
 } from './types'
 
 const requireSupabase = () => {
@@ -50,15 +50,30 @@ async function transactionIdsForDelete(transactionId: string) {
 
 export async function claimBusinessMemberships(): Promise<BusinessMembership[]> {
   const client = requireSupabase()
-  const { data, error } = await client.rpc('claim_business_memberships')
-  if (error) throw error
-  return ((data ?? []) as unknown as Array<{ membership_id: string; business_id: string; business_name: string; role: BusinessMembership['role']; partner_id: string | null }>).map(row => ({
+  const [finance, staff] = await Promise.all([
+    client.rpc('claim_business_memberships'),
+    client.rpc('claim_business_staff_memberships'),
+  ])
+  if (finance.error) throw finance.error
+  if (staff.error) throw staff.error
+
+  const financeRows = ((finance.data ?? []) as unknown as Array<{ membership_id: string; business_id: string; business_name: string; role: BusinessMembership['role']; partner_id: string | null }>).map(row => ({
     membershipId: row.membership_id,
     businessId: row.business_id,
     businessName: row.business_name,
     role: row.role,
     partnerId: row.partner_id,
+    staffId: null,
   }))
+  const staffRows = ((staff.data ?? []) as unknown as Array<{ membership_id: string; business_id: string; business_name: string; role: 'staff'; staff_id: string }>).map(row => ({
+    membershipId: row.membership_id,
+    businessId: row.business_id,
+    businessName: row.business_name,
+    role: 'staff' as const,
+    partnerId: null,
+    staffId: row.staff_id,
+  }))
+  return [...financeRows, ...staffRows]
 }
 
 type OnboardingRow = {
@@ -118,8 +133,51 @@ export async function requestBusinessOnboarding(input: {
   return data as string
 }
 
-export async function fetchBusinessSnapshot(businessId: string): Promise<BusinessSnapshot> {
+export async function fetchBusinessSnapshot(
+  businessId: string,
+  role: BusinessRole,
+  businessName: string,
+  staffId?: string | null,
+): Promise<BusinessSnapshot> {
   const client = requireSupabase()
+
+  const teamEnabled = role === 'admin' || role === 'partner' || role === 'staff'
+  const staffOnly = role === 'staff'
+
+  if (staffOnly) {
+    const [staffRes, categoriesRes, tasksRes, notesRes, notificationsRes, moneyRes, positionsRes] = await Promise.all([
+      client.from('business_staff').select('*').eq('id', staffId ?? '').maybeSingle(),
+      client.rpc('get_business_staff_expense_categories', { target_business: businessId }),
+      client.from('business_tasks').select('*').eq('business_id', businessId).order('created_at', { ascending: false }),
+      client.from('business_task_notes').select('*').eq('business_id', businessId).order('created_at', { ascending: false }).limit(500),
+      client.from('business_notifications').select('*').eq('business_id', businessId).order('created_at', { ascending: false }).limit(200),
+      client.from('business_staff_money').select('*').eq('business_id', businessId).order('occurred_at', { ascending: false }).limit(500),
+      client.rpc('get_business_staff_positions', { target_business: businessId }),
+    ])
+    const errors = [staffRes.error, categoriesRes.error, tasksRes.error, notesRes.error, notificationsRes.error, moneyRes.error, positionsRes.error].filter(Boolean)
+    if (errors.length) throw new Error(message(errors[0]))
+    return {
+      business: { id: businessId, name: businessName, currency: 'INR', approval_mode: 'none', created_by: '', created_at: '' },
+      partners: [],
+      members: [],
+      accounts: [],
+      categories: (categoriesRes.data ?? []) as unknown as BusinessCategory[],
+      transactions: [],
+      approvals: [],
+      attachments: [],
+      closings: [],
+      activity: [],
+      accountBalances: [],
+      partnerPositions: [],
+      staff: staffRes.data ? [staffRes.data as unknown as BusinessStaff] : [],
+      tasks: (tasksRes.data ?? []) as unknown as BusinessTask[],
+      taskNotes: (notesRes.data ?? []) as unknown as BusinessTaskNote[],
+      notifications: (notificationsRes.data ?? []) as unknown as BusinessNotification[],
+      staffMoney: (moneyRes.data ?? []) as unknown as BusinessStaffMoney[],
+      staffPositions: (positionsRes.data ?? []) as unknown as BusinessStaffPosition[],
+    }
+  }
+
   const [businessRes, partnersRes, membersRes, accountsRes, categoriesRes, transactionsRes, approvalsRes, attachmentsRes, closingsRes, activityRes, balancesRes, positionsRes] = await Promise.all([
     client.from('businesses').select('id,name,currency,approval_mode,created_by,created_at,archived_at').eq('id', businessId).maybeSingle(),
     client.from('business_partners').select('*').eq('business_id', businessId).order('created_at'),
@@ -134,7 +192,17 @@ export async function fetchBusinessSnapshot(businessId: string): Promise<Busines
     client.rpc('get_business_account_balances', { target_business: businessId }),
     client.rpc('get_business_partner_positions', { target_business: businessId }),
   ])
-  const errors = [businessRes.error, partnersRes.error, membersRes.error, accountsRes.error, categoriesRes.error, transactionsRes.error, approvalsRes.error, attachmentsRes.error, closingsRes.error, activityRes.error, balancesRes.error, positionsRes.error].filter(Boolean)
+
+  const teamResults = teamEnabled ? await Promise.all([
+    client.from('business_staff').select('*').eq('business_id', businessId).order('created_at'),
+    client.from('business_tasks').select('*').eq('business_id', businessId).order('created_at', { ascending: false }),
+    client.from('business_task_notes').select('*').eq('business_id', businessId).order('created_at', { ascending: false }).limit(500),
+    client.from('business_notifications').select('*').eq('business_id', businessId).order('created_at', { ascending: false }).limit(200),
+    client.from('business_staff_money').select('*').eq('business_id', businessId).order('occurred_at', { ascending: false }).limit(500),
+    client.rpc('get_business_staff_positions', { target_business: businessId }),
+  ]) : null
+
+  const errors = [businessRes.error, partnersRes.error, membersRes.error, accountsRes.error, categoriesRes.error, transactionsRes.error, approvalsRes.error, attachmentsRes.error, closingsRes.error, activityRes.error, balancesRes.error, positionsRes.error, ...(teamResults?.map(result => result.error) ?? [])].filter(Boolean)
   if (errors.length) throw new Error(message(errors[0]))
 
   return {
@@ -150,6 +218,12 @@ export async function fetchBusinessSnapshot(businessId: string): Promise<Busines
     activity: (activityRes.data ?? []) as unknown as BusinessActivityLog[],
     accountBalances: (balancesRes.data ?? []) as unknown as AccountBalance[],
     partnerPositions: (positionsRes.data ?? []) as unknown as PartnerPosition[],
+    staff: (teamResults?.[0].data ?? []) as unknown as BusinessStaff[],
+    tasks: (teamResults?.[1].data ?? []) as unknown as BusinessTask[],
+    taskNotes: (teamResults?.[2].data ?? []) as unknown as BusinessTaskNote[],
+    notifications: (teamResults?.[3].data ?? []) as unknown as BusinessNotification[],
+    staffMoney: (teamResults?.[4].data ?? []) as unknown as BusinessStaffMoney[],
+    staffPositions: (teamResults?.[5].data ?? []) as unknown as BusinessStaffPosition[],
   }
 }
 
@@ -409,5 +483,183 @@ export async function updateBusinessDayClosing(closingId: string, input: Busines
 export async function hardDeleteBusinessDayClosing(closingId: string) {
   const client = requireSupabase()
   const { error } = await client.rpc('hard_delete_business_day_closing', { target_closing: closingId })
+  if (error) throw error
+}
+
+
+export async function addBusinessStaff(businessId: string, input: {
+  name: string
+  email?: string
+  phone?: string
+  title?: string
+  salary: number
+  salaryPeriod: 'monthly' | 'weekly' | 'daily'
+}) {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('add_business_staff', {
+    target_business: businessId,
+    staff_name: input.name.trim(),
+    staff_email: input.email?.trim() || null,
+    staff_phone: input.phone?.trim() || null,
+    staff_title: input.title?.trim() || null,
+    staff_salary: input.salary,
+    staff_salary_period: input.salaryPeriod,
+  })
+  if (error) throw error
+  return data as string
+}
+
+export async function updateBusinessStaff(staffId: string, input: {
+  name: string
+  email?: string
+  phone?: string
+  title?: string
+  salary: number
+  salaryPeriod: 'monthly' | 'weekly' | 'daily'
+  active: boolean
+}) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('update_business_staff', {
+    target_staff: staffId,
+    staff_name: input.name.trim(),
+    staff_email: input.email?.trim() || null,
+    staff_phone: input.phone?.trim() || null,
+    staff_title: input.title?.trim() || null,
+    staff_salary: input.salary,
+    staff_salary_period: input.salaryPeriod,
+    staff_active: input.active,
+  })
+  if (error) throw error
+}
+
+export async function deleteBusinessStaff(staffId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('hard_delete_business_staff', { target_staff: staffId })
+  if (error) throw error
+}
+
+export async function createBusinessTask(businessId: string, input: {
+  title: string
+  description?: string
+  category: string
+  priority: 'urgent' | 'high' | 'normal' | 'low'
+  partnerId?: string | null
+  staffId?: string | null
+  dueAt?: string | null
+}) {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('create_business_task', {
+    target_business: businessId,
+    target_title: input.title.trim(),
+    target_description: input.description?.trim() || null,
+    target_category: input.category.trim() || 'General',
+    target_priority: input.priority,
+    target_assignee_partner: input.partnerId || null,
+    target_assignee_staff: input.staffId || null,
+    target_due_at: input.dueAt || null,
+  })
+  if (error) throw error
+  return data as string
+}
+
+export async function updateBusinessTask(taskId: string, input: {
+  title: string
+  description?: string
+  category: string
+  priority: 'urgent' | 'high' | 'normal' | 'low'
+  partnerId?: string | null
+  staffId?: string | null
+  dueAt?: string | null
+}) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('update_business_task', {
+    target_task: taskId,
+    target_title: input.title.trim(),
+    target_description: input.description?.trim() || null,
+    target_category: input.category.trim() || 'General',
+    target_priority: input.priority,
+    target_assignee_partner: input.partnerId || null,
+    target_assignee_staff: input.staffId || null,
+    target_due_at: input.dueAt || null,
+  })
+  if (error) throw error
+}
+
+export async function setBusinessTaskStatus(taskId: string, status: 'pending' | 'in_progress' | 'completed', note?: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('set_business_task_status', {
+    target_task: taskId,
+    target_status: status,
+    target_note: note?.trim() || null,
+  })
+  if (error) throw error
+}
+
+export async function addBusinessTaskNote(taskId: string, note: string, notify = true) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('add_business_task_note', {
+    target_task: taskId,
+    target_note: note.trim(),
+    notify_other: notify,
+  })
+  if (error) throw error
+}
+
+export async function sendBusinessTaskReminder(taskId: string, message?: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('send_business_task_reminder', {
+    target_task: taskId,
+    target_message: message?.trim() || null,
+  })
+  if (error) throw error
+}
+
+export async function deleteBusinessTask(taskId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('hard_delete_business_task', { target_task: taskId })
+  if (error) throw error
+}
+
+export async function recordBusinessStaffMoney(businessId: string, input: {
+  staffId: string
+  kind: 'advance' | 'advance_expense' | 'pocket_expense' | 'reimbursement' | 'salary' | 'advance_return'
+  amount: number
+  accountId?: string | null
+  categoryId?: string | null
+  counterparty?: string
+  note?: string
+  occurredAt?: string
+}) {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('record_business_staff_money', {
+    target_business: businessId,
+    target_staff: input.staffId,
+    target_kind: input.kind,
+    target_amount: input.amount,
+    target_account: input.accountId || null,
+    target_category: input.categoryId || null,
+    target_counterparty: input.counterparty?.trim() || null,
+    target_note: input.note?.trim() || null,
+    target_occurred_at: input.occurredAt || new Date().toISOString(),
+  })
+  if (error) throw error
+  return data as string
+}
+
+export async function deleteBusinessStaffMoney(entryId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('hard_delete_business_staff_money', { target_entry: entryId })
+  if (error) throw error
+}
+
+export async function markBusinessNotificationRead(notificationId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('mark_business_notification_read', { target_notification: notificationId })
+  if (error) throw error
+}
+
+export async function markAllBusinessNotificationsRead(businessId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('mark_all_business_notifications_read', { target_business: businessId })
   if (error) throw error
 }
