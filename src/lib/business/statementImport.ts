@@ -31,14 +31,14 @@ const splitCsvLine = (line: string, delimiter: string) => {
 }
 
 const amountValue = (value: string) => {
-  const normalized = value.replace(/[₹,s]/g, '').replace(/[()]/g, match => match === '(' ? '-' : '')
+  const normalized = value.replace(/[₹,\s]/g, '').replace(/[()]/g, match => match === '(' ? '-' : '')
   const parsed = Number(normalized)
   return Number.isFinite(parsed) ? Math.abs(parsed) : 0
 }
 
 const normalizeDate = (value: string) => {
   const raw = value.trim()
-  const indian = raw.match(/^(d{1,2})[/-](d{1,2})[/-](d{2,4})$/)
+  const indian = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/)
   if (indian) {
     const year = indian[3].length === 2 ? '20' + indian[3] : indian[3]
     return `${year}-${indian[2].padStart(2, '0')}-${indian[1].padStart(2, '0')}`
@@ -73,7 +73,7 @@ export function parseBankStatementCsv(text: string): ParsedStatementRow[] {
       amount = amountValue(cells[amountIndex] ?? '')
       const type = (cells[typeIndex] ?? '').toLowerCase()
       direction = /credit|cr|deposit|received|in/.test(type) ? 'in' : 'out'
-      if (!type && Number((cells[amountIndex] ?? '').replace(/[₹,s]/g, '')) > 0) direction = 'in'
+      if (!type && Number((cells[amountIndex] ?? '').replace(/[₹,\s]/g, '')) > 0) direction = 'in'
     }
 
     if (!amount) continue
