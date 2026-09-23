@@ -1483,30 +1483,41 @@ select test_assert(
 
 
 -- business money flow v2 isolation
--- New custody/payment/recurring objects must stay inside the caller's Business.
-do $$
-declare
-  cross_partner uuid;
-  cross_staff uuid;
+-- New custody/payment/recurring helpers must reject cross-Business targets.
+
+-- Business A admin cannot settle Business B's partner.
+select test_become('10000000-0000-0000-0000-0000000000a1');
+do $
 begin
-  select id into cross_partner from business_partners where business_id <> :'business_a'::uuid limit 1;
-  select id into cross_staff from business_staff where business_id <> :'business_a'::uuid limit 1;
-
   begin
-    if cross_partner is not null then
-      perform settle_business_partner_money(cross_partner,gen_random_uuid(),null,0,1,'isolation probe');
-      raise exception 'Cross-business partner settlement unexpectedly succeeded';
-    end if;
-  exception when others then
-    if sqlerrm like 'Cross-business partner settlement unexpectedly succeeded%' then raise; end if;
+    perform settle_business_partner_money(
+      '12100000-0000-0000-0000-000000000001',
+      '11200000-0000-0000-0000-000000000001',
+      null,0,1,'isolation probe'
+    );
+    raise exception 'FAIL: cross-business partner settlement unexpectedly succeeded';
+  exception
+    when others then
+      if sqlerrm like 'FAIL:%' then raise; end if;
+      raise notice 'PASS: cross-business partner settlement is blocked';
   end;
+end $;
 
+-- Business B admin cannot settle Business A's staff.
+select test_become('10000000-0000-0000-0000-0000000000b1');
+do $
+begin
   begin
-    if cross_staff is not null then
-      perform settle_business_staff_money(cross_staff,1,null,0,'isolation probe');
-      raise exception 'Cross-business staff settlement unexpectedly succeeded';
-    end if;
-  exception when others then
-    if sqlerrm like 'Cross-business staff settlement unexpectedly succeeded%' then raise; end if;
+    perform settle_business_staff_money(
+      current_setting('test.staff_a_id')::uuid,
+      1,null,0,'isolation probe'
+    );
+    raise exception 'FAIL: cross-business staff settlement unexpectedly succeeded';
+  exception
+    when others then
+      if sqlerrm like 'FAIL:%' then raise; end if;
+      raise notice 'PASS: cross-business staff settlement is blocked';
   end;
-end $$;
+end $;
+
+select test_become('10000000-0000-0000-0000-0000000000a1');

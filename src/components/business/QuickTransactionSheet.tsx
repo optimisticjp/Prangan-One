@@ -227,7 +227,7 @@ export function QuickTransactionSheet({
         accountId: input.accountId,
         partnerId: input.partnerId,
         categoryId: input.categoryId,
-        paymentStatus: input.paymentStatus,
+        paymentStatus: input.paymentStatus === 'partial' ? 'paid' : input.paymentStatus,
         paidBy: input.paidBy,
       })
       setSavedId(id)
