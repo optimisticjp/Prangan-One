@@ -108,6 +108,26 @@ export function summarizeTransactions(
   return { moneyIn, moneyOut, net: moneyIn - moneyOut, personalPaid }
 }
 
+export function summarizeBusinessMoney(
+  balances: Array<{ account_id: string; balance: number }>,
+  staffPositions: Array<{ advance_balance: number }>,
+) {
+  const moneyInLocations = balances.reduce((sum, item) => sum + Math.max(0, Number(item.balance)), 0)
+  const recordGap = balances.reduce((sum, item) => sum + Math.max(0, -Number(item.balance)), 0)
+  const staffHeld = staffPositions.reduce((sum, item) => sum + Math.max(0, Number(item.advance_balance)), 0)
+  return {
+    available: moneyInLocations + staffHeld,
+    moneyInLocations,
+    staffHeld,
+    recordGap,
+  }
+}
+
+export const accountAvailable = (
+  accountId: string | null | undefined,
+  balances: Array<{ account_id: string; balance: number }>,
+) => Math.max(0, Number(balances.find(item => item.account_id === accountId)?.balance ?? 0))
+
 export const todayBusinessISO = () => {
   const date = new Date()
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)

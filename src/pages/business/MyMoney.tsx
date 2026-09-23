@@ -34,12 +34,12 @@ export default function BusinessMyMoney(){
   const entries=data.staffMoney.filter(item=>item.staff_id===staffId)
 
   return <div className="space-y-3">
-    <div><h1 className="text-[17px] font-bold text-navy-900">My money</h1><p className="text-[11.5px] text-navy-400">Business money you hold, expenses you paid, reimbursements and salary.</p></div>
+    <div><h1 className="text-[17px] font-bold text-navy-900">My money</h1><p className="text-[11.5px] text-navy-400">See what business money you are holding and what personal money the business must pay you back.</p></div>
 
     <section className="grid grid-cols-2 gap-2">
       <Card icon={WalletCards} label="Business money with me" value={position?.advance_balance??0} sub="Still belongs to the business"/>
       <Card icon={HandCoins} label="Business owes me" value={position?.outstanding_due??0} sub="Personal pocket expenses due back"/>
-      <Card icon={ReceiptText} label="I paid personally" value={position?.pocket_expenses??0} sub="Business expenses from my pocket"/>
+      <Card icon={ReceiptText} label="I used my own money" value={position?.pocket_expenses??0} sub="Personal money spent for business"/>
       <Card icon={IndianRupee} label="Salary paid" value={position?.salary_paid??0} sub={(position?.salary_amount??0)>0?'Set salary '+businessMoney(position?.salary_amount??0)+' / '+(position?.salary_period??'monthly'):'Salary history'}/>
     </section>
 
@@ -55,12 +55,12 @@ export default function BusinessMyMoney(){
     <section>
       <h2 className="text-[13px] font-bold text-navy-900 mb-1.5">My money activity</h2>
       <div className="rounded-2xl border border-cream-200 bg-white overflow-hidden">
-        {entries.length===0?<div className="px-4 py-8 text-center text-[12px] text-navy-400">No staff-money activity yet.</div>:entries.map(entry=><div key={entry.id} className="px-3 py-2.5 border-b border-cream-100 last:border-0 flex items-center gap-2"><div className="min-w-0 flex-1"><div className="flex gap-1.5 items-center"><div className="text-[12px] font-semibold text-navy-800">{label(entry.kind)}</div>{entry.kind==='pocket_expense'&&<Badge tone="amber">REIMBURSE</Badge>}</div><div className="text-[10.5px] text-navy-400 truncate">{entry.counterparty||entry.note||new Date(entry.occurred_at).toLocaleDateString('en-IN')}</div></div><div className="num shrink-0 text-[12px] font-bold text-navy-800">{businessMoney(entry.amount)}</div></div>)}
+        {entries.length===0?<div className="px-4 py-8 text-center text-[12px] text-navy-400">No money activity yet.</div>:entries.map(entry=><div key={entry.id} className="px-3 py-2.5 border-b border-cream-100 last:border-0 flex items-center gap-2"><div className="min-w-0 flex-1"><div className="flex gap-1.5 items-center"><div className="text-[12px] font-semibold text-navy-800">{label(entry.kind)}</div>{entry.kind==='pocket_expense'&&<Badge tone="amber">PERSONAL MONEY</Badge>}</div><div className="text-[10.5px] text-navy-400 truncate">{entry.counterparty||entry.note||new Date(entry.occurred_at).toLocaleDateString('en-IN')}</div></div><div className="num shrink-0 text-[12px] font-bold text-navy-800">{businessMoney(entry.amount)}</div></div>)}
       </div>
     </section>
 
-    <Modal open={open} onClose={()=>{if(!busy)setOpen(false)}} title={kind==='advance_expense'?'Expense from business money':'Pocket expense'}>
-      <div className="rounded-xl bg-navy-50 border border-navy-100 px-3 py-2 text-[11px] text-navy-600">{kind==='advance_expense'?'This reduces the business advance you are holding.':'This records money you personally paid for business. The business will see that it owes you.'}</div>
+    <Modal open={open} onClose={()=>{if(!busy)setOpen(false)}} title={kind==='advance_expense'?'I spent business money':'I paid with my own money'}>
+      <div className="rounded-xl bg-navy-50 border border-navy-100 px-3 py-2 text-[11px] leading-relaxed text-navy-600">{kind==='advance_expense'?'Use this only when you spent business money that was already given to you.':'Use this when you used your own personal money for a business expense. Prangan will show that the business owes you this amount.'}</div>
       <Field label="Amount"><Input inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} autoFocus/></Field>
       <Field label="Expense category"><Select value={categoryId} onChange={e=>setCategoryId(e.target.value)}><option value="">Choose category</option>{data.categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
       <Field label="Paid to / vendor"><Input value={counterparty} onChange={e=>setCounterparty(e.target.value)} placeholder="Courier, petrol pump, supplier…"/></Field>

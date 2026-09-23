@@ -1636,3 +1636,72 @@ begin
   end;
 end $cross_recurring_account$;
 
+
+
+-- Money locations must never go newly negative. A payment can only use money
+-- that Prangan has already recorded in that location.
+select test_become('10000000-0000-0000-0000-0000000000a1');
+
+do $business_overspend_guard$
+declare
+  before_balance numeric;
+begin
+  select balance into before_balance
+  from get_business_account_balances('11000000-0000-0000-0000-000000000001')
+  where account_id='11200000-0000-0000-0000-000000000001';
+
+  begin
+    perform record_business_expense(
+      '11000000-0000-0000-0000-000000000001',
+      before_balance+1,
+      'paid',
+      'business',
+      '11200000-0000-0000-0000-000000000001',
+      null,null,'Overspend probe','Must not create negative cash',null,now()
+    );
+    raise exception 'FAIL: business expense created a negative money location';
+  exception
+    when others then
+      if sqlerrm like 'FAIL:%' then raise; end if;
+      if sqlerrm not like 'Not enough recorded money in %' then raise; end if;
+      raise notice 'PASS: business expense cannot spend more than the selected money location holds';
+  end;
+
+  perform test_assert(
+    (select balance from get_business_account_balances('11000000-0000-0000-0000-000000000001')
+     where account_id='11200000-0000-0000-0000-000000000001')=before_balance,
+    'failed overspend leaves business money balance unchanged'
+  );
+end $business_overspend_guard$;
+
+do $staff_overspend_guard$
+declare
+  before_balance numeric;
+begin
+  select balance into before_balance
+  from get_business_account_balances('11000000-0000-0000-0000-000000000001')
+  where account_id='11200000-0000-0000-0000-000000000001';
+
+  begin
+    perform record_business_staff_money(
+      '11000000-0000-0000-0000-000000000001',
+      current_setting('test.staff_a_id')::uuid,
+      'advance',
+      before_balance+1,
+      '11200000-0000-0000-0000-000000000001',
+      null,null,'Must not create negative cash',now()
+    );
+    raise exception 'FAIL: staff advance created a negative money location';
+  exception
+    when others then
+      if sqlerrm like 'FAIL:%' then raise; end if;
+      if sqlerrm not like 'Not enough recorded money in %' then raise; end if;
+      raise notice 'PASS: staff money cannot exceed the selected business money location';
+  end;
+
+  perform test_assert(
+    (select balance from get_business_account_balances('11000000-0000-0000-0000-000000000001')
+     where account_id='11200000-0000-0000-0000-000000000001')=before_balance,
+    'failed staff overspend leaves business money balance unchanged'
+  );
+end $staff_overspend_guard$;

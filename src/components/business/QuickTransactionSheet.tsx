@@ -6,7 +6,7 @@ import {
 import { Button, Field, Input, Modal, Select, Textarea } from '../ui'
 import { useToast } from '../Toast'
 import { useBusiness } from '../../lib/business/store'
-import { businessTransactionHelp } from '../../lib/business/finance'
+import { accountAvailable, businessMoney, businessTransactionHelp } from '../../lib/business/finance'
 import {
   getBusinessEntryDefaults, getBusinessFavorites, saveBusinessEntryDefaults, saveBusinessFavorite,
 } from '../../lib/business/preferences'
@@ -98,6 +98,7 @@ export function QuickTransactionSheet({
 
   const activeAccounts = data.accounts.filter(a => a.active)
   const activePartners = data.partners.filter(p => p.active)
+  const balanceByAccount = new Map(data.accountBalances.map(balance => [balance.account_id, Number(balance.balance)]))
 
   const applyPreset = (preset: SerializableTransactionInput) => {
     setKind(preset.kind as ComposerKind)
@@ -163,6 +164,12 @@ export function QuickTransactionSheet({
     ? paymentStatus === 'paid' && paidBy === 'partner'
     : ['partner_capital','partner_advance','reimbursement','withdrawal'].includes(kind)
   const showCategory = ['income','expense','refund'].includes(kind)
+  const amountNumber = Number(amount) || 0
+  const spendsFromBusinessMoney =
+    (isExpense && paymentStatus === 'paid' && paidBy === 'business')
+    || ['transfer', 'reimbursement', 'withdrawal'].includes(kind)
+  const selectedAvailable = accountAvailable(accountId, data.accountBalances)
+  const insufficientFunds = spendsFromBusinessMoney && !!accountId && amountNumber > selectedAvailable
 
   const relevantCategories = useMemo(() => {
     const filtered = data.categories.filter(c =>
@@ -176,10 +183,11 @@ export function QuickTransactionSheet({
   }, [data.categories, kind])
 
   const valid = canWrite
-    && Number(amount) > 0
+    && amountNumber > 0
     && (!needsAccount || !!accountId)
     && (!needsPartner || !!partnerId)
     && (kind !== 'transfer' || (!!toAccountId && toAccountId !== accountId))
+    && !insufficientFunds
 
   const choosePrimary = (choice: PrimaryChoice) => {
     if (choice === 'partner_paid') {
@@ -405,10 +413,10 @@ export function QuickTransactionSheet({
       </div>
 
       <div className="grid grid-cols-4 gap-1.5">
-        <Primary icon={ArrowDownLeft} title={t('moneyIn')} active={primaryActive('income')} onClick={() => choosePrimary('income')} />
-        <Primary icon={ArrowUpRight} title={t('expense')} active={primaryActive('expense')} onClick={() => choosePrimary('expense')} />
-        <Primary icon={UserRound} title={t('partnerPaid')} active={primaryActive('partner_paid')} onClick={() => choosePrimary('partner_paid')} />
-        <Primary icon={ArrowRightLeft} title={t('transfer')} active={primaryActive('transfer')} onClick={() => choosePrimary('transfer')} />
+        <Primary icon={ArrowDownLeft} title="Money received" active={primaryActive('income')} onClick={() => choosePrimary('income')} />
+        <Primary icon={ArrowUpRight} title="Business expense" active={primaryActive('expense')} onClick={() => choosePrimary('expense')} />
+        <Primary icon={UserRound} title="Partner paid" active={primaryActive('partner_paid')} onClick={() => choosePrimary('partner_paid')} />
+        <Primary icon={ArrowRightLeft} title="Move money" active={primaryActive('transfer')} onClick={() => choosePrimary('transfer')} />
       </div>
 
       <button type="button" onClick={() => setShowExtraKinds(v => !v)} className="w-full min-h-[34px] flex items-center justify-center gap-1 text-[11px] font-semibold text-navy-500">
@@ -450,20 +458,31 @@ export function QuickTransactionSheet({
 
       {isExpense && paymentStatus === 'paid' && (
         <div className="grid grid-cols-2 gap-2">
-          <Choice active={paidBy === 'business'} title={t('businessFunds')} text="Cash / Bank" onClick={() => setPaidBy('business')} />
-          <Choice active={paidBy === 'partner'} title={t('partner')} text="Business owes them" onClick={() => setPaidBy('partner')} />
+          <Choice active={paidBy === 'business'} title="Business money" text="Cash / Bank / UPI" onClick={() => setPaidBy('business')} />
+          <Choice active={paidBy === 'partner'} title="Partner paid personally" text="Business must pay them back" onClick={() => setPaidBy('partner')} />
         </div>
       )}
 
       {needsAccount && (
-        <Field label={kind === 'transfer' ? 'From' : isIncome ? 'Received into' : ['refund','partner_capital','partner_advance'].includes(kind) ? 'Money goes to' : 'Paid from'}>
+        <Field
+          label={kind === 'transfer' ? 'Move money from' : isIncome ? 'Money received into' : ['refund','partner_capital','partner_advance'].includes(kind) ? 'Money goes into' : 'Pay from'}
+          hint={spendsFromBusinessMoney && accountId ? 'Available here: ' + businessMoney(balanceByAccount.get(accountId) ?? 0) : undefined}
+        >
           <Select value={accountId} onChange={e => setAccountId(e.target.value)}>
             {activeAccounts.map(a => {
               const holder = a.custodian_partner_id ? data.partners.find(p => p.id === a.custodian_partner_id)?.name : null
-              return <option key={a.id} value={a.id}>{a.name}{holder ? ' · with ' + holder : ''}</option>
+              const balance = balanceByAccount.get(a.id) ?? 0
+              return <option key={a.id} value={a.id}>{a.name}{holder ? ' · with ' + holder : ''} · {businessMoney(balance)}</option>
             })}
           </Select>
         </Field>
+      )}
+
+      {insufficientFunds && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[11px] leading-relaxed text-navy-600">
+          <strong>Not enough recorded money in this place.</strong> Available: {businessMoney(selectedAvailable)}. You are trying to use {businessMoney(amountNumber)}.
+          {isExpense ? ' Record where the money came from, choose another money place, or choose “Partner paid personally”.' : ' Record where the money came from or choose another money place.'}
+        </div>
       )}
 
       {kind === 'transfer' && (

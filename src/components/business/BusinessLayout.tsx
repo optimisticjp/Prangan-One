@@ -58,7 +58,7 @@ export default function BusinessLayout() {
     { to: '/business/notifications', label: 'Alerts', icon: Bell },
   ] : [
     { to: '/business', label: t('home'), icon: Home, end: true },
-    { to: '/business/ledger', label: t('ledger'), icon: List },
+    { to: '/business/ledger', label: 'Entries', icon: List },
     { to: '/business/money-map', label: 'Money', icon: MapPinned },
     { to: '/business/partners', label: t('partners'), icon: Users },
   ]

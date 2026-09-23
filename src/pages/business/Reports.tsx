@@ -96,8 +96,8 @@ export default function BusinessReports() {
     <div className="space-y-3 print:bg-white">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-[17px] font-bold text-navy-900">Reports</h1>
-          <p className="text-[11px] text-navy-400">Simple monthly numbers for partners and your CA.</p>
+          <h1 className="text-[17px] font-bold text-navy-900">Monthly summary</h1>
+          <p className="text-[11px] text-navy-400">Plain numbers for you, your partners and your CA.</p>
         </div>
         <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="!w-[145px] !min-h-[36px] !text-[11px]" />
       </div>
@@ -109,12 +109,12 @@ export default function BusinessReports() {
       <Button variant="soft" full className="print:hidden !min-h-[38px] !text-[11px]" onClick={() => window.print()}><Printer size={14} /> Print / Save PDF</Button>
 
       <div className="grid grid-cols-2 gap-1.5">
-        <Metric label="Money in" value={summary.moneyIn} />
-        <Metric label="Money out" value={summary.moneyOut} />
-        <Metric label="Net cash movement" value={summary.net} />
-        <Metric label="Personal money used" value={summary.personalPaid} />
-        <Metric label="To collect now" value={toCollect} />
-        <Metric label="To pay now" value={toPay} />
+        <Metric label="Received this month" value={summary.moneyIn} />
+        <Metric label="Paid this month" value={summary.moneyOut} />
+        <Metric label="Cash change (not profit)" value={summary.net} />
+        <Metric label="Paid personally" value={summary.personalPaid} />
+        <Metric label="Customers owe us" value={toCollect} />
+        <Metric label="We owe vendors" value={toPay} />
       </div>
 
       <section>
@@ -132,16 +132,16 @@ export default function BusinessReports() {
       </section>
 
       <section>
-        <h2 className="text-[13px] font-bold text-navy-900 mb-1.5">Partner settlement position</h2>
+        <h2 className="text-[13px] font-bold text-navy-900 mb-1.5">What the business owes partners</h2>
         <div className="rounded-2xl border border-cream-200 bg-white overflow-hidden">
           {data.partnerPositions.map(p => (
             <div key={p.partner_id} className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2.5 border-b border-cream-100 last:border-0">
               <div>
                 <div className="text-[12px] font-semibold text-navy-800">{p.name}</div>
-                <div className="text-[10.5px] text-navy-400">Capital {businessMoney(p.capital)} · Personal paid {businessMoney(p.personal_expenses)} · Withdrawn {businessMoney(p.withdrawals)}</div>
+                <div className="text-[10.5px] text-navy-400">Put into business {businessMoney(p.capital)} · Used own money {businessMoney(p.personal_expenses)} · Taken personally {businessMoney(p.withdrawals)}</div>
               </div>
               <div className="text-right">
-                <div className="text-[9px] text-navy-400">OWED TO PARTNER</div>
+                <div className="text-[9px] text-navy-400">BUSINESS OWES {p.name.toUpperCase()}</div>
                 <div className="num text-[12.5px] font-bold text-pend">{businessMoney(p.outstanding_due)}</div>
               </div>
             </div>

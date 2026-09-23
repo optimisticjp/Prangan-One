@@ -4,7 +4,7 @@ import { Badge, Button, Field, Input, Modal, Select, Textarea } from '../../comp
 import { TypedConfirmModal } from '../../components/business/TypedConfirmModal'
 import { useToast } from '../../components/Toast'
 import { useBusiness } from '../../lib/business/store'
-import { businessMoney } from '../../lib/business/finance'
+import { accountAvailable, businessMoney } from '../../lib/business/finance'
 import type { BusinessPartner, BusinessRole } from '../../lib/business/types'
 
 type PartnerForm = { name: string; email: string; phone: string; ownership: string; role: BusinessRole; status: 'active' | 'disabled' }
@@ -31,6 +31,8 @@ export default function BusinessPartners() {
 
   const activeAccounts = data.accounts.filter(account => account.active)
   const balanceByAccount = useMemo(() => new Map(data.accountBalances.map(balance => [balance.account_id, Number(balance.balance)])), [data.accountBalances])
+  const payAvailable = accountAvailable(payAccountId, data.accountBalances)
+  const payTooHigh = !!payAccountId && Number(payAmount) > payAvailable
   const heldAccountsFor = (partnerId:string) => data.accounts.filter(a=>a.active&&a.custodian_partner_id===partnerId).map(account=>({account,balance:balanceByAccount.get(account.id)??0}))
 
   const openAdd=()=>{setEditing(null);setForm(emptyForm);setOpen(true)}
@@ -68,7 +70,7 @@ export default function BusinessPartners() {
     setPaying({partnerId,name,due});setPayAmount(String(due));setPayAccountId(activeAccounts.find(a=>!a.custodian_partner_id)?.id??activeAccounts[0]?.id??'')
   }
   const payDue=async()=>{
-    if(!paying||Number(payAmount)<=0||!payAccountId)return
+    if(!paying||Number(payAmount)<=0||!payAccountId||payTooHigh)return
     setSaving(true)
     try{
       await postTransaction({kind:'reimbursement',amount:Math.min(Number(payAmount),paying.due),accountId:payAccountId,partnerId:paying.partnerId,note:'Partner reimbursement'})
@@ -101,10 +103,10 @@ export default function BusinessPartners() {
 
   return <div className="space-y-3 min-w-0">
     <div className="flex items-center justify-between gap-2">
-      <div className="min-w-0"><h1 className="text-[17px] font-bold text-navy-900">Partners</h1><p className="text-[11.5px] text-navy-400">Separate business money held by a partner from personal money owed to them.</p></div>
+      <div className="min-w-0"><h1 className="text-[17px] font-bold text-navy-900">Partners</h1><p className="text-[11.5px] text-navy-400">See two different things clearly: business money a partner is holding, and personal money the business must pay back.</p></div>
       {canAdmin&&<button onClick={openAdd} className="h-9 shrink-0 px-3 rounded-xl bg-navy-900 text-white text-[11.5px] font-semibold flex items-center gap-1"><Plus size={14}/> Partner</button>}
     </div>
-    <div className="rounded-xl bg-navy-50 border border-navy-100 px-3 py-2 text-[11px] text-navy-600"><strong>Business money with Raj</strong> still belongs to the business. <strong>Business owes Raj</strong> means Raj used personal money or lent money to the business.</div>
+    <div className="rounded-xl bg-navy-50 border border-navy-100 px-3 py-2 text-[11px] leading-relaxed text-navy-600"><strong>Easy rule:</strong> “Money with Yatin” is still business money. “Business owes Yatin” means Yatin used his own money or lent money and must be paid back.</div>
 
     <div className="space-y-2">{data.partnerPositions.map(position=>{
       const partner=data.partners.find(item=>item.id===position.partner_id);if(!partner||!partner.active)return null
@@ -112,23 +114,24 @@ export default function BusinessPartners() {
       return <div key={position.partner_id} className="rounded-xl border border-cream-200 bg-white p-3 min-w-0">
         <div className="flex items-center gap-2.5 min-w-0"><div className="h-9 w-9 shrink-0 rounded-lg bg-navy-50 text-navy-600 flex items-center justify-center"><UserRound size={17}/></div><div className="min-w-0 flex-1"><div className="flex items-center gap-1.5 min-w-0"><div className="text-[13px] font-bold text-navy-900 truncate">{position.name}</div>{membership&&<Badge tone={membership.status==='active'?'green':'gray'}>{membership.role.toUpperCase()}</Badge>}</div><div className="text-[10.5px] text-navy-400 truncate">{partner.email||partner.phone||'No login access'}</div></div></div>
         <div className="grid grid-cols-2 gap-2 mt-2.5">
-          <PositionCard icon={WalletCards} label="Business money with partner" value={heldTotal} sub={held.length?held.map(item=>item.account.name).join(' · '):'No held-money location'} tone="navy"/>
-          <PositionCard icon={HandCoins} label="Business owes partner" value={due} sub={due>0?'Personal spending / partner loan':'Nothing to reimburse'} tone={due>0?'saffron':'green'}/>
+          <PositionCard icon={WalletCards} label={'Business money with '+position.name} value={heldTotal} sub={held.length?held.map(item=>item.account.name).join(' · '):'This partner is not holding business money'} tone="navy"/>
+          <PositionCard icon={HandCoins} label={'Business owes '+position.name} value={due} sub={due>0?'Pay back personal spending / partner loan':'Nothing to pay back'} tone={due>0?'saffron':'green'}/>
         </div>
-        <div className="grid grid-cols-3 gap-1.5 mt-2"><Mini label="Capital" value={position.capital}/><Mini label="Paid personally" value={position.personal_expenses}/><Mini label="Withdrawn" value={position.withdrawals}/></div>
+        <div className="grid grid-cols-3 gap-1.5 mt-2"><Mini label="Put into business" value={position.capital}/><Mini label="Used own money" value={position.personal_expenses}/><Mini label="Taken personally" value={position.withdrawals}/></div>
         {canWrite&&(heldTotal>0||due>0)&&<div className={'mt-2.5 grid gap-2 '+(heldTotal>0&&due>0?'grid-cols-2':'grid-cols-1')}>
           {heldTotal>0&&<Button variant="accent" className="!min-h-[38px] !text-[11px]" onClick={()=>openHeldSettlement(position.partner_id,position.name,due)}><ArrowRightLeft size={14}/> Settle held money</Button>}
-          {due>0&&<Button variant="soft" className="!min-h-[38px] !text-[11px]" onClick={()=>openPayDue(position.partner_id,position.name,due)}><Banknote size={14}/> Pay due</Button>}
+          {due>0&&<Button variant="soft" className="!min-h-[38px] !text-[11px]" onClick={()=>openPayDue(position.partner_id,position.name,due)}><Banknote size={14}/> Pay {position.name} back</Button>}
         </div>}
         {canAdmin&&<div className="mt-2 grid grid-cols-2 gap-2"><Button variant="soft" className="!min-h-[36px] !text-[11.5px]" onClick={()=>openEdit(partner)}><Pencil size={13}/> Edit</Button><Button variant="danger" className="!min-h-[36px] !text-[11.5px]" onClick={()=>setDeleting(partner)}><Trash2 size={13}/> Delete</Button></div>}
       </div>
     })}</div>
 
-    <Modal open={!!paying} onClose={()=>{if(!saving)setPaying(null)}} title={paying?'Pay '+paying.name:'Pay partner'}>
-      {paying&&<div className="rounded-xl bg-saffron-50 border border-saffron-200 px-3 py-2"><div className="text-[10px] font-bold text-saffron-700">BUSINESS OWES</div><div className="num text-[18px] font-bold text-navy-900">{businessMoney(paying.due)}</div></div>}
-      <Field label="Amount to reimburse"><Input inputMode="decimal" value={payAmount} onChange={e=>setPayAmount(e.target.value)}/></Field>
-      <Field label="Pay from"><Select value={payAccountId} onChange={e=>setPayAccountId(e.target.value)}><option value="">Choose money location</option>{activeAccounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</Select></Field>
-      <Button full loading={saving} disabled={!payAccountId||Number(payAmount)<=0} onClick={payDue}><Banknote size={15}/> Record reimbursement</Button>
+    <Modal open={!!paying} onClose={()=>{if(!saving)setPaying(null)}} title={paying?'Pay '+paying.name+' back':'Pay partner back'}>
+      {paying&&<div className="rounded-xl bg-saffron-50 border border-saffron-200 px-3 py-2"><div className="text-[10px] font-bold text-saffron-700">BUSINESS MUST PAY BACK</div><div className="num text-[18px] font-bold text-navy-900">{businessMoney(paying.due)}</div><div className="text-[10px] text-navy-500 mt-0.5">{paying.name} used personal money or lent money to the business.</div></div>}
+      <Field label="How much are you paying back?"><Input inputMode="decimal" value={payAmount} onChange={e=>setPayAmount(e.target.value)}/></Field>
+      <Field label="Pay from business money" hint={payAccountId?'Available here: '+businessMoney(payAvailable):undefined}><Select value={payAccountId} onChange={e=>setPayAccountId(e.target.value)}><option value="">Choose cash / bank / UPI</option>{activeAccounts.map(a=><option key={a.id} value={a.id}>{a.name} · {businessMoney(balanceByAccount.get(a.id)??0)}</option>)}</Select></Field>
+      {payTooHigh&&<div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-relaxed text-navy-600"><strong>Not enough recorded money here.</strong> Available {businessMoney(payAvailable)}. Record where the money came from or choose another money place.</div>}
+      <Button full loading={saving} disabled={!payAccountId||Number(payAmount)<=0||payTooHigh} onClick={payDue}><Banknote size={15}/> Pay {paying?.name||'partner'} back</Button>
     </Modal>
 
     <Modal open={!!settling} onClose={()=>{if(!saving)setSettling(null)}} title={settling?'Settle money with '+settling.name:'Settle held money'} wide>
