@@ -8,7 +8,6 @@ import {
 import { ResidentLayout, Shell } from './layouts/Layouts'
 import type { NavItem } from './layouts/Layouts'
 import { RoleGate } from './components/RoleGate'
-import { BusinessFinanceGate, BusinessStaffOnlyGate, BusinessTeamGate } from './components/business/BusinessAccessGate'
 import { ModuleGate } from './components/ModuleGate'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { PageLoading } from './components/PageLoading'
@@ -26,7 +25,6 @@ import { lazyWithRetry as lazy } from './lib/lazyWithRetry'
 import Home from './pages/public/Home'
 
 const Login = lazy(() => import('./pages/Login'))
-const PortalLogin = lazy(() => import('./pages/PortalLogin'))
 const Demo = lazy(() => import('./pages/Demo'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
@@ -84,29 +82,7 @@ const OSocietyDetail = lazy(() => import('./pages/owner/SocietyDetail'))
 const OBilling = lazy(() => import('./pages/owner/Billing'))
 const OLeads = lazy(() => import('./pages/owner/Leads'))
 const OActivity = lazy(() => import('./pages/owner/Activity'))
-const OBusinesses = lazy(() => import('./pages/owner/Businesses'))
 const OwnerLegacyRedirect = lazy(() => import('./pages/owner/LegacyRedirect'))
-
-const BusinessRoot = lazy(() => import('./components/business/BusinessRoot'))
-const BusinessLayout = lazy(() => import('./components/business/BusinessLayout'))
-const BDashboard = lazy(() => import('./pages/business/Dashboard'))
-const BLedger = lazy(() => import('./pages/business/Ledger'))
-const BApprovals = lazy(() => import('./pages/business/Approvals'))
-const BPartners = lazy(() => import('./pages/business/Partners'))
-const BMore = lazy(() => import('./pages/business/More'))
-const BAccounts = lazy(() => import('./pages/business/Accounts'))
-const BMoneyMap = lazy(() => import('./pages/business/MoneyMap'))
-const BRecurring = lazy(() => import('./pages/business/Recurring'))
-const BCategories = lazy(() => import('./pages/business/Categories'))
-const BReports = lazy(() => import('./pages/business/Reports'))
-const BImport = lazy(() => import('./pages/business/Import'))
-const BDayClose = lazy(() => import('./pages/business/DayClose'))
-const BSettings = lazy(() => import('./pages/business/Settings'))
-const BTasks = lazy(() => import('./pages/business/Tasks'))
-const BStaff = lazy(() => import('./pages/business/Staff'))
-const BMyMoney = lazy(() => import('./pages/business/MyMoney'))
-const BNotifications = lazy(() => import('./pages/business/Notifications'))
-const BOnboarding = lazy(() => import('./pages/business/Onboarding'))
 
 const adminNav: NavItem[] = [
   { to: '/admin', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true, group: 'ઓવરવ્યૂ' },
@@ -153,9 +129,6 @@ export default function App() {
         <Route path="/privacy" element={<Lazy><Privacy /></Lazy>} />
         <Route path="/terms" element={<Lazy><Terms /></Lazy>} />
         <Route path="/login" element={<Lazy><Login /></Lazy>} />
-        <Route path="/user-login" element={<Lazy><PortalLogin portal="resident" /></Lazy>} />
-        <Route path="/admin-login" element={<Lazy><PortalLogin portal="admin" /></Lazy>} />
-        <Route path="/business/login" element={<Lazy><PortalLogin portal="business" /></Lazy>} />
         <Route path="/demo" element={<Lazy><Demo /></Lazy>} />
         <Route path="/auth/callback" element={<Lazy><AuthCallback /></Lazy>} />
         <Route path="/auth/reset-password" element={<Lazy><ResetPassword /></Lazy>} />
@@ -164,7 +137,7 @@ export default function App() {
 
         {/* Shareable, society-branded entry point: pranganone.com/s/rajhans-tower.
             Looks up the society by slug (public metadata only: name, logo,
-            theme, area), shows their branding, then hands off to /user-login
+            theme, area), shows their branding, then hands off to /login
             with that society pre-selected as context. */}
         <Route path="/s/:slug" element={<Lazy><ShareLink /></Lazy>} />
 
@@ -208,36 +181,11 @@ export default function App() {
           <Route path="adjustments" element={<Lazy><CAdjustments /></Lazy>} />
         </Route>
 
-
-        <Route path="/business" element={<Lazy><BusinessRoot /></Lazy>}>
-          <Route path="onboarding" element={<Lazy><BOnboarding /></Lazy>} />
-          <Route element={<Lazy><BusinessLayout /></Lazy>}>
-            <Route index element={<Lazy><BDashboard /></Lazy>} />
-            <Route path="tasks" element={<BusinessTeamGate><Lazy><BTasks /></Lazy></BusinessTeamGate>} />
-            <Route path="staff" element={<BusinessTeamGate><Lazy><BStaff /></Lazy></BusinessTeamGate>} />
-            <Route path="my-money" element={<BusinessStaffOnlyGate><Lazy><BMyMoney /></Lazy></BusinessStaffOnlyGate>} />
-            <Route path="notifications" element={<BusinessTeamGate><Lazy><BNotifications /></Lazy></BusinessTeamGate>} />
-            <Route path="ledger" element={<BusinessFinanceGate><Lazy><BLedger /></Lazy></BusinessFinanceGate>} />
-            <Route path="approvals" element={<BusinessFinanceGate><Lazy><BApprovals /></Lazy></BusinessFinanceGate>} />
-            <Route path="partners" element={<BusinessFinanceGate><Lazy><BPartners /></Lazy></BusinessFinanceGate>} />
-            <Route path="more" element={<BusinessFinanceGate><Lazy><BMore /></Lazy></BusinessFinanceGate>} />
-            <Route path="accounts" element={<BusinessFinanceGate><Lazy><BAccounts /></Lazy></BusinessFinanceGate>} />
-            <Route path="money-map" element={<BusinessFinanceGate><Lazy><BMoneyMap /></Lazy></BusinessFinanceGate>} />
-            <Route path="recurring" element={<BusinessFinanceGate><Lazy><BRecurring /></Lazy></BusinessFinanceGate>} />
-            <Route path="categories" element={<BusinessFinanceGate><Lazy><BCategories /></Lazy></BusinessFinanceGate>} />
-            <Route path="reports" element={<BusinessFinanceGate><Lazy><BReports /></Lazy></BusinessFinanceGate>} />
-            <Route path="import" element={<BusinessFinanceGate><Lazy><BImport /></Lazy></BusinessFinanceGate>} />
-            <Route path="day-close" element={<BusinessFinanceGate><Lazy><BDayClose /></Lazy></BusinessFinanceGate>} />
-            <Route path="settings" element={<BusinessFinanceGate><Lazy><BSettings /></Lazy></BusinessFinanceGate>} />
-          </Route>
-        </Route>
-
         <Route path="/owner" element={<RoleGate allow={['owner']}><Lazy><OwnerShell /></Lazy></RoleGate>}>
           <Route index element={<Lazy><ODashboard /></Lazy>} />
           <Route path="societies" element={<Lazy><OSocieties /></Lazy>} />
           <Route path="societies/new" element={<Lazy><OOnboarding /></Lazy>} />
           <Route path="societies/:id" element={<Lazy><OSocietyDetail /></Lazy>} />
-          <Route path="businesses" element={<Lazy><OBusinesses /></Lazy>} />
           <Route path="billing" element={<Lazy><OBilling /></Lazy>} />
           <Route path="leads" element={<Lazy><OLeads /></Lazy>} />
           <Route path="activity" element={<Lazy><OActivity /></Lazy>} />

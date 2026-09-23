@@ -7,7 +7,7 @@
  */
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Building2, BriefcaseBusiness, Wallet, Inbox, ScrollText, ArrowLeftRight, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Building2, Wallet, Inbox, ScrollText, ArrowLeftRight, LogOut, Menu, X } from 'lucide-react'
 import { useData } from '../../lib/store'
 import { PranganBrand } from '../../components/PranganBrand'
 import { useAppLang } from '../../lib/useAppLang'
@@ -17,7 +17,6 @@ import { FetchErrorBanner } from '../../components/FetchErrorBanner'
 const nav = [
   { to: '/owner', label: 'ડેશબોર્ડ', icon: LayoutDashboard, end: true },
   { to: '/owner/societies', label: 'સોસાયટીઓ', icon: Building2 },
-  { to: '/owner/businesses', label: 'બિઝનેસ મંજૂરી', icon: BriefcaseBusiness },
   { to: '/owner/billing', label: 'પ્લેટફોર્મ બિલિંગ', icon: Wallet },
   { to: '/owner/leads', label: 'લીડ ઈનબોક્સ', icon: Inbox },
   { to: '/owner/activity', label: 'એક્ટિવિટી લોગ', icon: ScrollText },
@@ -48,7 +47,7 @@ export default function OwnerLayout() {
         ))}
       </nav>
       <div className="p-3 border-t border-navy-800">
-        <button onClick={() => { logout(); nav_('/admin-login') }}
+        <button onClick={() => { logout(); nav_('/login') }}
           className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] text-navy-100/70 hover:bg-navy-800 hover:text-cream-50">
           {session.isRealSession ? <LogOut size={17} /> : <ArrowLeftRight size={17} />}
           {session.isRealSession ? 'લોગ આઉટ' : 'રોલ બદલો'}
@@ -59,7 +58,7 @@ export default function OwnerLayout() {
   )
 
   return (
-    <div className="min-h-[100dvh] bg-cream-100 flex">
+    <div className="min-h-screen bg-cream-100 flex">
       <FetchErrorBanner />
       <SyncFailureBanner />
       <aside className="hidden md:flex md:w-64 md:flex-col bg-brand-navy shrink-0">{sidebar}</aside>

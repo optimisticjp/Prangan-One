@@ -51,7 +51,7 @@ export default function Profile() {
       </Card>
 
       {session.isRealSession ? (
-        <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav('/user-login') }}>
+        <Button variant="soft" full className="mt-4" onClick={() => { logout(); nav('/login') }}>
           <LogOut size={17} /> લોગ આઉટ
         </Button>
       ) : (

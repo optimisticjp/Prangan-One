@@ -1,2 +1,0 @@
--- Live hardening migration version 20260922095440.
--- The hardened RLS, RPC grants and account-balance integration are consolidated in the preceding repository migration for reproducible fresh installs.
