@@ -5864,7 +5864,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=public,pg_temp
-as $
+as $money_guard$
 declare
   tx_kind text;
 begin
@@ -5881,7 +5881,7 @@ begin
   end if;
   return new;
 end;
-$;
+$money_guard$;
 
 drop trigger if exists business_ledger_funds_guard on business_ledger_entries;
 create trigger business_ledger_funds_guard
