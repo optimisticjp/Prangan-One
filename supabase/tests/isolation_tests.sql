@@ -1521,3 +1521,118 @@ begin
 end $staff_isolation$;
 
 select test_become('10000000-0000-0000-0000-0000000000a1');
+
+-- Staff settlement must become the new source of truth for future spend and
+-- reimbursement validation.
+select settle_business_staff_money(
+  current_setting('test.staff_a_id')::uuid,
+  300,
+  '11200000-0000-0000-0000-000000000001',
+  500,
+  'Settle pocket due and return unused cash'
+);
+
+select test_assert(
+  (select advance_balance from get_business_staff_positions('11000000-0000-0000-0000-000000000001')
+   where staff_id=current_setting('test.staff_a_id')::uuid)=0,
+  'staff settlement consumes held business money exactly once'
+);
+select test_assert(
+  (select outstanding_due from get_business_staff_positions('11000000-0000-0000-0000-000000000001')
+   where staff_id=current_setting('test.staff_a_id')::uuid)=0,
+  'staff settlement clears the matching personal amount due'
+);
+
+do $post_settlement_spend$
+begin
+  begin
+    perform record_business_staff_money(
+      '11000000-0000-0000-0000-000000000001',
+      current_setting('test.staff_a_id')::uuid,
+      'advance_expense',1,null,null,'Probe','Should fail after settlement',now()
+    );
+    raise exception 'FAIL: staff spent business money after held balance reached zero';
+  exception
+    when others then
+      if sqlerrm like 'FAIL:%' then raise; end if;
+      if sqlerrm <> 'amount_exceeds_staff_advance_balance' then raise; end if;
+      raise notice 'PASS: settled staff-held money cannot be spent again';
+  end;
+end $post_settlement_spend$;
+
+do $post_settlement_reimburse$
+begin
+  begin
+    perform record_business_staff_money(
+      '11000000-0000-0000-0000-000000000001',
+      current_setting('test.staff_a_id')::uuid,
+      'reimbursement',1,'11200000-0000-0000-0000-000000000001',null,
+      'Probe','Should fail after settlement',now()
+    );
+    raise exception 'FAIL: staff was reimbursed again after due reached zero';
+  exception
+    when others then
+      if sqlerrm like 'FAIL:%' then raise; end if;
+      if sqlerrm <> 'reimbursement_exceeds_staff_due' then raise; end if;
+      raise notice 'PASS: settled staff pocket due cannot be reimbursed twice';
+  end;
+end $post_settlement_reimburse$;
+
+-- Security-definer staff-money writes must not cross-link staff or accounts
+-- from another Business.
+select test_become('10000000-0000-0000-0000-0000000000b1');
+do $cross_staff_record$
+begin
+  begin
+    perform record_business_staff_money(
+      '12000000-0000-0000-0000-000000000001',
+      current_setting('test.staff_a_id')::uuid,
+      'advance',1,'12200000-0000-0000-0000-000000000001',null,
+      'Probe','Cross-business staff link',now()
+    );
+    raise exception 'FAIL: cross-business staff-money row was accepted';
+  exception
+    when others then
+      if sqlerrm like 'FAIL:%' then raise; end if;
+      if sqlerrm <> 'staff_not_in_business' then raise; end if;
+      raise notice 'PASS: staff-money RPC rejects a staff member from another Business';
+  end;
+end $cross_staff_record$;
+
+select test_become('10000000-0000-0000-0000-0000000000a1');
+do $cross_staff_account$
+begin
+  begin
+    perform record_business_staff_money(
+      '11000000-0000-0000-0000-000000000001',
+      current_setting('test.staff_a_id')::uuid,
+      'advance',1,'12200000-0000-0000-0000-000000000001',null,
+      'Probe','Cross-business account link',now()
+    );
+    raise exception 'FAIL: cross-business account was accepted for staff money';
+  exception
+    when others then
+      if sqlerrm like 'FAIL:%' then raise; end if;
+      if sqlerrm <> 'account_not_in_business' then raise; end if;
+      raise notice 'PASS: staff-money RPC rejects an account from another Business';
+  end;
+end $cross_staff_account$;
+
+do $cross_recurring_account$
+begin
+  begin
+    perform create_business_recurring_entry(
+      '11000000-0000-0000-0000-000000000001',
+      'income','Invalid recurring source',10,
+      '12200000-0000-0000-0000-000000000001',
+      null,null,'Probe',null,'business','monthly',current_date
+    );
+    raise exception 'FAIL: cross-business account was accepted for recurring money';
+  exception
+    when others then
+      if sqlerrm like 'FAIL:%' then raise; end if;
+      if sqlerrm <> 'account_required' then raise; end if;
+      raise notice 'PASS: recurring-money RPC rejects an account from another Business';
+  end;
+end $cross_recurring_account$;
+

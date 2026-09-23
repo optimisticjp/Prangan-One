@@ -76,4 +76,6 @@
 - [x] Extend cash close to partner-held cash locations.
 - [x] Add unit tests for partial settlement totals and statement rule memory.
 - [x] Extend database isolation coverage for new settlement RPCs.
+- [x] Harden staff-money scope and post-settlement spend/reimbursement validation.
+- [x] Validate recurring money references stay inside the active Business.
 - [ ] Confirm full CI after Business Money Flow v2 lands on main.
