@@ -21,7 +21,7 @@ export default function BusinessStaffHome(){
     </section>
 
     <section className="grid grid-cols-2 gap-2">
-      <MoneyCard icon={WalletCards} label="Business money left" value={position?.advance_balance??0}/>
+      <MoneyCard icon={WalletCards} label="Business money with me" value={position?.advance_balance??0}/>
       <MoneyCard icon={HandCoins} label="Business owes me" value={position?.outstanding_due??0}/>
       <MoneyCard icon={IndianRupee} label="Salary paid" value={position?.salary_paid??0}/>
       <MoneyCard icon={Clock3} label="Due soon" value={dueSoon.length} numeric/>

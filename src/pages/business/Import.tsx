@@ -111,21 +111,21 @@ export default function BusinessImport() {
   return (
     <div className="space-y-3">
       <div>
-        <h1 className="text-[17px] font-bold text-navy-900">Import bank statement</h1>
-        <p className="text-[11.5px] text-navy-400">Review first. Prangan remembers narration-to-category choices and skips likely duplicates.</p>
+        <h1 className="text-[17px] font-bold text-navy-900">Bank statement</h1>
+        <p className="text-[11.5px] text-navy-400">Upload a CSV, check the rows, then save them as money entries.</p>
       </div>
 
       <div className="rounded-xl bg-navy-50 border border-navy-100 px-3 py-2.5 text-[11px] text-navy-600">
-        Supported patterns include <strong>Date + Narration + Debit + Credit</strong> and <strong>Date + Description + Amount + Type</strong>. Smart suggestions are local to this Business and remain editable before import.
+        Prangan understands common bank CSV layouts. It can suggest categories and flag likely duplicates, but you can check everything before saving.
       </div>
 
-      <Field label="Bank account">
+      <Field label="Which bank account is this statement for?">
         <Select value={accountId} onChange={e => setAccountId(e.target.value)}>
           {activeAccounts.map(a => <option key={a.id} value={a.id}>{a.name} · {a.kind}</option>)}
         </Select>
       </Field>
 
-      <Field label="Fallback expense category" hint="Used only when no remembered/suggested category is found.">
+      <Field label="Category when Prangan is unsure" hint="Used only when Prangan cannot suggest a category.">
         <Select value={expenseCategoryId} onChange={e => setExpenseCategoryId(e.target.value)}>
           <option value="">No category</option>
           {data.categories.filter(c => c.active && c.kind !== 'income').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -144,8 +144,8 @@ export default function BusinessImport() {
             <Summary label="Money out" value={totals.moneyOut} />
           </div>
           <div className="flex gap-1.5 flex-wrap">
-            {totals.suggested > 0 && <Badge tone="blue">{totals.suggested} SMART MATCHES</Badge>}
-            {totals.duplicates > 0 && <Badge tone="amber">{totals.duplicates} LIKELY DUPLICATES SKIPPED</Badge>}
+            {totals.suggested > 0 && <Badge tone="blue">{totals.suggested} SUGGESTED</Badge>}
+            {totals.duplicates > 0 && <Badge tone="amber">{totals.duplicates} POSSIBLE DUPLICATES SKIPPED</Badge>}
           </div>
 
           <div className="rounded-xl border border-cream-200 bg-white overflow-hidden">

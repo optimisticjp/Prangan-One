@@ -5864,14 +5864,24 @@ returns trigger
 language plpgsql
 security definer
 set search_path=public,pg_temp
-as $$
+as $
+declare
+  tx_kind text;
 begin
   if new.bucket='account' and new.account_id is not null and new.amount<0 then
-    perform private.assert_business_account_can_spend(new.account_id,abs(new.amount));
+    select t.kind into tx_kind
+    from business_transactions t
+    where t.id=new.transaction_id;
+
+    -- A reversal is a correction of history, not a new spend. It must be able
+    -- to expose an old record gap so the user can fix the source truthfully.
+    if coalesce(tx_kind,'') <> 'reversal' then
+      perform private.assert_business_account_can_spend(new.account_id,abs(new.amount));
+    end if;
   end if;
   return new;
 end;
-$$;
+$;
 
 drop trigger if exists business_ledger_funds_guard on business_ledger_entries;
 create trigger business_ledger_funds_guard

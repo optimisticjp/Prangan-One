@@ -1705,3 +1705,45 @@ begin
     'failed staff overspend leaves business money balance unchanged'
   );
 end $staff_overspend_guard$;
+
+
+-- Correcting history must still work even when the correction reveals an old
+-- money-source gap. Reversal rows are not new spending.
+insert into business_accounts (
+  id,business_id,name,kind,opening_balance
+) values (
+  '11200000-0000-0000-0000-0000000000aa',
+  '11000000-0000-0000-0000-000000000001',
+  'Correction test cash','cash',0
+);
+
+do $correction_reversal_guard$
+declare
+  income_id uuid;
+  expense_id uuid;
+begin
+  income_id:=post_business_transaction(
+    '11000000-0000-0000-0000-000000000001',
+    'income',100,
+    '11200000-0000-0000-0000-0000000000aa',
+    null,null,null,'Correction test','Temporary income',now()
+  );
+
+  expense_id:=record_business_expense(
+    '11000000-0000-0000-0000-000000000001',
+    100,'paid','business',
+    '11200000-0000-0000-0000-0000000000aa',
+    null,null,'Correction test','Spend the temporary income',null,now()
+  );
+
+  perform reverse_business_transaction(income_id,'Correct the earlier income source');
+
+  perform test_assert(
+    (select balance
+     from get_business_account_balances('11000000-0000-0000-0000-000000000001')
+     where account_id='11200000-0000-0000-0000-0000000000aa')=-100,
+    'reversing history may reveal an old record gap instead of being blocked as new spending'
+  );
+
+  perform reverse_business_transaction(expense_id,'Clean correction test expense');
+end $correction_reversal_guard$;
