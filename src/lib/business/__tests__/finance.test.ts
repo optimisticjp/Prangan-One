@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { summarizeTransactions, transactionCashDirection, transactionRemaining } from '../finance'
+import { summarizeBusinessMoney, summarizeTransactions, transactionCashDirection, transactionRemaining } from '../finance'
 import type { BusinessTransaction } from '../types'
 
 const tx = (kind: BusinessTransaction['kind'], amount: number, extra: Partial<BusinessTransaction> = {}): BusinessTransaction => ({
@@ -69,6 +69,19 @@ describe('business finance helpers', () => {
     expect(summary.moneyIn).toBe(4000)
     expect(summary.moneyOut).toBe(3000)
     expect(summary.net).toBe(1000)
+  })
+
+  it('shows negative money locations as a record gap instead of negative available money', () => {
+    const summary = summarizeBusinessMoney(
+      [
+        { account_id: 'cash', balance: -1000 },
+        { account_id: 'bank', balance: 0 },
+      ],
+      [{ advance_balance: 0 }],
+    )
+    expect(summary.available).toBe(0)
+    expect(summary.recordGap).toBe(1000)
+    expect(summary.moneyInLocations).toBe(0)
   })
 
   it('treats transfers and legacy personal-paid expenses as neutral business cash movement', () => {
