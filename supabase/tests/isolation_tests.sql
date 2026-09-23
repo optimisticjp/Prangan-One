@@ -1487,7 +1487,7 @@ select test_assert(
 
 -- Business A admin cannot settle Business B's partner.
 select test_become('10000000-0000-0000-0000-0000000000a1');
-do $
+do $partner_isolation$
 begin
   begin
     perform settle_business_partner_money(
@@ -1501,11 +1501,11 @@ begin
       if sqlerrm like 'FAIL:%' then raise; end if;
       raise notice 'PASS: cross-business partner settlement is blocked';
   end;
-end $;
+end $partner_isolation$;
 
 -- Business B admin cannot settle Business A's staff.
 select test_become('10000000-0000-0000-0000-0000000000b1');
-do $
+do $staff_isolation$
 begin
   begin
     perform settle_business_staff_money(
@@ -1518,6 +1518,6 @@ begin
       if sqlerrm like 'FAIL:%' then raise; end if;
       raise notice 'PASS: cross-business staff settlement is blocked';
   end;
-end $;
+end $staff_isolation$;
 
 select test_become('10000000-0000-0000-0000-0000000000a1');
