@@ -83,7 +83,7 @@ export function QuickTransactionSheet({
   const [categoryId, setCategoryId] = useState('')
   const [counterparty, setCounterparty] = useState('')
   const [note, setNote] = useState('')
-  const [paymentStatus, setPaymentStatus] = useState<BusinessPaymentStatus>('paid')
+  const [paymentStatus, setPaymentStatus] = useState<Exclude<BusinessPaymentStatus, 'partial'>>('paid')
   const [paidBy, setPaidBy] = useState<BusinessPaidBy>('business')
   const [dueDate, setDueDate] = useState('')
   const [showMore, setShowMore] = useState(false)
@@ -108,7 +108,7 @@ export function QuickTransactionSheet({
     setCategoryId(preset.categoryId ?? '')
     setCounterparty(preset.counterparty ?? '')
     setNote(preset.note ?? '')
-    setPaymentStatus(preset.paymentStatus ?? 'paid')
+    setPaymentStatus(preset.paymentStatus === 'unpaid' ? 'unpaid' : 'paid')
     setPaidBy(preset.paidBy ?? 'business')
     setDueDate(preset.dueDate ?? '')
   }
