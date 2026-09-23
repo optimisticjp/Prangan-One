@@ -2,7 +2,7 @@ import { Download, FileSpreadsheet, Printer } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button, Input } from '../../components/ui'
 import { useBusiness } from '../../lib/business/store'
-import { businessMoney, businessTransactionLabels, expensePaidByLabel, summarizeTransactions } from '../../lib/business/finance'
+import { businessMoney, businessTransactionLabels, expensePaidByLabel, summarizeTransactions, transactionRemaining } from '../../lib/business/finance'
 import { exportCsv } from '../../lib/csv'
 
 const currentMonth = () => new Date().toISOString().slice(0, 7)
@@ -15,9 +15,13 @@ export default function BusinessReports() {
     () => data.transactions.filter(t => t.occurred_at.slice(0, 7) === month),
     [data.transactions, month],
   )
-  const summary = summarizeTransactions(monthTransactions)
-  const unpaidExpenses = monthTransactions.filter(t => t.kind === 'expense' && t.payment_status === 'unpaid' && !t.reversed_at)
-  const unpaidAmount = unpaidExpenses.reduce((sum, t) => sum + Number(t.amount), 0)
+  const monthPayments = data.transactionPayments.filter(payment => payment.occurred_at.slice(0, 7) === month)
+  const monthStaffMoney = data.staffMoney.filter(entry => entry.occurred_at.slice(0, 7) === month)
+  const summary = summarizeTransactions(monthTransactions, undefined, monthPayments, monthStaffMoney)
+  const openExpenses = data.transactions.filter(t => t.kind === 'expense' && t.payment_status !== 'paid' && !t.reversed_at)
+  const openReceivables = data.transactions.filter(t => t.kind === 'income' && t.payment_status !== 'paid' && !t.reversed_at)
+  const toPay = openExpenses.reduce((sum, t) => sum + transactionRemaining(t), 0)
+  const toCollect = openReceivables.reduce((sum, t) => sum + transactionRemaining(t), 0)
   const expenseByCategory = data.categories
     .map(c => ({
       name: c.name,
@@ -30,13 +34,15 @@ export default function BusinessReports() {
 
   const downloadTransactions = () => exportCsv(
     'business-transactions-' + month + '.csv',
-    ['Date','Type','Amount','Payment','Paid by','Approval','Counterparty','Category','Note','Proof'],
+    ['Date','Type','Amount','Paid / collected','Remaining','Payment','Paid by','Review','Counterparty','Category','Note','Proof'],
     monthTransactions.map(t => [
       new Date(t.occurred_at).toLocaleString('en-IN'),
       businessTransactionLabels[t.kind],
       Number(t.amount),
-      t.kind === 'expense' ? t.payment_status : '',
-      t.kind === 'expense' ? expensePaidByLabel(t, data.accounts, data.partners) ?? '' : '',
+      ['income','expense'].includes(t.kind) ? Number(t.paid_amount ?? 0) : '',
+      ['income','expense'].includes(t.kind) ? transactionRemaining(t) : '',
+      ['income','expense'].includes(t.kind) ? t.payment_status : '',
+      t.kind === 'expense' ? expensePaidByLabel(t, data.accounts, data.partners, data.transactionPayments) ?? '' : '',
       t.approval_status,
       t.counterparty ?? '',
       data.categories.find(c => c.id === t.category_id)?.name ?? '',
@@ -60,8 +66,8 @@ export default function BusinessReports() {
         new Date(tx.occurred_at).toLocaleString('en-IN'),
         businessTransactionLabels[tx.kind],
         Number(tx.amount),
-        tx.kind === 'expense' ? tx.payment_status : '',
-        tx.kind === 'expense' ? expensePaidByLabel(tx, data.accounts, data.partners) ?? '' : '',
+        ['income','expense'].includes(tx.kind) ? tx.payment_status : '',
+        tx.kind === 'expense' ? expensePaidByLabel(tx, data.accounts, data.partners, data.transactionPayments) ?? '' : '',
         data.categories.find(c => c.id === tx.category_id)?.name ?? '',
         data.attachments.some(a => a.transaction_id === tx.id) ? 'Proof attached' : 'No proof',
       ])
@@ -106,12 +112,13 @@ export default function BusinessReports() {
         <Metric label="Money in" value={summary.moneyIn} />
         <Metric label="Money out" value={summary.moneyOut} />
         <Metric label="Net cash movement" value={summary.net} />
-        <Metric label="Partner paid" value={summary.personalPaid} />
-        <Metric label="Unpaid expenses" value={unpaidAmount} />
+        <Metric label="Personal money used" value={summary.personalPaid} />
+        <Metric label="To collect now" value={toCollect} />
+        <Metric label="To pay now" value={toPay} />
       </div>
 
       <section>
-        <h2 className="text-[13px] font-bold text-navy-900 mb-1.5">Expense breakdown</h2>
+        <h2 className="text-[13px] font-bold text-navy-900 mb-1.5">Expense records by category</h2>
         <div className="rounded-2xl border border-cream-200 bg-white overflow-hidden">
           {expenseByCategory.length === 0 ? (
             <div className="p-6 text-center text-[12.5px] text-navy-400">No categorized expenses in this month.</div>
@@ -131,7 +138,7 @@ export default function BusinessReports() {
             <div key={p.partner_id} className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2.5 border-b border-cream-100 last:border-0">
               <div>
                 <div className="text-[12px] font-semibold text-navy-800">{p.name}</div>
-                <div className="text-[10.5px] text-navy-400">Capital {businessMoney(p.capital)} · Withdrawn {businessMoney(p.withdrawals)}</div>
+                <div className="text-[10.5px] text-navy-400">Capital {businessMoney(p.capital)} · Personal paid {businessMoney(p.personal_expenses)} · Withdrawn {businessMoney(p.withdrawals)}</div>
               </div>
               <div className="text-right">
                 <div className="text-[9px] text-navy-400">OWED TO PARTNER</div>

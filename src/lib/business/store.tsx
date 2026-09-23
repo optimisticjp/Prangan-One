@@ -8,7 +8,7 @@ import {
   removeOfflineBusinessTransaction,
 } from './preferences'
 import type {
-  ApprovalMode, BusinessAccountKind, BusinessDayClosingEditInput, BusinessMembership, BusinessOnboardingRequest,
+  BusinessAccountKind, BusinessDayClosingEditInput, BusinessMembership, BusinessOnboardingRequest,
   BusinessPartnerEditInput, BusinessSnapshot, BusinessTransactionEditInput, MarkBusinessExpensePaidInput, PostBusinessTransactionInput,
 } from './types'
 
@@ -19,6 +19,8 @@ const EMPTY: BusinessSnapshot = {
   accounts: [],
   categories: [],
   transactions: [],
+  transactionPayments: [],
+  recurringEntries: [],
   approvals: [],
   attachments: [],
   closings: [],
@@ -57,20 +59,23 @@ interface BusinessContextValue {
   importTransactions: (inputs: PostBusinessTransactionInput[]) => Promise<number>
   attachProof: (transactionId: string, file: File) => Promise<void>
   markExpensePaid: (id: string, input: MarkBusinessExpensePaidInput) => Promise<void>
+  settleTransaction: (id: string, input: { amount: number; accountId?: string | null; partnerId?: string | null; note?: string }) => Promise<void>
   approveTransaction: (id: string, note?: string) => Promise<void>
   rejectTransaction: (id: string, note?: string) => Promise<void>
   deleteTransaction: (id: string) => Promise<void>
   editTransaction: (id: string, input: BusinessTransactionEditInput) => Promise<void>
+  editTransactionDetails: (id: string, input: { counterparty?: string; note?: string; categoryId?: string | null; dueDate?: string | null }) => Promise<void>
   addPartner: (input: { name: string; email?: string; phone?: string; ownership?: number | null }) => Promise<void>
   editPartner: (id: string, input: BusinessPartnerEditInput) => Promise<void>
   deletePartner: (id: string) => Promise<void>
-  addAccount: (input: { name: string; kind: BusinessAccountKind; openingBalance: number }) => Promise<void>
-  editAccount: (id: string, input: { name: string; kind: BusinessAccountKind; openingBalance: number }) => Promise<void>
+  addAccount: (input: { name: string; kind: BusinessAccountKind; openingBalance: number; custodianPartnerId?: string | null }) => Promise<void>
+  editAccount: (id: string, input: { name: string; kind: BusinessAccountKind; openingBalance: number; custodianPartnerId?: string | null }) => Promise<void>
   deleteAccount: (id: string) => Promise<void>
+  settlePartnerMoney: (input: { partnerId: string; heldAccountId: string; destinationAccountId?: string | null; reimburseAmount: number; returnAmount: number; note?: string }) => Promise<void>
   addCategory: (input: { name: string; kind: 'income' | 'expense' | 'both' }) => Promise<void>
   editCategory: (id: string, input: { name: string; kind: 'income' | 'expense' | 'both' }) => Promise<void>
   deleteCategory: (id: string) => Promise<void>
-  saveSettings: (input: { name: string; approvalMode: ApprovalMode }) => Promise<void>
+  saveSettings: (input: { name: string; approvalOneAbove: number | null; approvalAllAbove: number | null }) => Promise<void>
   deleteBusiness: () => Promise<void>
   closeDay: (accountId: string, counted: number, note?: string) => Promise<void>
   editDayClose: (closingId: string, input: BusinessDayClosingEditInput) => Promise<void>
@@ -85,6 +90,10 @@ interface BusinessContextValue {
   sendTaskReminder: (id: string, message?: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
   addStaffMoney: (input: { staffId: string; kind: 'advance' | 'advance_expense' | 'pocket_expense' | 'reimbursement' | 'salary' | 'advance_return'; amount: number; accountId?: string | null; categoryId?: string | null; counterparty?: string; note?: string; occurredAt?: string }) => Promise<void>
+  settleStaffMoney: (input: { staffId: string; offsetAmount: number; returnAccountId?: string | null; returnAmount: number; note?: string }) => Promise<void>
+  createRecurring: (input: { kind: 'income' | 'expense'; label: string; amount: number; accountId?: string | null; partnerId?: string | null; categoryId?: string | null; counterparty?: string; note?: string; paidBy: 'business' | 'partner'; cadence: 'weekly' | 'monthly'; nextDate: string }) => Promise<void>
+  deleteRecurring: (id: string) => Promise<void>
+  postRecurring: (id: string) => Promise<void>
   deleteStaffMoney: (id: string) => Promise<void>
   markNotificationRead: (id: string) => Promise<void>
   markAllNotificationsRead: () => Promise<void>
@@ -316,10 +325,12 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       await reload()
     },
     markExpensePaid: async (id, input) => withReload(() => api.markBusinessExpensePaid(id, input)),
+    settleTransaction: async (id, input) => withReload(() => api.settleBusinessTransaction(id, input)),
     approveTransaction: async (id, note = '') => withReload(() => api.approveBusinessTransaction(id, note)),
     rejectTransaction: async (id, note = '') => withReload(() => api.rejectBusinessTransaction(id, note)),
     deleteTransaction: async id => withReload(() => api.hardDeleteBusinessTransaction(id)),
     editTransaction: async (id, input) => withReload(() => api.updateBusinessTransactionFull(id, input)),
+    editTransactionDetails: async (id, input) => withReload(() => api.editBusinessTransactionDetails(id, input)),
     addPartner: async input => {
       if (!activeBusinessId) throw new Error('Choose a business first')
       await withReload(() => api.addBusinessPartner(activeBusinessId, input))
@@ -335,6 +346,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     },
     editAccount: async (id, input) => withReload(() => api.updateBusinessAccount(id, input)),
     deleteAccount: async id => withReload(() => api.hardDeleteBusinessAccount(id)),
+    settlePartnerMoney: async input => withReload(() => api.settleBusinessPartnerMoney(input)),
     addCategory: async input => {
       if (!activeBusinessId) throw new Error('Choose a business first')
       await withReload(() => api.addBusinessCategory(activeBusinessId, input))
@@ -374,6 +386,13 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       if (!activeBusinessId) throw new Error('Choose a business first')
       await withReload(() => api.recordBusinessStaffMoney(activeBusinessId, input))
     },
+    settleStaffMoney: async input => withReload(() => api.settleBusinessStaffMoney(input)),
+    createRecurring: async input => {
+      if (!activeBusinessId) throw new Error('Choose a business first')
+      await withReload(() => api.createBusinessRecurringEntry(activeBusinessId, input))
+    },
+    deleteRecurring: async id => withReload(() => api.deleteBusinessRecurringEntry(id)),
+    postRecurring: async id => withReload(() => api.postBusinessRecurringEntry(id)),
     deleteStaffMoney: async id => withReload(() => api.deleteBusinessStaffMoney(id)),
     markNotificationRead: async id => withReload(() => api.markBusinessNotificationRead(id)),
     markAllNotificationsRead: async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet } from 'react-router-dom'
-import { Bell, CheckSquare2, Home, LayoutGrid, List, ListTodo, Plus, Users, WalletCards, WifiOff } from 'lucide-react'
+import { Bell, Home, LayoutGrid, List, ListTodo, MapPinned, Plus, Users, WalletCards, WifiOff } from 'lucide-react'
 import { PranganBrand } from '../PranganBrand'
 import { PageSkeleton } from '../Skeleton'
 import { useBusiness } from '../../lib/business/store'
@@ -39,7 +39,7 @@ export default function BusinessLayout() {
   ] : [
     { to: '/business', label: t('home'), icon: Home, end: true },
     { to: '/business/ledger', label: t('ledger'), icon: List },
-    { to: '/business/tasks', label: 'Tasks', icon: ListTodo },
+    { to: '/business/money-map', label: 'Money', icon: MapPinned },
     { to: '/business/partners', label: t('partners'), icon: Users },
   ]
 

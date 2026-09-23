@@ -1,4 +1,4 @@
-import { ArrowRight, Banknote, BarChart3, Bell, CalendarCheck2, Languages, ListTodo, LogOut, Settings, Tags, Upload, UsersRound } from 'lucide-react'
+import { ArrowRight, Banknote, BarChart3, Bell, CalendarCheck2, Languages, ListTodo, LogOut, MapPinned, Repeat2, Settings, Tags, Upload, UsersRound } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useBusinessLanguage } from '../../lib/business/i18n'
 import type { BusinessLanguage } from '../../lib/business/i18n'
@@ -8,12 +8,14 @@ const tools = [
   { to: '/business/tasks', icon: ListTodo, title: 'Tasks', sub: 'Assign work, due dates, priorities, notes and reminders' },
   { to: '/business/staff', icon: UsersRound, title: 'Staff & salary', sub: 'Staff login, salary, advances and reimbursements' },
   { to: '/business/notifications', icon: Bell, title: 'Notifications', sub: 'Task assignments, updates and reminders' },
-  { to: '/business/accounts', icon: Banknote, title: 'Money accounts', sub: 'Cash, bank and optional payment accounts' },
+  { to: '/business/money-map', icon: MapPinned, title: 'Money map', sub: 'Where business money is, who holds it and what is due' },
+  { to: '/business/accounts', icon: Banknote, title: 'Money locations', sub: 'Bank, cash, UPI and partner-held business money' },
+  { to: '/business/recurring', icon: Repeat2, title: 'Recurring money', sub: 'Post regular rent, subscriptions, receipts and partner-paid costs' },
   { to: '/business/categories', icon: Tags, title: 'Categories', sub: 'Edit or delete income and expense labels' },
   { to: '/business/day-close', icon: CalendarCheck2, title: 'Day close', sub: 'Count notes and compare actual cash' },
   { to: '/business/import', icon: Upload, title: 'Import bank statement', sub: 'CSV debit / credit import with preview' },
   { to: '/business/reports', icon: BarChart3, title: 'Reports & CA pack', sub: 'Monthly money movement, export and PDF' },
-  { to: '/business/settings', icon: Settings, title: 'Business settings', sub: 'Name, approval rule and workspace controls' },
+  { to: '/business/settings', icon: Settings, title: 'Business settings', sub: 'Name, amount-based review rules and workspace controls' },
 ]
 
 export default function BusinessMore() {

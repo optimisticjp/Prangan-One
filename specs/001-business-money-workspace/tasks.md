@@ -56,3 +56,24 @@
 - [x] Add transaction amount editing as automatic reversal + linked replacement.
 - [x] Add activity-log feed and smart operational alerts.
 - [x] Add unit tests for bank statement parsing and isolation tests for amount-correction accounting.
+
+
+## Business Money Flow v2
+
+- [x] Model partner-held business money separately from partner personal dues.
+- [x] Add partner custodian to money locations and surface holder in account UI.
+- [x] Add Money Map for location/custody, receivables, payables and personal dues.
+- [x] Add open customer receivables and partial collections.
+- [x] Add partial vendor payments from business or partner personal money.
+- [x] Keep per-settlement payment-source history.
+- [x] Add smart partner settlement from business money already held.
+- [x] Treat staff advances as business assets held by staff and include them in total funds.
+- [x] Add staff settlement: offset pocket dues and return unused held money.
+- [x] Add amount-based expense review thresholds.
+- [x] Reword approval UI as post-record accountability review where money already moved.
+- [x] Add recurring money templates with explicit posting.
+- [x] Add narration category memory and likely-duplicate filtering to bank import.
+- [x] Extend cash close to partner-held cash locations.
+- [x] Add unit tests for partial settlement totals and statement rule memory.
+- [x] Extend database isolation coverage for new settlement RPCs.
+- [ ] Confirm full CI after Business Money Flow v2 lands on main.

@@ -19,7 +19,7 @@ type PrimaryChoice = 'income' | 'expense' | 'partner_paid' | 'transfer'
 
 const extraKinds: Array<{ kind: ComposerKind; label: string; icon: typeof ReceiptText }> = [
   { kind: 'partner_capital', label: 'Partner capital', icon: Landmark },
-  { kind: 'partner_advance', label: 'Partner advance', icon: HandCoins },
+  { kind: 'partner_advance', label: 'Partner loan to business', icon: HandCoins },
   { kind: 'reimbursement', label: 'Reimburse partner', icon: ReceiptText },
   { kind: 'withdrawal', label: 'Partner withdrawal', icon: ArrowUpRight },
   { kind: 'refund', label: 'Refund received', icon: WalletCards },
@@ -152,9 +152,13 @@ export function QuickTransactionSheet({
   }, [businessId])
 
   const isExpense = kind === 'expense'
+  const isIncome = kind === 'income'
+  const isOpenItem = isExpense || isIncome
   const needsAccount = isExpense
     ? paymentStatus === 'paid' && paidBy === 'business'
-    : true
+    : isIncome
+      ? paymentStatus === 'paid'
+      : true
   const needsPartner = isExpense
     ? paymentStatus === 'paid' && paidBy === 'partner'
     : ['partner_capital','partner_advance','reimbursement','withdrawal'].includes(kind)
@@ -189,6 +193,10 @@ export function QuickTransactionSheet({
       setPaymentStatus('paid')
       setPaidBy('business')
     }
+    if (choice === 'income') {
+      setPaymentStatus('paid')
+      setPaidBy('business')
+    }
   }
 
   const primaryActive = (choice: PrimaryChoice) =>
@@ -208,9 +216,9 @@ export function QuickTransactionSheet({
       categoryId: showCategory ? (categoryId || null) : null,
       counterparty,
       note,
-      paymentStatus: isExpense ? paymentStatus : undefined,
+      paymentStatus: isOpenItem ? paymentStatus : undefined,
       paidBy: isExpense && paymentStatus === 'paid' ? paidBy : undefined,
-      dueDate: isExpense && paymentStatus === 'unpaid' ? (dueDate || null) : null,
+      dueDate: isOpenItem && paymentStatus === 'unpaid' ? (dueDate || null) : null,
     }
 
     try {
@@ -423,10 +431,20 @@ export function QuickTransactionSheet({
         </div>
       )}
 
-      {isExpense && (
+      {isOpenItem && (
         <div className="grid grid-cols-2 gap-2">
-          <Choice active={paymentStatus === 'paid'} title={t('paid')} text="Money has moved" onClick={() => setPaymentStatus('paid')} />
-          <Choice active={paymentStatus === 'unpaid'} title={t('payLater')} text="Record bill only" onClick={() => setPaymentStatus('unpaid')} />
+          <Choice
+            active={paymentStatus === 'paid'}
+            title={isIncome ? 'Received now' : t('paid')}
+            text={isIncome ? 'Money has arrived' : 'Money has moved'}
+            onClick={() => setPaymentStatus('paid')}
+          />
+          <Choice
+            active={paymentStatus === 'unpaid'}
+            title={isIncome ? 'Collect later' : t('payLater')}
+            text={isIncome ? 'Customer still owes us' : 'Record bill only'}
+            onClick={() => setPaymentStatus('unpaid')}
+          />
         </div>
       )}
 
@@ -438,9 +456,12 @@ export function QuickTransactionSheet({
       )}
 
       {needsAccount && (
-        <Field label={kind === 'transfer' ? 'From account' : ['income','refund','partner_capital','partner_advance'].includes(kind) ? 'Money goes to' : 'Paid from'}>
+        <Field label={kind === 'transfer' ? 'From' : isIncome ? 'Received into' : ['refund','partner_capital','partner_advance'].includes(kind) ? 'Money goes to' : 'Paid from'}>
           <Select value={accountId} onChange={e => setAccountId(e.target.value)}>
-            {activeAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            {activeAccounts.map(a => {
+              const holder = a.custodian_partner_id ? data.partners.find(p => p.id === a.custodian_partner_id)?.name : null
+              return <option key={a.id} value={a.id}>{a.name}{holder ? ' · with ' + holder : ''}</option>
+            })}
           </Select>
         </Field>
       )}
@@ -470,24 +491,34 @@ export function QuickTransactionSheet({
         </Field>
       )}
 
+      {isOpenItem && paymentStatus === 'unpaid' && (
+        <Field label={isIncome ? 'Customer / party' : 'Vendor / party'} hint={isIncome ? 'Who should pay the business?' : 'Who does the business need to pay?'}>
+          <Input value={counterparty} onChange={e => setCounterparty(e.target.value)} placeholder={isIncome ? 'Customer name' : 'Vendor name'} />
+        </Field>
+      )}
+
       <button type="button" onClick={() => setShowMore(v => !v)} className="w-full min-h-[38px] rounded-xl bg-cream-100 text-[11.5px] font-semibold text-navy-600 flex items-center justify-center gap-1">
         {showMore ? <ChevronUp size={14} /> : <ChevronDown size={14} />} {t('moreDetails')}
       </button>
 
       {showMore && (
         <div className="space-y-3">
-          {isExpense && paymentStatus === 'unpaid' && (
-            <Field label="Due date"><Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></Field>
+          {isOpenItem && paymentStatus === 'unpaid' && (
+            <Field label={isIncome ? 'Expected by' : 'Due date'}><Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></Field>
           )}
-          {!['transfer','partner_capital','partner_advance','reimbursement','withdrawal'].includes(kind) && (
-            <Field label={t('vendor')}><Input value={counterparty} onChange={e => setCounterparty(e.target.value)} placeholder="Optional" /></Field>
+          {!(isOpenItem && paymentStatus === 'unpaid') && !['transfer','partner_capital','partner_advance','reimbursement','withdrawal'].includes(kind) && (
+            <Field label={isIncome ? 'Customer / party' : t('vendor')}><Input value={counterparty} onChange={e => setCounterparty(e.target.value)} placeholder="Optional" /></Field>
           )}
           <Field label={t('note')}><Textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Optional details" className="min-h-[64px]" /></Field>
         </div>
       )}
 
-      <Button full loading={saving} disabled={!valid} onClick={submit}>
-        {isExpense && paymentStatus === 'unpaid' ? 'Save unpaid expense' : t('save') + ' ' + businessTransactionHelp[kind].tag.toLowerCase()}
+      <Button full loading={saving} disabled={!valid || (isIncome && paymentStatus === 'unpaid' && !counterparty.trim())} onClick={submit}>
+        {isIncome && paymentStatus === 'unpaid'
+          ? 'Save to collect'
+          : isExpense && paymentStatus === 'unpaid'
+            ? 'Save to pay'
+            : t('save') + ' ' + businessTransactionHelp[kind].tag.toLowerCase()}
       </Button>
     </Modal>
   )

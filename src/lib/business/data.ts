@@ -1,9 +1,9 @@
 import { supabase } from '../supabase'
 import type {
-  AccountBalance, ApprovalMode, Business, BusinessAccount, BusinessAccountKind, BusinessActivityLog, BusinessApproval,
+  AccountBalance, Business, BusinessAccount, BusinessAccountKind, BusinessActivityLog, BusinessApproval,
   BusinessAttachment, BusinessCategory, BusinessDayClosing, BusinessMemberSummary, BusinessMembership, BusinessOnboardingRequest,
   BusinessPartner, BusinessPartnerEditInput, BusinessSnapshot, BusinessTransaction, BusinessTransactionEditInput,
-  BusinessDayClosingEditInput, BusinessNotification, BusinessRole, BusinessStaff, BusinessStaffMoney, BusinessStaffPosition, BusinessTask, BusinessTaskNote, MarkBusinessExpensePaidInput, PartnerPosition, PostBusinessTransactionInput,
+  BusinessDayClosingEditInput, BusinessNotification, BusinessRecurringEntry, BusinessRole, BusinessStaff, BusinessStaffMoney, BusinessStaffPosition, BusinessTask, BusinessTaskNote, BusinessTransactionPayment, MarkBusinessExpensePaidInput, PartnerPosition, PostBusinessTransactionInput,
 } from './types'
 
 const requireSupabase = () => {
@@ -23,8 +23,16 @@ async function removeProofFilesForTransactions(transactionIds: string[]) {
 
 async function transactionIdsForPartner(partnerId: string) {
   const client = requireSupabase()
-  const { data } = await client.from('business_transactions').select('id').eq('partner_id', partnerId)
-  return (data ?? []).map(row => row.id as string)
+  const [direct, ledger, payments] = await Promise.all([
+    client.from('business_transactions').select('id').eq('partner_id', partnerId),
+    client.from('business_ledger_entries').select('transaction_id').eq('partner_id', partnerId),
+    client.from('business_transaction_payments').select('transaction_id').eq('partner_id', partnerId),
+  ])
+  return Array.from(new Set([
+    ...(direct.data ?? []).map(row => row.id as string),
+    ...(ledger.data ?? []).map(row => row.transaction_id as string),
+    ...(payments.data ?? []).map(row => row.transaction_id as string),
+  ]))
 }
 
 async function transactionIdsForAccount(accountId: string) {
@@ -163,6 +171,8 @@ export async function fetchBusinessSnapshot(
       accounts: [],
       categories: (categoriesRes.data ?? []) as unknown as BusinessCategory[],
       transactions: [],
+      transactionPayments: [],
+      recurringEntries: [],
       approvals: [],
       attachments: [],
       closings: [],
@@ -178,13 +188,15 @@ export async function fetchBusinessSnapshot(
     }
   }
 
-  const [businessRes, partnersRes, membersRes, accountsRes, categoriesRes, transactionsRes, approvalsRes, attachmentsRes, closingsRes, activityRes, balancesRes, positionsRes] = await Promise.all([
-    client.from('businesses').select('id,name,currency,approval_mode,created_by,created_at,archived_at').eq('id', businessId).maybeSingle(),
+  const [businessRes, partnersRes, membersRes, accountsRes, categoriesRes, transactionsRes, paymentsRes, recurringRes, approvalsRes, attachmentsRes, closingsRes, activityRes, balancesRes, positionsRes] = await Promise.all([
+    client.from('businesses').select('id,name,currency,approval_mode,approval_one_above,approval_all_above,created_by,created_at,archived_at').eq('id', businessId).maybeSingle(),
     client.from('business_partners').select('*').eq('business_id', businessId).order('created_at'),
     client.from('business_memberships').select('id,user_id,partner_id,email,display_name,role,status').eq('business_id', businessId).order('created_at'),
     client.from('business_accounts').select('*').eq('business_id', businessId).order('created_at'),
     client.from('business_categories').select('*').eq('business_id', businessId).order('name'),
     client.from('business_transactions').select('*').eq('business_id', businessId).order('occurred_at', { ascending: false }).limit(500),
+    client.from('business_transaction_payments').select('*').eq('business_id', businessId).order('occurred_at', { ascending: false }).limit(1000),
+    client.from('business_recurring_entries').select('*').eq('business_id', businessId).order('next_date'),
     client.from('business_transaction_approvals').select('*').eq('business_id', businessId).order('decided_at', { ascending: false }).limit(500),
     client.from('business_attachments').select('*').eq('business_id', businessId).order('created_at', { ascending: false }).limit(500),
     client.from('business_day_closings').select('*').eq('business_id', businessId).order('close_date', { ascending: false }).limit(90),
@@ -202,7 +214,7 @@ export async function fetchBusinessSnapshot(
     client.rpc('get_business_staff_positions', { target_business: businessId }),
   ]) : null
 
-  const errors = [businessRes.error, partnersRes.error, membersRes.error, accountsRes.error, categoriesRes.error, transactionsRes.error, approvalsRes.error, attachmentsRes.error, closingsRes.error, activityRes.error, balancesRes.error, positionsRes.error, ...(teamResults?.map(result => result.error) ?? [])].filter(Boolean)
+  const errors = [businessRes.error, partnersRes.error, membersRes.error, accountsRes.error, categoriesRes.error, transactionsRes.error, paymentsRes.error, recurringRes.error, approvalsRes.error, attachmentsRes.error, closingsRes.error, activityRes.error, balancesRes.error, positionsRes.error, ...(teamResults?.map(result => result.error) ?? [])].filter(Boolean)
   if (errors.length) throw new Error(message(errors[0]))
 
   return {
@@ -212,6 +224,8 @@ export async function fetchBusinessSnapshot(
     accounts: (accountsRes.data ?? []) as unknown as BusinessAccount[],
     categories: (categoriesRes.data ?? []) as unknown as BusinessCategory[],
     transactions: (transactionsRes.data ?? []) as unknown as BusinessTransaction[],
+    transactionPayments: (paymentsRes.data ?? []) as unknown as BusinessTransactionPayment[],
+    recurringEntries: (recurringRes.data ?? []) as unknown as BusinessRecurringEntry[],
     approvals: (approvalsRes.data ?? []) as unknown as BusinessApproval[],
     attachments: (attachmentsRes.data ?? []) as unknown as BusinessAttachment[],
     closings: (closingsRes.data ?? []) as unknown as BusinessDayClosing[],
@@ -246,8 +260,26 @@ export async function recordBusinessExpense(businessId: string, input: PostBusin
   return data as string
 }
 
+export async function recordBusinessIncome(businessId: string, input: PostBusinessTransactionInput): Promise<string> {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('record_business_income', {
+    target_business: businessId,
+    target_amount: input.amount,
+    target_payment_status: input.paymentStatus ?? 'paid',
+    target_account: input.accountId || null,
+    target_category: input.categoryId || null,
+    target_counterparty: input.counterparty?.trim() || null,
+    target_note: input.note?.trim() || null,
+    target_due_date: input.dueDate || null,
+    target_occurred_at: input.occurredAt || new Date().toISOString(),
+  })
+  if (error) throw error
+  return data as string
+}
+
 export async function postBusinessTransaction(businessId: string, input: PostBusinessTransactionInput): Promise<string> {
   if (input.kind === 'expense') return recordBusinessExpense(businessId, input)
+  if (input.kind === 'income') return recordBusinessIncome(businessId, input)
   const client = requireSupabase()
   const { data, error } = await client.rpc('post_business_transaction', {
     target_business: businessId,
@@ -260,6 +292,20 @@ export async function postBusinessTransaction(businessId: string, input: PostBus
     target_counterparty: input.counterparty?.trim() || null,
     target_note: input.note?.trim() || null,
     target_occurred_at: input.occurredAt || new Date().toISOString(),
+  })
+  if (error) throw error
+  return data as string
+}
+
+export async function settleBusinessTransaction(transactionId: string, input: { amount: number; accountId?: string | null; partnerId?: string | null; note?: string }): Promise<string> {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('settle_business_transaction', {
+    target_transaction: transactionId,
+    target_amount: input.amount,
+    target_account: input.accountId || null,
+    target_partner: input.partnerId || null,
+    target_paid_at: new Date().toISOString(),
+    target_note: input.note?.trim() || null,
   })
   if (error) throw error
   return data as string
@@ -360,21 +406,46 @@ export async function hardDeleteBusinessPartner(partnerId: string) {
   if (error) throw error
 }
 
-export async function addBusinessAccount(businessId: string, input: { name: string; kind: BusinessAccountKind; openingBalance: number }) {
+export async function addBusinessAccount(businessId: string, input: { name: string; kind: BusinessAccountKind; openingBalance: number; custodianPartnerId?: string | null }) {
   const client = requireSupabase()
-  const { error } = await client.from('business_accounts').insert({
-    business_id: businessId, name: input.name.trim(), kind: input.kind, opening_balance: input.openingBalance,
+  const { error } = await client.rpc('add_business_account_v2', {
+    target_business: businessId,
+    target_name: input.name.trim(),
+    target_kind: input.kind,
+    target_opening_balance: input.openingBalance,
+    target_custodian_partner: input.custodianPartnerId || null,
   })
   if (error) throw error
 }
 
-export async function updateBusinessAccount(accountId: string, input: { name: string; kind: BusinessAccountKind; openingBalance: number }) {
+export async function updateBusinessAccount(accountId: string, input: { name: string; kind: BusinessAccountKind; openingBalance: number; custodianPartnerId?: string | null }) {
   const client = requireSupabase()
-  const { error } = await client.rpc('update_business_account_full', {
+  const { error } = await client.rpc('update_business_account_v2', {
     target_account: accountId,
     target_name: input.name.trim(),
     target_kind: input.kind,
     target_opening_balance: input.openingBalance,
+    target_custodian_partner: input.custodianPartnerId || null,
+  })
+  if (error) throw error
+}
+
+export async function settleBusinessPartnerMoney(input: {
+  partnerId: string
+  heldAccountId: string
+  destinationAccountId?: string | null
+  reimburseAmount: number
+  returnAmount: number
+  note?: string
+}) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('settle_business_partner_money', {
+    target_partner: input.partnerId,
+    target_held_account: input.heldAccountId,
+    target_destination_account: input.destinationAccountId || null,
+    target_reimburse: input.reimburseAmount,
+    target_return: input.returnAmount,
+    target_note: input.note?.trim() || null,
   })
   if (error) throw error
 }
@@ -413,6 +484,18 @@ export async function hardDeleteBusinessCategory(categoryId: string) {
   if (error) throw error
 }
 
+export async function editBusinessTransactionDetails(transactionId: string, input: { counterparty?: string; note?: string; categoryId?: string | null; dueDate?: string | null }) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('edit_business_transaction_details', {
+    target_transaction: transactionId,
+    target_counterparty: input.counterparty?.trim() || null,
+    target_note: input.note?.trim() || null,
+    target_category: input.categoryId || null,
+    target_due_date: input.dueDate || null,
+  })
+  if (error) throw error
+}
+
 export async function updateBusinessTransactionFull(transactionId: string, input: BusinessTransactionEditInput) {
   const client = requireSupabase()
   const { error } = await client.rpc('update_business_transaction_full', {
@@ -441,12 +524,13 @@ export async function hardDeleteBusinessTransaction(transactionId: string) {
   if (error) throw error
 }
 
-export async function updateBusinessSettings(businessId: string, input: { name: string; approvalMode: ApprovalMode }) {
+export async function updateBusinessSettings(businessId: string, input: { name: string; approvalOneAbove: number | null; approvalAllAbove: number | null }) {
   const client = requireSupabase()
-  const { error } = await client.rpc('update_business_settings', {
+  const { error } = await client.rpc('update_business_settings_v2', {
     target_business: businessId,
     target_name: input.name.trim(),
-    target_approval_mode: input.approvalMode,
+    target_approval_one_above: input.approvalOneAbove,
+    target_approval_all_above: input.approvalAllAbove,
   })
   if (error) throw error
 }
@@ -642,6 +726,69 @@ export async function recordBusinessStaffMoney(businessId: string, input: {
     target_note: input.note?.trim() || null,
     target_occurred_at: input.occurredAt || new Date().toISOString(),
   })
+  if (error) throw error
+  return data as string
+}
+
+export async function settleBusinessStaffMoney(input: {
+  staffId: string
+  offsetAmount: number
+  returnAccountId?: string | null
+  returnAmount: number
+  note?: string
+}) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('settle_business_staff_money', {
+    target_staff: input.staffId,
+    target_offset: input.offsetAmount,
+    target_return_account: input.returnAccountId || null,
+    target_return_amount: input.returnAmount,
+    target_note: input.note?.trim() || null,
+  })
+  if (error) throw error
+}
+
+export async function createBusinessRecurringEntry(businessId: string, input: {
+  kind: 'income' | 'expense'
+  label: string
+  amount: number
+  accountId?: string | null
+  partnerId?: string | null
+  categoryId?: string | null
+  counterparty?: string
+  note?: string
+  paidBy: 'business' | 'partner'
+  cadence: 'weekly' | 'monthly'
+  nextDate: string
+}) {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('create_business_recurring_entry', {
+    target_business: businessId,
+    target_kind: input.kind,
+    target_label: input.label.trim(),
+    target_amount: input.amount,
+    target_account: input.accountId || null,
+    target_partner: input.partnerId || null,
+    target_category: input.categoryId || null,
+    target_counterparty: input.counterparty?.trim() || null,
+    target_note: input.note?.trim() || null,
+    target_paid_by: input.paidBy,
+    target_cadence: input.cadence,
+    target_next_date: input.nextDate,
+  })
+  if (error) throw error
+  return data as string
+}
+
+export async function deleteBusinessRecurringEntry(entryId: string) {
+  const client = requireSupabase()
+  const { error } = await client.rpc('delete_business_recurring_entry', { target_entry: entryId })
+  if (error) throw error
+}
+
+export async function postBusinessRecurringEntry(entryId: string) {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('post_business_recurring_entry', { target_entry: entryId })
   if (error) throw error
   return data as string
 }

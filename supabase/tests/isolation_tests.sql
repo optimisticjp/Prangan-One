@@ -1480,3 +1480,33 @@ select test_assert(
    where staff_id=current_setting('test.staff_a_id')::uuid)=800,
   'partner/admin sees remaining staff advance'
 );
+
+
+-- business money flow v2 isolation
+-- New custody/payment/recurring objects must stay inside the caller's Business.
+do $$
+declare
+  cross_partner uuid;
+  cross_staff uuid;
+begin
+  select id into cross_partner from business_partners where business_id <> :'business_a'::uuid limit 1;
+  select id into cross_staff from business_staff where business_id <> :'business_a'::uuid limit 1;
+
+  begin
+    if cross_partner is not null then
+      perform settle_business_partner_money(cross_partner,gen_random_uuid(),null,0,1,'isolation probe');
+      raise exception 'Cross-business partner settlement unexpectedly succeeded';
+    end if;
+  exception when others then
+    if sqlerrm like 'Cross-business partner settlement unexpectedly succeeded%' then raise; end if;
+  end;
+
+  begin
+    if cross_staff is not null then
+      perform settle_business_staff_money(cross_staff,1,null,0,'isolation probe');
+      raise exception 'Cross-business staff settlement unexpectedly succeeded';
+    end if;
+  exception when others then
+    if sqlerrm like 'Cross-business staff settlement unexpectedly succeeded%' then raise; end if;
+  end;
+end $$;

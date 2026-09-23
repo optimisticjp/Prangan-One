@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { summarizeTransactions, transactionCashDirection } from '../finance'
+import { summarizeTransactions, transactionCashDirection, transactionRemaining } from '../finance'
 import type { BusinessTransaction } from '../types'
 
 const tx = (kind: BusinessTransaction['kind'], amount: number, extra: Partial<BusinessTransaction> = {}): BusinessTransaction => ({
@@ -44,6 +44,31 @@ describe('business finance helpers', () => {
     const summary = summarizeTransactions([tx('expense', 5000, { account_id: 'cash', reversed_at: '2026-09-21T12:00:00Z' }), tx('reversal', 5000)])
     expect(summary.moneyOut).toBe(0)
     expect(summary.net).toBe(0)
+  })
+
+  it('tracks remaining value for partial receivables and payables', () => {
+    const partialIncome = tx('income', 10000, { payment_status: 'partial', paid_amount: 4000, paid_at: null })
+    const partialExpense = tx('expense', 8000, { payment_status: 'partial', paid_amount: 3000, paid_at: null })
+    expect(transactionRemaining(partialIncome)).toBe(6000)
+    expect(transactionRemaining(partialExpense)).toBe(5000)
+    expect(transactionCashDirection(partialIncome)).toBe('neutral')
+    expect(transactionCashDirection(partialExpense)).toBe('neutral')
+  })
+
+  it('uses payment history for actual cash movement without double-counting source transactions', () => {
+    const income = tx('income', 10000, { payment_status: 'partial', paid_amount: 4000, paid_at: null })
+    const expense = tx('expense', 8000, { payment_status: 'partial', paid_amount: 3000, paid_at: null })
+    const summary = summarizeTransactions(
+      [income, expense],
+      undefined,
+      [
+        { id: 'pi', business_id: 'b', transaction_id: income.id, amount: 4000, direction: 'in', account_id: 'bank', partner_id: null, note: null, is_initial: false, occurred_at: '2026-09-21T10:00:00.000Z', created_by: 'u', created_at: '2026-09-21T10:00:00.000Z' },
+        { id: 'pe', business_id: 'b', transaction_id: expense.id, amount: 3000, direction: 'out', account_id: 'bank', partner_id: null, note: null, is_initial: false, occurred_at: '2026-09-21T10:00:00.000Z', created_by: 'u', created_at: '2026-09-21T10:00:00.000Z' },
+      ],
+    )
+    expect(summary.moneyIn).toBe(4000)
+    expect(summary.moneyOut).toBe(3000)
+    expect(summary.net).toBe(1000)
   })
 
   it('treats transfers and legacy personal-paid expenses as neutral business cash movement', () => {

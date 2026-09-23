@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui'
 import { useBusiness } from '../../lib/business/store'
 import { useBusinessLanguage } from '../../lib/business/i18n'
 import {
-  businessMoney, businessTransactionLabels, summarizeTransactions, todayBusinessISO,
+  businessMoney, businessTransactionLabels, summarizeTransactions, todayBusinessISO, transactionRemaining,
 } from '../../lib/business/finance'
 import type { SerializableTransactionInput } from '../../lib/business/preferences'
 import type { BusinessTransaction } from '../../lib/business/types'
@@ -22,13 +22,18 @@ export default function BusinessDashboard() {
   if (isStaff) return <BusinessStaffHome />
 
   const todayKey = todayBusinessISO()
-  const today = summarizeTransactions(data.transactions, todayKey)
+  const today = summarizeTransactions(data.transactions, todayKey, data.transactionPayments, data.staffMoney)
   const activeBalances = data.accountBalances.filter(b => data.accounts.find(a => a.id === b.account_id)?.active !== false)
-  const totalBalance = activeBalances.reduce((sum, a) => sum + Number(a.balance), 0)
+  const staffHeld = data.staffPositions.reduce((sum, position) => sum + Number(position.advance_balance), 0)
+  const totalBalance = activeBalances.reduce((sum, a) => sum + Number(a.balance), 0) + staffHeld
   const pendingApprovals = data.transactions.filter(tx => tx.approval_status === 'pending' && !tx.reversed_at)
-  const unpaidExpenses = data.transactions.filter(tx => tx.kind === 'expense' && tx.payment_status === 'unpaid' && !tx.reversed_at)
-  const unpaidAmount = unpaidExpenses.reduce((sum, tx) => sum + Number(tx.amount), 0)
+  const openExpenses = data.transactions.filter(tx => tx.kind === 'expense' && tx.payment_status !== 'paid' && !tx.reversed_at)
+  const openReceivables = data.transactions.filter(tx => tx.kind === 'income' && tx.payment_status !== 'paid' && !tx.reversed_at)
+  const toPay = openExpenses.reduce((sum, tx) => sum + transactionRemaining(tx), 0)
+  const toCollect = openReceivables.reduce((sum, tx) => sum + transactionRemaining(tx), 0)
   const dueToPartners = data.partnerPositions.reduce((sum, p) => sum + Number(p.outstanding_due), 0)
+  const dueToStaff = data.staffPositions.reduce((sum, p) => sum + Number(p.outstanding_due), 0)
+  const recurringDue = data.recurringEntries.filter(entry => entry.active && entry.next_date <= todayKey)
   const attachmentIds = new Set(data.attachments.map(a => a.transaction_id))
   const missingProofs = data.transactions.filter(tx =>
     ['expense','refund'].includes(tx.kind) && !tx.reversed_at && !attachmentIds.has(tx.id),
@@ -47,8 +52,11 @@ export default function BusinessDashboard() {
 
   const actionCount =
     (pendingApprovals.length ? 1 : 0)
-    + (unpaidExpenses.length ? 1 : 0)
+    + (openExpenses.length ? 1 : 0)
+    + (openReceivables.length ? 1 : 0)
     + (dueToPartners > 0 ? 1 : 0)
+    + (dueToStaff > 0 ? 1 : 0)
+    + (recurringDue.length ? 1 : 0)
     + (missingProofs.length ? 1 : 0)
     + (unclosedCash.length ? 1 : 0)
     + (cashDifferences.length ? 1 : 0)
@@ -59,14 +67,21 @@ export default function BusinessDashboard() {
       <section className="rounded-xl bg-navy-900 text-cream-50 px-3.5 py-3 shadow-soft">
         <div className="text-[10.5px] text-cream-100/60 font-semibold uppercase tracking-wide">{t('totalFunds')}</div>
         <div className="num text-[25px] font-bold leading-tight mt-0.5">{businessMoney(totalBalance)}</div>
+        <div className="text-[10px] text-cream-100/55 mt-0.5">Bank, cash, partner-held locations and business money currently with staff.</div>
         <div className="dense-scroll mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5">
-          {activeBalances.map(a => (
+          {activeBalances.map(a => { const account = data.accounts.find(item => item.id === a.account_id); const holder = account?.custodian_partner_id ? data.partners.find(p => p.id === account.custodian_partner_id)?.name : null; return (
             <div key={a.account_id} className="shrink-0 rounded-lg bg-white/10 border border-white/10 px-2.5 py-1.5 min-w-[104px]">
               <div className="text-[9.5px] uppercase tracking-wide text-cream-100/45">{a.kind}</div>
               <div className="text-[11px] text-cream-100/75 truncate">{a.name}</div>
+              {holder && <div className="text-[9px] text-saffron-300 truncate">with {holder}</div>}
               <div className="num text-[14px] font-bold">{businessMoney(a.balance)}</div>
             </div>
-          ))}
+          )})}
+          {staffHeld > 0 && <div className="shrink-0 rounded-lg bg-saffron-500/15 border border-saffron-300/20 px-2.5 py-1.5 min-w-[104px]">
+            <div className="text-[9.5px] uppercase tracking-wide text-saffron-300">staff</div>
+            <div className="text-[11px] text-cream-100/75 truncate">With staff</div>
+            <div className="num text-[14px] font-bold">{businessMoney(staffHeld)}</div>
+          </div>}
         </div>
       </section>
 
@@ -109,9 +124,12 @@ export default function BusinessDashboard() {
             </div>
           ) : (
             <>
-              {pendingApprovals.length > 0 && <ActionLink to="/business/approvals" icon={CheckSquare2} title={String(pendingApprovals.length) + ' approval' + (pendingApprovals.length === 1 ? '' : 's') + ' waiting'} sub="Review partner/business expenses" tone="amber" />}
-              {unpaidExpenses.length > 0 && <ActionLink to="/business/ledger" icon={Clock3} title={businessMoney(unpaidAmount) + ' unpaid'} sub={String(unpaidExpenses.length) + ' expense' + (unpaidExpenses.length === 1 ? '' : 's') + ' recorded, not paid'} tone="amber" />}
-              {dueToPartners > 0 && <ActionLink to="/business/partners" icon={HandCoins} title={'Pay partners ' + businessMoney(dueToPartners)} sub="Settle personal-paid expenses / advances" tone="saffron" />}
+              {pendingApprovals.length > 0 && <ActionLink to="/business/approvals" icon={CheckSquare2} title={String(pendingApprovals.length) + ' expense review' + (pendingApprovals.length === 1 ? '' : 's')} sub="Money may already have moved; review accountability" tone="amber" />}
+              {openReceivables.length > 0 && <ActionLink to="/business/ledger" icon={ArrowDownLeft} title={'Collect ' + businessMoney(toCollect)} sub={String(openReceivables.length) + ' customer amount' + (openReceivables.length === 1 ? '' : 's') + ' still open'} tone="saffron" />}
+              {openExpenses.length > 0 && <ActionLink to="/business/ledger" icon={Clock3} title={'Pay ' + businessMoney(toPay)} sub={String(openExpenses.length) + ' vendor expense' + (openExpenses.length === 1 ? '' : 's') + ' still open'} tone="amber" />}
+              {dueToPartners > 0 && <ActionLink to="/business/partners" icon={HandCoins} title={'Partners due ' + businessMoney(dueToPartners)} sub="Personal-paid expenses and partner loans" tone="saffron" />}
+              {dueToStaff > 0 && <ActionLink to="/business/staff" icon={UserRound} title={'Staff due ' + businessMoney(dueToStaff)} sub="Pocket expenses waiting to be settled" tone="saffron" />}
+              {recurringDue.length > 0 && <ActionLink to="/business/recurring" icon={RefreshCw} title={String(recurringDue.length) + ' recurring entr' + (recurringDue.length === 1 ? 'y' : 'ies') + ' due'} sub="Post rent, salary, subscriptions or regular receipts" tone="navy" />}
               {missingProofs.length > 0 && <ActionLink to="/business/ledger" icon={Camera} title={String(missingProofs.length) + ' proof' + (missingProofs.length === 1 ? '' : 's') + ' missing'} sub="Attach bills or receipts to keep records complete" tone="navy" />}
               {unclosedCash.length > 0 && <ActionLink to="/business/day-close" icon={WalletCards} title="Close today’s cash" sub={String(unclosedCash.length) + ' cash account' + (unclosedCash.length === 1 ? '' : 's') + ' still open'} tone="navy" />}
               {cashDifferences.map(c => (
@@ -182,8 +200,8 @@ function transactionPreset(tx: BusinessTransaction): SerializableTransactionInpu
     categoryId: tx.category_id,
     counterparty: tx.counterparty ?? '',
     note: tx.note ?? '',
-    paymentStatus: tx.kind === 'expense' ? tx.payment_status : undefined,
-    paidBy: tx.kind === 'expense' && tx.payment_status === 'paid' ? (tx.partner_id ? 'partner' : 'business') : undefined,
+    paymentStatus: ['income','expense'].includes(tx.kind) ? (tx.payment_status === 'unpaid' ? 'unpaid' : 'paid') : undefined,
+    paidBy: tx.kind === 'expense' && tx.payment_status !== 'unpaid' ? (tx.partner_id ? 'partner' : 'business') : undefined,
     dueDate: tx.due_date,
   }
 }
@@ -193,6 +211,9 @@ function activityLabel(action: string) {
     transaction_posted: 'added a transaction',
     expense_recorded: 'recorded an expense',
     expense_marked_paid: 'marked an expense paid',
+    receivable_collected: 'collected customer money',
+    expense_paid: 'paid an open expense',
+    partner_money_settled: 'settled partner-held business money',
     transaction_reversed: 'deleted / reversed a transaction',
     transaction_edited: 'edited transaction details',
     transaction_amount_edited: 'corrected a transaction amount',

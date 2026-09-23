@@ -37,14 +37,18 @@ export default function BusinessMyMoney(){
     <div><h1 className="text-[17px] font-bold text-navy-900">My money</h1><p className="text-[11.5px] text-navy-400">Business money you hold, expenses you paid, reimbursements and salary.</p></div>
 
     <section className="grid grid-cols-2 gap-2">
-      <Card icon={WalletCards} label="Business money left" value={position?.advance_balance??0} sub="Advance available to spend"/>
-      <Card icon={HandCoins} label="Business owes me" value={position?.outstanding_due??0} sub="Pocket expenses not reimbursed"/>
-      <Card icon={ReceiptText} label="Pocket expenses" value={position?.pocket_expenses??0} sub="Paid personally for business"/>
+      <Card icon={WalletCards} label="Business money with me" value={position?.advance_balance??0} sub="Still belongs to the business"/>
+      <Card icon={HandCoins} label="Business owes me" value={position?.outstanding_due??0} sub="Personal pocket expenses due back"/>
+      <Card icon={ReceiptText} label="I paid personally" value={position?.pocket_expenses??0} sub="Business expenses from my pocket"/>
       <Card icon={IndianRupee} label="Salary paid" value={position?.salary_paid??0} sub={(position?.salary_amount??0)>0?'Set salary '+businessMoney(position?.salary_amount??0)+' / '+(position?.salary_period??'monthly'):'Salary history'}/>
     </section>
 
+    {(position?.advance_balance??0)>0&&(position?.outstanding_due??0)>0&&<div className="rounded-xl bg-green-50 border border-green-100 px-3 py-2 text-[11px] text-navy-600">
+      You hold {businessMoney(position?.advance_balance??0)} of business money and the business owes you {businessMoney(position?.outstanding_due??0)} personally. A partner/admin can settle these together without moving cash twice.
+    </div>
+
     <div className="grid grid-cols-2 gap-2">
-      <Button variant="soft" onClick={()=>{setKind('advance_expense');setOpen(true)}} disabled={(position?.advance_balance??0)<=0}>Spent business money</Button>
+      <Button variant="soft" onClick={()=>{setKind('advance_expense');setOpen(true)}} disabled={(position?.advance_balance??0)<=0}>Spent money I hold</Button>
       <Button variant="accent" onClick={()=>{setKind('pocket_expense');setOpen(true)}}>I paid personally</Button>
     </div>
 
@@ -66,4 +70,4 @@ export default function BusinessMyMoney(){
   </div>
 }
 function Card({icon:Icon,label,value,sub}:{icon:typeof WalletCards;label:string;value:number;sub:string}){return <div className="rounded-2xl border border-cream-200 bg-white p-3"><Icon size={17} className="text-saffron-700"/><div className="mt-1 text-[10px] font-semibold text-navy-400">{label}</div><div className="num text-[18px] font-bold text-navy-900">{businessMoney(value)}</div><div className="text-[9.5px] text-navy-400 leading-tight">{sub}</div></div>}
-function label(kind:string){return ({advance:'Business money received',advance_expense:'Spent from advance',pocket_expense:'Paid personally',reimbursement:'Reimbursed',salary:'Salary',advance_return:'Advance returned'} as Record<string,string>)[kind]||kind}
+function label(kind:string){return ({advance:'Business money received',advance_expense:'Spent business money held',pocket_expense:'Paid personally',reimbursement:'Reimbursed',salary:'Salary',advance_return:'Business money returned',settlement:'Settled from money held'} as Record<string,string>)[kind]||kind}

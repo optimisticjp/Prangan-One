@@ -1,339 +1,89 @@
 import { useMemo, useState } from 'react'
-import { Download, ExternalLink, Paperclip, Pencil, RefreshCw, Search, Trash2, Upload } from 'lucide-react'
+import { Download, ExternalLink, HandCoins, Paperclip, Pencil, RefreshCw, Search, Trash2, Upload, WalletCards } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
 import { Badge, Button, Field, Input, Modal, Select, Textarea } from '../../components/ui'
 import { TypedConfirmModal } from '../../components/business/TypedConfirmModal'
 import { useToast } from '../../components/Toast'
 import { useBusiness } from '../../lib/business/store'
 import { getBusinessProofUrl } from '../../lib/business/data'
-import { businessMoney, businessTransactionLabels, expensePaidByLabel, transactionCashDirection } from '../../lib/business/finance'
+import { businessMoney, businessTransactionLabels, expensePaidByLabel, transactionCashDirection, transactionRemaining } from '../../lib/business/finance'
 import { exportCsv } from '../../lib/csv'
-import type { SerializableTransactionInput } from '../../lib/business/preferences'
-import type {
-  BusinessApprovalStatus, BusinessPaidBy, BusinessPaymentStatus,
-  BusinessTransaction, BusinessTransactionKind,
-} from '../../lib/business/types'
 import type { BusinessOutletContext } from '../../components/business/BusinessLayout'
+import type { SerializableTransactionInput } from '../../lib/business/preferences'
+import type { BusinessPaidBy, BusinessTransaction } from '../../lib/business/types'
 
-const filters = ['all', 'income', 'expense', 'unpaid', 'partner', 'approval'] as const
-const editableKinds: Array<Exclude<BusinessTransactionKind, 'reversal'>> = [
-  'income', 'expense', 'partner_capital', 'partner_advance', 'personal_expense',
-  'reimbursement', 'withdrawal', 'transfer', 'refund',
-]
+const filters=['all','to collect','to pay','income','expense','partner','review'] as const
 
-const toLocalInput = (iso: string) => {
-  const date = new Date(iso)
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+export default function BusinessLedger(){
+ const {data,canWrite,deleteTransaction,editTransactionDetails,attachProof,settleTransaction}=useBusiness()
+ const {openTransaction}=useOutletContext<BusinessOutletContext>()
+ const toast=useToast()
+ const [filter,setFilter]=useState<typeof filters[number]>('all'),[query,setQuery]=useState(''),[selected,setSelected]=useState<BusinessTransaction|null>(null)
+ const [settleOpen,setSettleOpen]=useState(false),[settleAmount,setSettleAmount]=useState(''),[settlePaidBy,setSettlePaidBy]=useState<BusinessPaidBy>('business'),[settleAccountId,setSettleAccountId]=useState(''),[settlePartnerId,setSettlePartnerId]=useState(''),[settleNote,setSettleNote]=useState('')
+ const [editOpen,setEditOpen]=useState(false),[editCounterparty,setEditCounterparty]=useState(''),[editCategoryId,setEditCategoryId]=useState(''),[editDueDate,setEditDueDate]=useState(''),[editNote,setEditNote]=useState('')
+ const [confirmDelete,setConfirmDelete]=useState(false),[saving,setSaving]=useState(false),[proofUploading,setProofUploading]=useState(false)
+
+ const paymentsFor=(id:string)=>data.transactionPayments.filter(p=>p.transaction_id===id)
+ const list=useMemo(()=>{const q=query.trim().toLowerCase();return data.transactions.filter(tx=>{
+  if(tx.kind==='reversal'||tx.reversed_at)return false
+  if(filter==='income'&&!['income','refund'].includes(tx.kind))return false
+  if(filter==='expense'&&!['expense','personal_expense','reimbursement'].includes(tx.kind))return false
+  if(filter==='to collect'&&!(tx.kind==='income'&&tx.payment_status!=='paid'))return false
+  if(filter==='to pay'&&!(tx.kind==='expense'&&tx.payment_status!=='paid'))return false
+  if(filter==='partner'&&!['partner_capital','partner_advance','personal_expense','reimbursement','withdrawal'].includes(tx.kind)&&!(tx.kind==='expense'&&data.transactionPayments.some(p=>p.transaction_id===tx.id&&!!p.partner_id)))return false
+  if(filter==='review'&&tx.approval_status!=='pending')return false
+  if(!q)return true
+  const partner=data.partners.find(p=>p.id===tx.partner_id)?.name??'',category=data.categories.find(c=>c.id===tx.category_id)?.name??'',payer=expensePaidByLabel(tx,data.accounts,data.partners,data.transactionPayments)??''
+  return [tx.amount,tx.counterparty,tx.note,partner,category,payer,tx.payment_status,tx.approval_status,businessTransactionLabels[tx.kind]].some(v=>String(v??'').toLowerCase().includes(q))
+ })},[data.transactions,data.transactionPayments,data.partners,data.categories,data.accounts,filter,query])
+
+ const download=()=>exportCsv('business-ledger.csv',['Date','Type','Amount','Paid / collected','Remaining','Payment','Paid by','From','To','Partner','Category','Review','Party','Note'],list.map(tx=>[
+  new Date(tx.occurred_at).toLocaleString('en-IN'),businessTransactionLabels[tx.kind],Number(tx.amount),['income','expense'].includes(tx.kind)?Number(tx.paid_amount??0):'', ['income','expense'].includes(tx.kind)?transactionRemaining(tx):'', ['income','expense'].includes(tx.kind)?tx.payment_status:'',tx.kind==='expense'?expensePaidByLabel(tx,data.accounts,data.partners,data.transactionPayments)??'':'',data.accounts.find(a=>a.id===tx.account_id)?.name,data.accounts.find(a=>a.id===tx.to_account_id)?.name,data.partners.find(p=>p.id===tx.partner_id)?.name,data.categories.find(c=>c.id===tx.category_id)?.name,tx.approval_status,tx.counterparty??'',tx.note??''
+ ]))
+
+ const openSettlement=()=>{if(!selected||!['income','expense'].includes(selected.kind)||transactionRemaining(selected)<=0)return;setSettleAmount(String(transactionRemaining(selected)));setSettlePaidBy('business');setSettleAccountId(data.accounts.find(a=>a.active)?.id??'');setSettlePartnerId(data.partners.find(p=>p.active)?.id??'');setSettleNote('');setSettleOpen(true)}
+ const settle=async()=>{if(!selected)return;const amount=Number(settleAmount);if(amount<=0||amount>transactionRemaining(selected))return;if(selected.kind==='income'&&!settleAccountId)return;if(selected.kind==='expense'&&settlePaidBy==='business'&&!settleAccountId)return;if(selected.kind==='expense'&&settlePaidBy==='partner'&&!settlePartnerId)return;setSaving(true);try{await settleTransaction(selected.id,{amount,accountId:selected.kind==='income'||settlePaidBy==='business'?settleAccountId:null,partnerId:selected.kind==='expense'&&settlePaidBy==='partner'?settlePartnerId:null,note:settleNote});toast.success(selected.kind==='income'?'Collection recorded':'Payment recorded');setSettleOpen(false);setSelected(null)}catch(error){toast.error(error instanceof Error?error.message:'Could not record settlement')}finally{setSaving(false)}}
+ const openDetailsEdit=()=>{if(!selected)return;setEditCounterparty(selected.counterparty??'');setEditCategoryId(selected.category_id??'');setEditDueDate(selected.due_date??'');setEditNote(selected.note??'');setEditOpen(true)}
+ const saveDetails=async()=>{if(!selected)return;setSaving(true);try{await editTransactionDetails(selected.id,{counterparty:editCounterparty,categoryId:editCategoryId||null,dueDate:editDueDate||null,note:editNote});toast.success('Transaction details updated');setEditOpen(false);setSelected(null)}catch(error){toast.error(error instanceof Error?error.message:'Could not update details')}finally{setSaving(false)}}
+ const removeTransaction=async()=>{if(!selected)return;setSaving(true);try{await deleteTransaction(selected.id);toast.success('Transaction permanently deleted');setConfirmDelete(false);setSelected(null)}catch(error){toast.error(error instanceof Error?error.message:'Could not delete transaction')}finally{setSaving(false)}}
+ const repeatSelected=()=>{if(!selected||selected.kind==='reversal')return;const preset=transactionPreset(selected,paymentsFor(selected.id));setSelected(null);openTransaction(preset.kind as Exclude<BusinessTransaction['kind'],'reversal'|'personal_expense'>,preset)}
+ const viewProof=async()=>{if(!selected)return;const a=data.attachments.find(x=>x.transaction_id===selected.id);if(!a)return;const url=await getBusinessProofUrl(a.storage_path);if(!url){toast.error('Could not open this proof.');return}window.open(url,'_blank','noopener,noreferrer')}
+ const addProof=async(file:File|null)=>{if(!file||!selected)return;setProofUploading(true);try{await attachProof(selected.id,file);toast.success('Proof attached')}catch(error){toast.error(error instanceof Error?error.message:'Could not attach proof')}finally{setProofUploading(false)}}
+
+ return <div className="space-y-2.5 min-w-0">
+  <div className="rounded-xl bg-navy-50 border border-navy-100 px-3 py-2 text-[11px] text-navy-600">Ledger shows what actually happened. <strong>To collect</strong> and <strong>To pay</strong> can be settled in parts; every payment remembers where money moved.</div>
+  <div className="flex items-center gap-2 min-w-0"><div className="relative flex-1 min-w-0"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-300"/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search amount, party, note…" className="!min-h-[40px] !text-[13px] !pl-9"/></div><button onClick={download} aria-label="Export ledger CSV" className="h-10 w-10 shrink-0 rounded-xl border border-cream-300 bg-white flex items-center justify-center text-navy-600"><Download size={16}/></button></div>
+  <div className="dense-scroll flex gap-1.5 overflow-x-auto pb-0.5 max-w-full">{filters.map(item=><button key={item} onClick={()=>setFilter(item)} className={'shrink-0 rounded-full border px-3 min-h-[34px] text-[11px] font-semibold capitalize '+(filter===item?'bg-navy-900 border-navy-900 text-white':'bg-white border-cream-300 text-navy-500')}>{item}</button>)}</div>
+  <div className="rounded-xl border border-cream-200 bg-white overflow-hidden min-w-0">{list.length===0?<div className="px-4 py-8 text-center text-[12.5px] text-navy-400">No matching transactions.</div>:list.map(tx=>{const direction=transactionCashDirection(tx),proof=data.attachments.some(a=>a.transaction_id===tx.id),remaining=transactionRemaining(tx),payer=expensePaidByLabel(tx,data.accounts,data.partners,data.transactionPayments),open=['income','expense'].includes(tx.kind)&&remaining>0;return <button key={tx.id} onClick={()=>setSelected(tx)} className="w-full min-w-0 min-h-[58px] flex items-center gap-2 px-3 py-2 border-b border-cream-100 last:border-0 text-left active:bg-cream-50"><div className="min-w-0 flex-1"><div className="flex items-center gap-1.5 flex-wrap min-w-0"><span className="text-[12.5px] font-semibold text-navy-800 truncate">{businessTransactionLabels[tx.kind]}</span>{proof&&<Paperclip size={11} className="text-navy-300 shrink-0"/>}{['income','expense'].includes(tx.kind)&&<PaymentBadge tx={tx}/>} {tx.approval_status==='pending'&&<Badge tone="amber">REVIEW</Badge>}</div><div className="text-[10.5px] text-navy-400 truncate">{tx.counterparty||payer||data.accounts.find(a=>a.id===tx.account_id)?.name||'Business'} · {new Date(tx.occurred_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}{open?' · '+businessMoney(remaining)+' left':''}</div></div><div className={'num shrink-0 text-[13px] font-bold whitespace-nowrap '+(open?'text-pend':direction==='in'?'text-paid':direction==='out'?'text-over':'text-navy-700')}>{open?businessMoney(tx.amount):(direction==='in'?'+':direction==='out'?'-':'')+businessMoney(tx.amount)}</div></button>})}</div>
+  <Button full variant="soft" onClick={()=>openTransaction('expense')}>Add transaction</Button>
+
+  <Modal open={!!selected} onClose={()=>{if(!saving&&!proofUploading)setSelected(null)}} title="Transaction details" wide>
+   {selected&&(()=>{const txPayments=paymentsFor(selected.id),remaining=transactionRemaining(selected),open=['income','expense'].includes(selected.kind)&&remaining>0;return <>
+    <div className="flex items-start justify-between gap-3 min-w-0"><div className="min-w-0"><div className="font-bold text-navy-900 truncate">{businessTransactionLabels[selected.kind]}</div><div className="text-[11px] text-navy-400">{new Date(selected.occurred_at).toLocaleString('en-IN')}</div></div><div className="num shrink-0 text-[20px] font-bold">{businessMoney(selected.amount)}</div></div>
+    {['income','expense'].includes(selected.kind)&&<div className="grid grid-cols-3 gap-1.5"><MoneyInfo label="Total" value={selected.amount}/><MoneyInfo label={selected.kind==='income'?'Collected':'Paid'} value={selected.paid_amount??0} tone="green"/><MoneyInfo label="Remaining" value={remaining} tone={remaining>0?'amber':'green'}/></div>}
+    <div className="grid grid-cols-2 gap-2 text-[12px]"><Info label="Payment" value={['income','expense'].includes(selected.kind)?selected.payment_status:'Paid'}/><Info label="Review" value={selected.approval_status.replace('_',' ')}/><Info label="Party" value={selected.counterparty||'—'}/><Info label="Category" value={data.categories.find(c=>c.id===selected.category_id)?.name||'—'}/></div>
+    {open&&canWrite&&<Button full variant="accent" onClick={openSettlement}>{selected.kind==='income'?<WalletCards size={14}/>:<HandCoins size={14}/>} {selected.kind==='income'?'Receive payment':'Pay / settle expense'}</Button>}
+    {txPayments.length>0&&<section><div className="text-[10px] font-bold tracking-wide text-navy-400 mb-1">PAYMENT HISTORY</div><div className="rounded-xl border border-cream-200 bg-white overflow-hidden">{txPayments.map(p=>{const source=p.account_id?data.accounts.find(a=>a.id===p.account_id)?.name||'Business account':data.partners.find(x=>x.id===p.partner_id)?.name||'Partner';return <div key={p.id} className="px-3 py-2 flex items-center gap-2 border-b border-cream-100 last:border-0"><div className="min-w-0 flex-1"><div className="text-[11.5px] font-semibold text-navy-700 truncate">{source}</div><div className="text-[9.5px] text-navy-400">{new Date(p.occurred_at).toLocaleDateString('en-IN')}{p.note?' · '+p.note:''}</div></div><div className="num text-[12px] font-bold">{businessMoney(p.amount)}</div></div>})}</div></section>}
+    {(selected.note||selected.due_date)&&<div className="rounded-xl bg-cream-100 px-3 py-2 text-[11.5px] text-navy-600 break-words">{selected.due_date&&<div className="font-semibold">Due {new Date(selected.due_date+'T00:00:00').toLocaleDateString('en-IN')}</div>}{selected.note&&<div>{selected.note}</div>}</div>}
+    {data.attachments.some(a=>a.transaction_id===selected.id)?<Button full variant="soft" onClick={()=>void viewProof()}><ExternalLink size={14}/> View proof</Button>:canWrite&&['expense','refund'].includes(selected.kind)?<label className="min-h-[42px] rounded-xl border border-dashed border-saffron-300 bg-saffron-50 px-3 flex items-center justify-center gap-2 cursor-pointer text-[11.5px] font-bold text-saffron-800"><Upload size={14}/>{proofUploading?'Uploading…':'Add proof'}<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" className="sr-only" disabled={proofUploading} onChange={e=>void addProof(e.target.files?.[0]??null)}/></label>:null}
+    {selected.kind!=='reversal'&&<Button full variant="soft" onClick={repeatSelected}><RefreshCw size={14}/> Repeat this transaction</Button>}
+    {canWrite&&selected.kind!=='reversal'&&<><div className="grid grid-cols-2 gap-2"><Button variant="soft" onClick={openDetailsEdit}><Pencil size={14}/> Edit details</Button><Button variant="danger" onClick={()=>setConfirmDelete(true)}><Trash2 size={14}/> Delete</Button></div>{txPayments.length>0&&<p className="text-[10px] text-navy-400 text-center">Amount/payment sources are locked once money has moved. Delete and re-enter to replace the financial record; party, category, due date and notes remain editable.</p>}</>}
+   </>})()}
+  </Modal>
+
+  <Modal open={settleOpen} onClose={()=>{if(!saving)setSettleOpen(false)}} title={selected?.kind==='income'?'Receive customer payment':'Pay open expense'}>
+   {selected&&<><div className="rounded-xl bg-navy-50 border border-navy-100 px-3 py-2 flex items-center justify-between"><span className="text-[11px] text-navy-500">Remaining</span><span className="num text-[16px] font-bold">{businessMoney(transactionRemaining(selected))}</span></div><Field label="Amount"><Input inputMode="decimal" value={settleAmount} onChange={e=>setSettleAmount(e.target.value)} autoFocus/></Field>
+   {selected.kind==='expense'&&<Field label="Who pays this part?"><Select value={settlePaidBy} onChange={e=>setSettlePaidBy(e.target.value as BusinessPaidBy)}><option value="business">Business money</option><option value="partner">Partner personally</option></Select></Field>}
+   {(selected.kind==='income'||settlePaidBy==='business')&&<Field label={selected.kind==='income'?'Received into':'Paid from'}><Select value={settleAccountId} onChange={e=>setSettleAccountId(e.target.value)}><option value="">Choose money location</option>{data.accounts.filter(a=>a.active).map(a=>{const h=a.custodian_partner_id?data.partners.find(p=>p.id===a.custodian_partner_id)?.name:null;return <option key={a.id} value={a.id}>{a.name}{h?' · with '+h:''}</option>})}</Select></Field>}
+   {selected.kind==='expense'&&settlePaidBy==='partner'&&<Field label="Partner who paid personally"><Select value={settlePartnerId} onChange={e=>setSettlePartnerId(e.target.value)}><option value="">Choose partner</option>{data.partners.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>}
+   <Field label="Payment note"><Textarea value={settleNote} onChange={e=>setSettleNote(e.target.value)}/></Field><Button full loading={saving} disabled={Number(settleAmount)<=0||Number(settleAmount)>transactionRemaining(selected)} onClick={settle}>{selected.kind==='income'?'Record collection':'Record payment'}</Button></>}
+  </Modal>
+
+  <Modal open={editOpen} onClose={()=>{if(!saving)setEditOpen(false)}} title="Edit transaction details"><Field label="Customer / vendor / party"><Input value={editCounterparty} onChange={e=>setEditCounterparty(e.target.value)}/></Field><Field label="Category"><Select value={editCategoryId} onChange={e=>setEditCategoryId(e.target.value)}><option value="">No category</option>{data.categories.filter(c=>c.active||c.id===selected?.category_id).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>{selected&&['income','expense'].includes(selected.kind)&&selected.payment_status!=='paid'&&<Field label={selected.kind==='income'?'Expected by':'Due date'}><Input type="date" value={editDueDate} onChange={e=>setEditDueDate(e.target.value)}/></Field>}<Field label="Note"><Textarea value={editNote} onChange={e=>setEditNote(e.target.value)}/></Field><Button full loading={saving} onClick={saveDetails}>Save details</Button></Modal>
+  <TypedConfirmModal open={confirmDelete} mode="DELETE" title="Delete transaction permanently" body="This permanently deletes this transaction, its payment history, balance entries, reviews and proof record. Type DELETE to continue." busy={saving} onClose={()=>setConfirmDelete(false)} onConfirm={removeTransaction}/>
+ </div>
 }
-
-export default function BusinessLedger() {
-  const { data, canWrite, deleteTransaction, editTransaction, attachProof } = useBusiness()
-  const { openTransaction } = useOutletContext<BusinessOutletContext>()
-  const toast = useToast()
-  const [filter, setFilter] = useState<typeof filters[number]>('all')
-  const [query, setQuery] = useState('')
-  const [selected, setSelected] = useState<BusinessTransaction | null>(null)
-  const [editOpen, setEditOpen] = useState(false)
-  const [confirmEdit, setConfirmEdit] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [editKind, setEditKind] = useState<Exclude<BusinessTransactionKind, 'reversal'>>('expense')
-  const [editAmount, setEditAmount] = useState('')
-  const [editAccountId, setEditAccountId] = useState('')
-  const [editToAccountId, setEditToAccountId] = useState('')
-  const [editPartnerId, setEditPartnerId] = useState('')
-  const [editCategoryId, setEditCategoryId] = useState('')
-  const [editCounterparty, setEditCounterparty] = useState('')
-  const [editNote, setEditNote] = useState('')
-  const [editOccurredAt, setEditOccurredAt] = useState('')
-  const [editPaymentStatus, setEditPaymentStatus] = useState<BusinessPaymentStatus>('paid')
-  const [editPaidBy, setEditPaidBy] = useState<BusinessPaidBy>('business')
-  const [editDueDate, setEditDueDate] = useState('')
-  const [editApprovalStatus, setEditApprovalStatus] = useState<BusinessApprovalStatus>('not_required')
-  const [saving, setSaving] = useState(false)
-  const [proofUploading, setProofUploading] = useState(false)
-
-  const list = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return data.transactions.filter(tx => {
-      if (filter === 'income' && !['income', 'refund'].includes(tx.kind)) return false
-      if (filter === 'expense' && !['expense', 'personal_expense', 'reimbursement'].includes(tx.kind)) return false
-      if (filter === 'unpaid' && !(tx.kind === 'expense' && tx.payment_status === 'unpaid')) return false
-      if (filter === 'partner' && !['partner_capital', 'partner_advance', 'personal_expense', 'reimbursement', 'withdrawal'].includes(tx.kind) && !(tx.kind === 'expense' && !!tx.partner_id)) return false
-      if (filter === 'approval' && tx.approval_status !== 'pending') return false
-      if (!q) return true
-
-      const partner = data.partners.find(p => p.id === tx.partner_id)?.name ?? ''
-      const category = data.categories.find(c => c.id === tx.category_id)?.name ?? ''
-      const payer = expensePaidByLabel(tx, data.accounts, data.partners) ?? ''
-      return [tx.amount, tx.counterparty, tx.note, partner, category, payer, tx.payment_status, tx.approval_status, businessTransactionLabels[tx.kind]]
-        .some(value => String(value ?? '').toLowerCase().includes(q))
-    })
-  }, [data.transactions, data.partners, data.categories, data.accounts, filter, query])
-
-  const download = () => exportCsv(
-    'business-ledger.csv',
-    ['Date', 'Type', 'Amount', 'Payment', 'Paid by', 'From account', 'To account', 'Partner', 'Category', 'Approval', 'Party', 'Note'],
-    list.map(tx => [
-      new Date(tx.occurred_at).toLocaleString('en-IN'),
-      businessTransactionLabels[tx.kind],
-      Number(tx.amount),
-      tx.kind === 'expense' ? tx.payment_status : '',
-      tx.kind === 'expense' ? expensePaidByLabel(tx, data.accounts, data.partners) ?? '' : '',
-      data.accounts.find(a => a.id === tx.account_id)?.name,
-      data.accounts.find(a => a.id === tx.to_account_id)?.name,
-      data.partners.find(p => p.id === tx.partner_id)?.name,
-      data.categories.find(c => c.id === tx.category_id)?.name,
-      tx.approval_status,
-      tx.counterparty ?? '',
-      tx.note ?? '',
-    ]),
-  )
-
-  const openEdit = () => {
-    if (!selected || selected.kind === 'reversal') return
-    setEditKind(selected.kind)
-    setEditAmount(String(selected.amount))
-    setEditAccountId(selected.account_id ?? '')
-    setEditToAccountId(selected.to_account_id ?? '')
-    setEditPartnerId(selected.partner_id ?? '')
-    setEditCategoryId(selected.category_id ?? '')
-    setEditCounterparty(selected.counterparty ?? '')
-    setEditNote(selected.note ?? '')
-    setEditOccurredAt(toLocalInput(selected.occurred_at))
-    setEditPaymentStatus(selected.payment_status)
-    setEditPaidBy(selected.kind === 'expense' && selected.payment_status === 'paid' && selected.partner_id ? 'partner' : 'business')
-    setEditDueDate(selected.due_date ?? '')
-    setEditApprovalStatus(selected.approval_status)
-    setEditOpen(true)
-  }
-
-  const showAccount = ['income', 'partner_capital', 'partner_advance', 'reimbursement', 'withdrawal', 'refund', 'transfer'].includes(editKind)
-    || (editKind === 'expense' && editPaymentStatus === 'paid' && editPaidBy === 'business')
-  const showPartner = ['partner_capital', 'partner_advance', 'personal_expense', 'reimbursement', 'withdrawal'].includes(editKind)
-    || (editKind === 'expense' && editPaymentStatus === 'paid' && editPaidBy === 'partner')
-
-  const categoriesForEdit = data.categories.filter(category => {
-    if (['income', 'refund'].includes(editKind)) return category.kind !== 'expense'
-    if (['expense', 'personal_expense'].includes(editKind)) return category.kind !== 'income'
-    return true
-  })
-
-  const saveEdit = async () => {
-    if (!selected || selected.kind === 'reversal' || Number(editAmount) <= 0 || !editOccurredAt) return
-    setSaving(true)
-    try {
-      if (showAccount && !editAccountId) throw new Error('Choose an account.')
-      if (editKind === 'transfer' && (!editToAccountId || editToAccountId === editAccountId)) throw new Error('Choose a different destination account.')
-      if (showPartner && !editPartnerId) throw new Error('Choose a partner.')
-
-      await editTransaction(selected.id, {
-        kind: editKind,
-        amount: Number(editAmount),
-        accountId: showAccount ? editAccountId : null,
-        toAccountId: editKind === 'transfer' ? editToAccountId : null,
-        partnerId: showPartner ? editPartnerId : null,
-        categoryId: editCategoryId || null,
-        counterparty: editCounterparty,
-        note: editNote,
-        occurredAt: new Date(editOccurredAt).toISOString(),
-        paymentStatus: editKind === 'expense' ? editPaymentStatus : 'paid',
-        paidBy: editKind === 'expense' ? editPaidBy : 'business',
-        dueDate: editKind === 'expense' && editPaymentStatus === 'unpaid' ? (editDueDate || null) : null,
-        approvalStatus: editApprovalStatus,
-      })
-      toast.success('Transaction updated')
-      setConfirmEdit(false)
-      setEditOpen(false)
-      setSelected(null)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not edit transaction')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const removeTransaction = async () => {
-    if (!selected) return
-    setSaving(true)
-    try {
-      await deleteTransaction(selected.id)
-      toast.success('Transaction permanently deleted')
-      setConfirmDelete(false)
-      setSelected(null)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not delete transaction')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const repeatSelected = () => {
-    if (!selected || selected.kind === 'reversal') return
-    const preset = transactionPreset(selected)
-    setSelected(null)
-    openTransaction(preset.kind as Exclude<BusinessTransaction['kind'], 'reversal' | 'personal_expense'>, preset)
-  }
-
-  const viewProof = async () => {
-    if (!selected) return
-    const attachment = data.attachments.find(a => a.transaction_id === selected.id)
-    if (!attachment) return
-    const url = await getBusinessProofUrl(attachment.storage_path)
-    if (!url) {
-      toast.error('Could not open this proof.')
-      return
-    }
-    window.open(url, '_blank', 'noopener,noreferrer')
-  }
-
-  const addProof = async (file: File | null) => {
-    if (!file || !selected) return
-    setProofUploading(true)
-    try {
-      await attachProof(selected.id, file)
-      toast.success('Proof attached')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not attach proof')
-    } finally {
-      setProofUploading(false)
-    }
-  }
-
-  return (
-    <div className="space-y-2.5 min-w-0">
-      <div className="rounded-xl bg-navy-50 border border-navy-100 px-3 py-2 text-[11px] text-navy-600">
-        Tap any transaction to view it. <strong>Edit</strong> can change all Business fields. <strong>Delete</strong> permanently removes it.
-      </div>
-
-      <div className="flex items-center gap-2 min-w-0">
-        <div className="relative flex-1 min-w-0">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-300" />
-          <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search amount, partner, note…" className="!min-h-[40px] !text-[13px] !pl-9" />
-        </div>
-        <button onClick={download} aria-label="Export ledger CSV" className="h-10 w-10 shrink-0 rounded-xl border border-cream-300 bg-white flex items-center justify-center text-navy-600"><Download size={16} /></button>
-      </div>
-
-      <div className="flex gap-1.5 overflow-x-auto pb-0.5 max-w-full">
-        {filters.map(item => (
-          <button key={item} onClick={() => setFilter(item)} className={'shrink-0 rounded-full border px-3 min-h-[34px] text-[11px] font-semibold capitalize ' + (filter === item ? 'bg-navy-900 border-navy-900 text-white' : 'bg-white border-cream-300 text-navy-500')}>{item}</button>
-        ))}
-      </div>
-
-      <div className="rounded-2xl border border-cream-200 bg-white overflow-hidden min-w-0">
-        {list.length === 0 ? (
-          <div className="px-4 py-10 text-center text-[13px] text-navy-400">No matching transactions.</div>
-        ) : list.map(tx => {
-          const direction = transactionCashDirection(tx)
-          const partner = data.partners.find(p => p.id === tx.partner_id)?.name
-          const proof = data.attachments.some(a => a.transaction_id === tx.id)
-          const payer = expensePaidByLabel(tx, data.accounts, data.partners)
-          return (
-            <button key={tx.id} onClick={() => setSelected(tx)} className="w-full min-w-0 min-h-[58px] flex items-center gap-2 px-3 py-2 border-b border-cream-100 last:border-0 text-left active:bg-cream-50">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  <span className="text-[12.5px] font-semibold text-navy-800 truncate">{businessTransactionLabels[tx.kind]}</span>
-                  {proof && <Paperclip size={11} className="text-navy-300 shrink-0" />}
-                  {tx.kind === 'expense' && <Badge tone={tx.payment_status === 'paid' ? 'green' : 'amber'}>{tx.payment_status === 'paid' ? 'PAID' : 'UNPAID'}</Badge>}
-                  {tx.approval_status === 'pending' && <Badge tone="amber">APPROVAL</Badge>}
-                  {tx.approval_status === 'rejected' && <Badge tone="red">REJECTED</Badge>}
-                </div>
-                <div className="text-[10.5px] text-navy-400 truncate">
-                  {tx.kind === 'expense' ? payer : partner || tx.counterparty || data.accounts.find(a => a.id === tx.account_id)?.name || 'Business'} · {new Date(tx.occurred_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                </div>
-              </div>
-              <div className={'num shrink-0 text-[13px] font-bold whitespace-nowrap ' + (direction === 'in' ? 'text-paid' : direction === 'out' ? 'text-over' : 'text-navy-700')}>
-                {direction === 'in' ? '+' : direction === 'out' ? '-' : ''}{businessMoney(tx.amount)}
-              </div>
-            </button>
-          )
-        })}
-      </div>
-
-      <Button full variant="soft" onClick={() => openTransaction('expense')}>Add transaction</Button>
-
-      <Modal open={!!selected} onClose={() => { if (!saving && !proofUploading) setSelected(null) }} title="Transaction details">
-        {selected && (
-          <>
-            <div className="flex items-start justify-between gap-3 min-w-0">
-              <div className="min-w-0"><div className="font-bold text-navy-900 truncate">{businessTransactionLabels[selected.kind]}</div><div className="text-[12px] text-navy-400">{new Date(selected.occurred_at).toLocaleString('en-IN')}</div></div>
-              <div className="num shrink-0 text-[20px] font-bold">{businessMoney(selected.amount)}</div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-[12px]">
-              <Info label="Payment" value={selected.kind === 'expense' ? selected.payment_status : 'Paid'} />
-              <Info label="Approval" value={selected.approval_status.replace('_', ' ')} />
-              <Info label="From account" value={data.accounts.find(a => a.id === selected.account_id)?.name || '—'} />
-              <Info label="To account" value={data.accounts.find(a => a.id === selected.to_account_id)?.name || '—'} />
-              <Info label="Partner" value={data.partners.find(p => p.id === selected.partner_id)?.name || '—'} />
-              <Info label="Category" value={data.categories.find(c => c.id === selected.category_id)?.name || '—'} />
-            </div>
-
-            {(selected.counterparty || selected.note) && <div className="rounded-xl bg-cream-100 px-3 py-2 text-[12.5px] text-navy-600 break-words">{selected.counterparty && <div className="font-semibold">{selected.counterparty}</div>}{selected.note && <div>{selected.note}</div>}</div>}
-
-            {data.attachments.some(a => a.transaction_id === selected.id) ? (
-              <Button full variant="soft" onClick={() => void viewProof()}><ExternalLink size={14} /> View proof</Button>
-            ) : canWrite && ['expense', 'refund'].includes(selected.kind) ? (
-              <label className="min-h-[42px] rounded-xl border border-dashed border-saffron-300 bg-saffron-50 px-3 flex items-center justify-center gap-2 cursor-pointer text-[11.5px] font-bold text-saffron-800">
-                <Upload size={14} /> {proofUploading ? 'Uploading…' : 'Add proof'}
-                <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" className="sr-only" disabled={proofUploading} onChange={e => void addProof(e.target.files?.[0] ?? null)} />
-              </label>
-            ) : null}
-
-            {selected.kind !== 'reversal' && <Button full variant="soft" onClick={repeatSelected}><RefreshCw size={14} /> Repeat this transaction</Button>}
-            {canWrite && selected.kind !== 'reversal' && <div className="grid grid-cols-2 gap-2"><Button variant="soft" onClick={openEdit}><Pencil size={14} /> Edit</Button><Button variant="danger" onClick={() => setConfirmDelete(true)}><Trash2 size={14} /> Delete</Button></div>}
-          </>
-        )}
-      </Modal>
-
-      <Modal open={editOpen} onClose={() => { if (!saving) setEditOpen(false) }} title="Edit all transaction fields" wide>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Type"><Select value={editKind} onChange={e => setEditKind(e.target.value as Exclude<BusinessTransactionKind, 'reversal'>)}>{editableKinds.map(kind => <option key={kind} value={kind}>{businessTransactionLabels[kind]}</option>)}</Select></Field>
-          <Field label="Amount"><Input inputMode="decimal" value={editAmount} onChange={e => setEditAmount(e.target.value)} /></Field>
-        </div>
-        <Field label="Date & time"><Input type="datetime-local" value={editOccurredAt} onChange={e => setEditOccurredAt(e.target.value)} /></Field>
-
-        {editKind === 'expense' && <div className="grid grid-cols-2 gap-2">
-          <Field label="Payment status"><Select value={editPaymentStatus} onChange={e => setEditPaymentStatus(e.target.value as BusinessPaymentStatus)}><option value="paid">Paid</option><option value="unpaid">Unpaid</option></Select></Field>
-          {editPaymentStatus === 'paid' && <Field label="Paid by"><Select value={editPaidBy} onChange={e => setEditPaidBy(e.target.value as BusinessPaidBy)}><option value="business">Business funds</option><option value="partner">Partner personally</option></Select></Field>}
-        </div>}
-
-        {showAccount && <Field label={editKind === 'transfer' ? 'From account' : 'Account'}><Select value={editAccountId} onChange={e => setEditAccountId(e.target.value)}><option value="">Choose account</option>{data.accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></Field>}
-        {editKind === 'transfer' && <Field label="To account"><Select value={editToAccountId} onChange={e => setEditToAccountId(e.target.value)}><option value="">Choose account</option>{data.accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></Field>}
-        {showPartner && <Field label="Partner"><Select value={editPartnerId} onChange={e => setEditPartnerId(e.target.value)}><option value="">Choose partner</option>{data.partners.map(partner => <option key={partner.id} value={partner.id}>{partner.name}</option>)}</Select></Field>}
-        <Field label="Category"><Select value={editCategoryId} onChange={e => setEditCategoryId(e.target.value)}><option value="">No category</option>{categoriesForEdit.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</Select></Field>
-        <Field label="Approval status"><Select value={editApprovalStatus} onChange={e => setEditApprovalStatus(e.target.value as BusinessApprovalStatus)}><option value="not_required">Not required</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></Select></Field>
-        {editKind === 'expense' && editPaymentStatus === 'unpaid' && <Field label="Due date"><Input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} /></Field>}
-        <Field label="Vendor / counterparty"><Input value={editCounterparty} onChange={e => setEditCounterparty(e.target.value)} /></Field>
-        <Field label="Note"><Textarea value={editNote} onChange={e => setEditNote(e.target.value)} /></Field>
-        <Button full disabled={Number(editAmount) <= 0 || !editOccurredAt} onClick={() => setConfirmEdit(true)}>Review edit</Button>
-      </Modal>
-
-      <TypedConfirmModal open={confirmEdit} mode="EDIT" title="Confirm transaction edit" body="This directly updates the transaction and recalculates Business balances from the values you entered." busy={saving} onClose={() => setConfirmEdit(false)} onConfirm={saveEdit} />
-      <TypedConfirmModal open={confirmDelete} mode="DELETE" title="Delete transaction permanently" body="This permanently deletes this transaction, its balance entries, approvals and proof record. Type DELETE to continue." busy={saving} onClose={() => setConfirmDelete(false)} onConfirm={removeTransaction} />
-    </div>
-  )
-}
-
-function transactionPreset(tx: BusinessTransaction): SerializableTransactionInput {
-  if (tx.kind === 'personal_expense') {
-    return { kind: 'expense', amount: Number(tx.amount), partnerId: tx.partner_id, categoryId: tx.category_id, counterparty: tx.counterparty ?? '', note: tx.note ?? '', paymentStatus: 'paid', paidBy: 'partner' }
-  }
-  return {
-    kind: tx.kind as SerializableTransactionInput['kind'],
-    amount: Number(tx.amount),
-    accountId: tx.account_id,
-    toAccountId: tx.to_account_id,
-    partnerId: tx.partner_id,
-    categoryId: tx.category_id,
-    counterparty: tx.counterparty ?? '',
-    note: tx.note ?? '',
-    paymentStatus: tx.kind === 'expense' ? tx.payment_status : undefined,
-    paidBy: tx.kind === 'expense' && tx.payment_status === 'paid' ? (tx.partner_id ? 'partner' : 'business') : undefined,
-    dueDate: tx.due_date,
-  }
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl border border-cream-200 bg-white px-3 py-2 min-w-0"><div className="text-[10px] text-navy-400">{label}</div><div className="font-semibold text-navy-700 truncate">{value}</div></div>
-}
+function PaymentBadge({tx}:{tx:BusinessTransaction}){if(tx.payment_status==='paid')return <Badge tone="green">{tx.kind==='income'?'COLLECTED':'PAID'}</Badge>;if(tx.payment_status==='partial')return <Badge tone="amber">PARTIAL</Badge>;return <Badge tone="amber">{tx.kind==='income'?'TO COLLECT':'TO PAY'}</Badge>}
+function MoneyInfo({label,value,tone='navy'}:{label:string;value:number;tone?:'navy'|'green'|'amber'}){const cls=tone==='green'?'text-paid':tone==='amber'?'text-pend':'text-navy-900';return <div className="rounded-lg bg-cream-100 px-2 py-2"><div className="text-[9.5px] text-navy-400">{label}</div><div className={'num text-[12px] font-bold '+cls}>{businessMoney(value)}</div></div>}
+function Info({label,value}:{label:string;value:string}){return <div className="rounded-xl border border-cream-200 bg-white px-3 py-2 min-w-0"><div className="text-[10px] text-navy-400">{label}</div><div className="font-semibold text-navy-700 truncate capitalize">{value}</div></div>}
+function transactionPreset(tx:BusinessTransaction,payments:Array<{account_id:string|null;partner_id:string|null}>):SerializableTransactionInput{const first=payments[0];if(tx.kind==='personal_expense')return{kind:'expense',amount:Number(tx.amount),partnerId:tx.partner_id,categoryId:tx.category_id,counterparty:tx.counterparty??'',note:tx.note??'',paymentStatus:'paid',paidBy:'partner'};return{kind:tx.kind as SerializableTransactionInput['kind'],amount:Number(tx.amount),accountId:first?.account_id??tx.account_id,toAccountId:tx.to_account_id,partnerId:first?.partner_id??tx.partner_id,categoryId:tx.category_id,counterparty:tx.counterparty??'',note:tx.note??'',paymentStatus:['income','expense'].includes(tx.kind)?(tx.payment_status==='unpaid'?'unpaid':'paid'):undefined,paidBy:tx.kind==='expense'&&tx.payment_status!=='unpaid'?((first?.partner_id??tx.partner_id)?'partner':'business'):undefined,dueDate:tx.due_date}}

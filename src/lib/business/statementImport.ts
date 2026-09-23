@@ -87,3 +87,70 @@ export function parseBankStatementCsv(text: string): ParsedStatementRow[] {
   }
   return rows
 }
+
+
+export interface StatementCategoryRule {
+  key: string
+  direction: 'in' | 'out'
+  categoryId: string
+}
+
+const RULE_PREFIX = 'prangan-business-statement-rules:'
+
+export const normalizeStatementDescription = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/\b\d{4,}\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+export function getStatementCategoryRules(businessId: string): StatementCategoryRule[] {
+  try {
+    const raw = localStorage.getItem(RULE_PREFIX + businessId)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as StatementCategoryRule[]
+    return Array.isArray(parsed)
+      ? parsed.filter(rule => !!rule?.key && !!rule?.categoryId && (rule.direction === 'in' || rule.direction === 'out')).slice(0, 250)
+      : []
+  } catch {
+    return []
+  }
+}
+
+export function rememberStatementCategoryRule(
+  businessId: string,
+  description: string,
+  direction: 'in' | 'out',
+  categoryId: string,
+) {
+  if (!businessId || !categoryId) return
+  const key = normalizeStatementDescription(description)
+  if (key.length < 3) return
+  const current = getStatementCategoryRules(businessId).filter(rule => !(rule.key === key && rule.direction === direction))
+  current.unshift({ key, direction, categoryId })
+  localStorage.setItem(RULE_PREFIX + businessId, JSON.stringify(current.slice(0, 250)))
+}
+
+export function suggestStatementCategory(
+  businessId: string,
+  description: string,
+  direction: 'in' | 'out',
+  history: Array<{ counterparty: string | null; kind: string; category_id: string | null }>,
+): { categoryId: string | null; source: 'rule' | 'history' | null } {
+  const key = normalizeStatementDescription(description)
+  if (!key) return { categoryId: null, source: null }
+
+  const rule = getStatementCategoryRules(businessId).find(item => item.direction === direction && item.key === key)
+  if (rule) return { categoryId: rule.categoryId, source: 'rule' }
+
+  const matchingKinds = direction === 'in' ? new Set(['income', 'refund']) : new Set(['expense', 'personal_expense'])
+  const historical = history.find(item =>
+    !!item.category_id
+    && matchingKinds.has(item.kind)
+    && normalizeStatementDescription(item.counterparty ?? '') === key
+  )
+  return historical?.category_id
+    ? { categoryId: historical.category_id, source: 'history' }
+    : { categoryId: null, source: null }
+}

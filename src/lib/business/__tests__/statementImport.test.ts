@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseBankStatementCsv } from '../statementImport'
+import { normalizeStatementDescription, parseBankStatementCsv, rememberStatementCategoryRule, suggestStatementCategory } from '../statementImport'
 
 describe('bank statement parser', () => {
   it('parses debit and credit columns from a common Indian bank CSV shape', () => {
@@ -22,6 +22,18 @@ describe('bank statement parser', () => {
     ].join('\n'))
 
     expect(rows.map(row => [row.amount, row.direction])).toEqual([[450, 'out'], [9000, 'in']])
+  })
+
+  it('normalizes changing numeric references out of recurring narrations', () => {
+    expect(normalizeStatementDescription('UPI/987654321/XYZ PACKAGING')).toBe('upi xyz packaging')
+    expect(normalizeStatementDescription('UPI/123456789/XYZ PACKAGING')).toBe('upi xyz packaging')
+  })
+
+  it('remembers a per-business narration category rule', () => {
+    localStorage.clear()
+    rememberStatementCategoryRule('b1', 'XYZ Packaging 987654', 'out', 'packaging')
+    expect(suggestStatementCategory('b1', 'XYZ Packaging 123456', 'out', [])).toEqual({ categoryId: 'packaging', source: 'rule' })
+    expect(suggestStatementCategory('b2', 'XYZ Packaging 123456', 'out', [])).toEqual({ categoryId: null, source: null })
   })
 
   it('handles quoted descriptions containing commas', () => {

@@ -6,8 +6,9 @@ export type BusinessTransactionKind =
   | 'personal_expense' | 'reimbursement' | 'withdrawal' | 'transfer'
   | 'refund' | 'reversal'
 export type BusinessApprovalStatus = 'not_required' | 'pending' | 'approved' | 'rejected'
-export type BusinessPaymentStatus = 'unpaid' | 'paid'
+export type BusinessPaymentStatus = 'unpaid' | 'partial' | 'paid'
 export type BusinessPaidBy = 'business' | 'partner'
+export type BusinessApprovalRule = 'not_required' | 'one_partner' | 'all_partners'
 export type BusinessOnboardingStatus = 'pending' | 'approved' | 'rejected'
 
 export interface BusinessMembership {
@@ -49,6 +50,8 @@ export interface Business {
   name: string
   currency: 'INR'
   approval_mode: ApprovalMode
+  approval_one_above?: number | null
+  approval_all_above?: number | null
   created_by: string
   created_at: string
   archived_at?: string | null
@@ -71,6 +74,7 @@ export interface BusinessAccount {
   name: string
   kind: BusinessAccountKind
   opening_balance: number
+  custodian_partner_id?: string | null
   active: boolean
   created_at: string
 }
@@ -95,7 +99,9 @@ export interface BusinessTransaction {
   counterparty: string | null
   note: string | null
   approval_status: BusinessApprovalStatus
+  approval_rule?: BusinessApprovalRule
   payment_status: BusinessPaymentStatus
+  paid_amount?: number
   due_date: string | null
   paid_at: string | null
   occurred_at: string
@@ -105,6 +111,21 @@ export interface BusinessTransaction {
   supersedes_transaction_id: string | null
   reversed_at: string | null
   reversed_by: string | null
+}
+
+export interface BusinessTransactionPayment {
+  id: string
+  business_id: string
+  transaction_id: string
+  amount: number
+  direction: 'in' | 'out'
+  account_id: string | null
+  partner_id: string | null
+  note: string | null
+  is_initial: boolean
+  occurred_at: string
+  created_by: string
+  created_at: string
 }
 
 export interface BusinessApproval {
@@ -125,6 +146,25 @@ export interface BusinessAttachment {
   file_name: string
   mime_type: string | null
   uploaded_by: string
+  created_at: string
+}
+
+export interface BusinessRecurringEntry {
+  id: string
+  business_id: string
+  kind: 'income' | 'expense'
+  label: string
+  amount: number
+  account_id: string | null
+  partner_id: string | null
+  category_id: string | null
+  counterparty: string | null
+  note: string | null
+  paid_by: BusinessPaidBy
+  cadence: 'weekly' | 'monthly'
+  next_date: string
+  active: boolean
+  created_by: string
   created_at: string
 }
 
@@ -177,6 +217,8 @@ export interface BusinessSnapshot {
   accounts: BusinessAccount[]
   categories: BusinessCategory[]
   transactions: BusinessTransaction[]
+  transactionPayments: BusinessTransactionPayment[]
+  recurringEntries: BusinessRecurringEntry[]
   approvals: BusinessApproval[]
   attachments: BusinessAttachment[]
   closings: BusinessDayClosing[]
@@ -251,7 +293,7 @@ export interface BusinessDayClosingEditInput {
 export type BusinessTaskPriority = 'urgent' | 'high' | 'normal' | 'low'
 export type BusinessTaskStatus = 'pending' | 'in_progress' | 'completed'
 export type BusinessStaffSalaryPeriod = 'monthly' | 'weekly' | 'daily'
-export type BusinessStaffMoneyKind = 'advance' | 'advance_expense' | 'pocket_expense' | 'reimbursement' | 'salary' | 'advance_return'
+export type BusinessStaffMoneyKind = 'advance' | 'advance_expense' | 'pocket_expense' | 'reimbursement' | 'salary' | 'advance_return' | 'settlement'
 
 export interface BusinessStaff {
   id: string
@@ -336,6 +378,7 @@ export interface BusinessStaffPosition {
   advance_received: number
   advance_spent: number
   advance_returned: number
+  settled_from_held?: number
   advance_balance: number
   pocket_expenses: number
   reimbursements: number

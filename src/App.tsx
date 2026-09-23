@@ -95,6 +95,8 @@ const BApprovals = lazy(() => import('./pages/business/Approvals'))
 const BPartners = lazy(() => import('./pages/business/Partners'))
 const BMore = lazy(() => import('./pages/business/More'))
 const BAccounts = lazy(() => import('./pages/business/Accounts'))
+const BMoneyMap = lazy(() => import('./pages/business/MoneyMap'))
+const BRecurring = lazy(() => import('./pages/business/Recurring'))
 const BCategories = lazy(() => import('./pages/business/Categories'))
 const BReports = lazy(() => import('./pages/business/Reports'))
 const BImport = lazy(() => import('./pages/business/Import'))
@@ -220,6 +222,8 @@ export default function App() {
             <Route path="partners" element={<BusinessFinanceGate><Lazy><BPartners /></Lazy></BusinessFinanceGate>} />
             <Route path="more" element={<BusinessFinanceGate><Lazy><BMore /></Lazy></BusinessFinanceGate>} />
             <Route path="accounts" element={<BusinessFinanceGate><Lazy><BAccounts /></Lazy></BusinessFinanceGate>} />
+            <Route path="money-map" element={<BusinessFinanceGate><Lazy><BMoneyMap /></Lazy></BusinessFinanceGate>} />
+            <Route path="recurring" element={<BusinessFinanceGate><Lazy><BRecurring /></Lazy></BusinessFinanceGate>} />
             <Route path="categories" element={<BusinessFinanceGate><Lazy><BCategories /></Lazy></BusinessFinanceGate>} />
             <Route path="reports" element={<BusinessFinanceGate><Lazy><BReports /></Lazy></BusinessFinanceGate>} />
             <Route path="import" element={<BusinessFinanceGate><Lazy><BImport /></Lazy></BusinessFinanceGate>} />
