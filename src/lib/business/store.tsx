@@ -39,6 +39,7 @@ interface BusinessContextValue {
   authenticated: boolean
   loading: boolean
   refreshing: boolean
+  loadError: string | null
   userId: string | null
   memberships: BusinessMembership[]
   onboardingRequest: BusinessOnboardingRequest | null
@@ -111,6 +112,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<BusinessSnapshot>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [offlineQueueCount, setOfflineQueueCount] = useState(0)
 
   const loadMemberships = useCallback(async () => {
@@ -153,21 +155,29 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(async () => {
     if (!activeBusinessId) {
       setData(EMPTY)
+      setLoadError(null)
       return
     }
     const membership = memberships.find(item => item.businessId === activeBusinessId)
     if (!membership) {
       setData(EMPTY)
+      setLoadError(null)
       return
     }
     setRefreshing(true)
+    setLoadError(null)
     try {
-      setData(await api.fetchBusinessSnapshot(
+      const snapshot = await api.fetchBusinessSnapshot(
         activeBusinessId,
         membership.role,
         membership.businessName,
         membership.staffId ?? null,
-      ))
+      )
+      setData(snapshot)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Could not load Business data'
+      console.error('[Prangan One] Business snapshot failed', error)
+      setLoadError(detail)
     } finally {
       setRefreshing(false)
     }
@@ -209,6 +219,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       void reload()
     } else {
       setData(EMPTY)
+      setLoadError(null)
       setOfflineQueueCount(0)
     }
   }, [activeBusinessId, reload])
@@ -301,6 +312,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     authenticated,
     loading,
     refreshing,
+    loadError,
     userId,
     memberships,
     onboardingRequest,
@@ -401,7 +413,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    authenticated, loading, refreshing, userId, memberships, onboardingRequest,
+    authenticated, loading, refreshing, loadError, userId, memberships, onboardingRequest,
     activeMembership, data, canWrite, canAdmin, canApprove, isStaff, canManageTeam, offlineQueueCount,
     activeBusinessId, reload, loadMemberships, syncOfflineQueue,
   ])

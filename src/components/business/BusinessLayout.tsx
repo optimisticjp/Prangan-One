@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet } from 'react-router-dom'
-import { Bell, Home, LayoutGrid, List, ListTodo, MapPinned, Plus, Users, WalletCards, WifiOff } from 'lucide-react'
+import { AlertTriangle, Bell, Home, LayoutGrid, List, ListTodo, MapPinned, Plus, RefreshCw, Users, WalletCards, WifiOff } from 'lucide-react'
 import { PranganBrand } from '../PranganBrand'
 import { PageSkeleton } from '../Skeleton'
 import { useBusiness } from '../../lib/business/store'
@@ -16,7 +16,7 @@ export interface BusinessOutletContext {
 }
 
 export default function BusinessLayout() {
-  const { authenticated, loading, memberships, activeMembership, switchBusiness, data, refreshing, offlineQueueCount, syncOfflineQueue, isStaff } = useBusiness()
+  const { authenticated, loading, memberships, activeMembership, switchBusiness, data, refreshing, loadError, reload, offlineQueueCount, syncOfflineQueue, isStaff } = useBusiness()
   const { t } = useBusinessLanguage()
   const [composer, setComposer] = useState<BusinessComposerKind | null>(null)
   const [preset, setPreset] = useState<SerializableTransactionInput | null>(null)
@@ -29,6 +29,26 @@ export default function BusinessLayout() {
   if (loading) return <div className="min-h-[100dvh] bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business workspace..." /></div>
   if (!authenticated) return <Navigate to="/business/login" replace />
   if (!activeMembership) return <Navigate to="/business/onboarding" replace />
+  if (!data.business && loadError) {
+    return (
+      <div className="min-h-[100dvh] bg-cream-50 px-4 py-10 max-w-2xl mx-auto flex items-start justify-center">
+        <div className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-4 shadow-sm">
+          <div className="h-10 w-10 rounded-xl bg-red-50 text-over flex items-center justify-center"><AlertTriangle size={19} /></div>
+          <h1 className="mt-3 text-[17px] font-bold text-navy-900">Business data could not load</h1>
+          <p className="mt-1 text-[11.5px] leading-relaxed text-navy-500">Your login is fine, but the Business data request failed. Nothing was changed.</p>
+          <div className="mt-3 rounded-xl bg-cream-100 px-3 py-2 text-[10.5px] text-navy-500 break-words">{loadError}</div>
+          <button
+            type="button"
+            disabled={refreshing}
+            onClick={() => void reload()}
+            className="mt-3 min-h-[42px] w-full rounded-xl bg-navy-900 text-white text-[12px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
+          >
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Retrying…' : 'Retry loading'}
+          </button>
+        </div>
+      </div>
+    )
+  }
   if (!data.business) return <div className="min-h-[100dvh] bg-cream-50 p-4 max-w-2xl mx-auto"><PageSkeleton label="Loading business data..." /></div>
 
   const tabs = isStaff ? [
