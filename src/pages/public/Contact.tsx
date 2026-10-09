@@ -114,7 +114,7 @@ export default function Contact() {
             </div>
             {/* The existing lead backend still uses society_name for the business name until schema migration. */}
             <label htmlFor="contact-society" className="sr-only">{t.businessName}</label>
-            <input id="contact-society" className={inputClass} value={form.societyName} onChange={e => setForm({ ...form, societyName: e.target.value })} placeholder={t.societyName} required />
+            <input id="contact-society" className={inputClass} value={form.societyName} onChange={e => setForm({ ...form, societyName: e.target.value })} placeholder={t.businessName} required />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label htmlFor="contact-city" className="sr-only">{t.city}</label>
               <input id="contact-city" className={inputClass} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder={t.city} autoComplete="address-level2" />
