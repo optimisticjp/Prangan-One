@@ -1,0 +1,42 @@
+name: Prepare reviewed production dependency patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/dependency-patch-candidate.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Upgrade only patched production dependencies
+        run: |
+          npm install react-router-dom@6.30.6 --save-exact --package-lock-only --ignore-scripts
+          npm pkg set "overrides.dompurify=3.4.15"
+          npm install --package-lock-only --ignore-scripts
+          npm ci
+      - name: Require zero moderate-or-higher production advisories
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Full unit suite
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Push tested lockfile candidate to review branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c security/production-deps-2026-10-09
+          git add package.json package-lock.json
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(deps): patch production React Router and DOMPurify advisories"
+          git push origin HEAD:refs/heads/security/production-deps-2026-10-09
