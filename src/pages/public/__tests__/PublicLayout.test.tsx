@@ -55,7 +55,7 @@ describe('PublicLayout mobile menu accessibility', () => {
     renderLayout('gu')
     expect(screen.getAllByRole('button', { name: 'ગુ' })[0]).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByRole('button', { name: 'EN' })[0]).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getAllByRole('link', { name: 'હાલનો સોસાયટી ડેમો' })[0]).toHaveAttribute('href', '/demo')
+    expect(screen.getAllByRole('link', { name: 'સોસાયટી ડેમો' })[0]).toHaveAttribute('href', '/demo')
     expect(screen.getAllByRole('link', { name: 'સોસાયટી લોગિન' })[0]).toHaveAttribute('href', '/login')
   })
 
@@ -64,7 +64,7 @@ describe('PublicLayout mobile menu accessibility', () => {
     renderLayout('en')
 
     expect(screen.queryByRole('link', { name: 'Existing society demo' })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: 'Log in' })[0]).toHaveAttribute('href', '/login')
+    expect(screen.getAllByRole('link', { name: 'Society login' })[0]).toHaveAttribute('href', '/login')
 
     const button = screen.getByRole('button', { name: 'Open menu' })
     fireEvent.click(button)

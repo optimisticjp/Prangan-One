@@ -20,6 +20,6 @@ describe('Features page reflects the small-business roadmap', () => {
   it('keeps the Gujarati copy scope-accurate', () => {
     renderFeatures('gu')
     expect(screen.getByText(/આ યોજના છે, હજી તૈયાર થયેલી સુવિધાઓ નથી/)).toBeInTheDocument()
-    expect(screen.getByText(/મોકલતાં પહેલાં આપની ચકાસણી અને મંજૂરી/)).toBeInTheDocument()
+    expect(screen.getByText(/વિગતો ચકાસીને શું મોકલવું તે આપ નક્કી કરશો/)).toBeInTheDocument()
   })
 })

@@ -61,7 +61,7 @@ describe('generate-seo-html', () => {
     // Per-route og:url + canonical, and og:title updated despite reversed attr order.
     expect(pricingHtml).toContain('content="https://pranganone.com/pricing"')
     expect(pricingHtml).toContain('href="https://pranganone.com/pricing"')
-    expect(pricingHtml).toMatch(/property="og:title"\s+content="Pricing \| Prangan One"/)
+    expect(pricingHtml).toMatch(/property="og:title"\s+content="Pricing and early access \| Prangan One"/)
 
     // The shared image is untouched, and the SPA body/script survive verbatim.
     expect(pricingHtml).toContain('https://pranganone.com/og-image.png')

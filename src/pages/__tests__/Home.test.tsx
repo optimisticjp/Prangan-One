@@ -1,83 +1,54 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'
 import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { DataProvider } from '../../lib/store'
 import Home from '../public/Home'
 
-const demoMode = vi.hoisted(() => ({ enabled: true }))
-vi.mock('../../lib/demoMode', () => ({ isDemoModeEnabled: () => demoMode.enabled }))
-
-afterEach(() => {
-  cleanup()
-  localStorage.clear()
-  demoMode.enabled = true
-})
+afterEach(() => { cleanup(); localStorage.clear() })
 
 function renderHome(lang: 'en' | 'gu' = 'gu') {
   localStorage.setItem('prangan_public_lang', lang)
-  render(
-    <MemoryRouter initialEntries={['/']}>
-      <DataProvider><Home /></DataProvider>
-    </MemoryRouter>,
-  )
+  render(<MemoryRouter initialEntries={['/']}><Home /></MemoryRouter>)
 }
 
 describe('public homepage', () => {
-  it('renders Gujarati-first hero copy with one primary demo action and a login action when demo mode is enabled', () => {
-    demoMode.enabled = true
+  it('shows honest Gujarati-first prelaunch copy and one main early-access action', () => {
     renderHome()
-    expect(screen.getByRole('heading', { level: 1, name: /હાઉસિંગ સોસાયટી/ })).toBeInTheDocument()
-    expect(screen.getByText(/બિલ, રસીદ, ફરિયાદ/)).toBeInTheDocument()
-
+    expect(screen.getByRole('heading', { level: 1, name: /ઓછું કાગળકામ/ })).toBeInTheDocument()
+    expect(screen.getByText(/વિકાસ ચાલુ છે · અર્લી એક્સેસ/)).toBeInTheDocument()
     const main = screen.getByRole('main')
-    const demoLinks = within(main).getAllByRole('link', { name: /ડેમો ખોલો/ })
-    expect(demoLinks).toHaveLength(1)
-    expect(demoLinks[0]).toHaveAttribute('href', '/demo')
-    expect(within(main).getByRole('link', { name: 'લોગિન' })).toHaveAttribute('href', '/login')
-    expect(screen.getByText(/પબ્લિક ડેમો અલગ કલ્પિત વાતાવરણ/)).toBeInTheDocument()
+    const early = within(main).getAllByRole('link', { name: /અર્લી એક્સેસ માટે સંપર્ક કરો/ })
+    expect(early).toHaveLength(1)
+    expect(early[0]).toHaveAttribute('href', '/contact')
+    expect(screen.getByText(/લાઇવ પ્રોડક્ટ નથી/)).toBeInTheDocument()
   })
 
-  it('replaces the primary demo link with contact when demo mode is disabled', () => {
-    demoMode.enabled = false
+  it('keeps the society entry available but separate from business AI positioning', () => {
     renderHome()
-
-    const main = screen.getByRole('main')
-    expect(within(main).queryByRole('link', { name: /ડેમો ખોલો/ })).not.toBeInTheDocument()
-    expect(within(main).queryByRole('link', { name: /Demo|ડેમો$/ })).not.toBeInTheDocument()
-    expect(within(main).getByRole('link', { name: /ડેમો માટે સંપર્ક કરો/ })).toHaveAttribute('href', '/contact')
-    expect(within(main).getByRole('link', { name: 'લોગિન' })).toHaveAttribute('href', '/login')
-    expect(screen.queryByText(/પબ્લિક ડેમો અલગ કલ્પિત વાતાવરણ/)).not.toBeInTheDocument()
-    expect(screen.getByText('ડેમો ડેટા વાસ્તવિક સોસાયટીના સેશન અને રેકોર્ડથી અલગ રાખવામાં આવે છે.')).toBeInTheDocument()
+    const footer = screen.getByRole('contentinfo')
+    expect(within(footer).getByRole('link', { name: /સોસાયટી લોગિન/ })).toHaveAttribute('href', '/login')
+    expect(within(footer).getByRole('link', { name: /સોસાયટી ડેમો/ })).toHaveAttribute('href', '/demo')
+    expect(within(screen.getByRole('main')).queryByRole('link', { name: /ડેમો ખોલો/ })).not.toBeInTheDocument()
   })
 
-  it('shows the enabled English demo trust message when demo mode is enabled', () => {
-    demoMode.enabled = true
+  it('describes planned rather than shipped AI capabilities in English', () => {
     renderHome('en')
-
-    expect(screen.getByText('The public demo is a separate fictional environment, so visitors can explore safely.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Less busywork. More business.')
+    expect(screen.getByText(/A preview of the workflow we are building/)).toBeInTheDocument()
+    expect(screen.getByText(/We are interviewing business owners/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Join early access/ })).toHaveAttribute('href', '/contact')
   })
 
-  it('shows the disabled English demo trust message without public exploration copy', () => {
-    demoMode.enabled = false
-    renderHome('en')
-
-    expect(screen.queryByText('The public demo is a separate fictional environment, so visitors can explore safely.')).not.toBeInTheDocument()
-    expect(screen.getByText('Demo data is kept separate from real society sessions and records.')).toBeInTheDocument()
-  })
-
-  it('exposes scan-friendly product, journey, trust, and module sections', () => {
+  it('makes product stages and principles discoverable', () => {
     renderHome()
-    expect(screen.getByRole('heading', { level: 2, name: /કમિટી માટે કંટ્રોલ/ })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: /કેવી રીતે ચાલે છે/ })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: /વાસ્તવિક અપેક્ષા/ })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: /રોજ ઉપયોગી/ })).toBeInTheDocument()
-    expect(screen.getByText(/દરેક સોસાયટીની માહિતી અલગ/)).toBeInTheDocument()
-    expect(screen.getByText(/પબ્લિક ડેમો અલગ કલ્પિત વાતાવરણ/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /ગ્રાહકના મેસેજથી તૈયાર ક્વોટેશન સુધી/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /સૌપ્રથમ બનાવવાના ટૂલ્સ/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /નાના વ્યવસાયની રોજની જરૂરિયાત/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /એક ઉપયોગી કામથી શરૂઆત/ })).toBeInTheDocument()
   })
 })
 
 describe('/home redirect', () => {
-  it('redirects to / (this is the same real react-router primitive App.tsx uses, tested directly rather than through the full lazy-loaded app)', () => {
+  it('redirects to / using React Router', () => {
     render(
       <MemoryRouter initialEntries={['/home']}>
         <Routes>
