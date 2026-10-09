@@ -25,7 +25,7 @@ const PUBLIC_ROUTES: { path: string; heading: RegExp }[] = [
   { path: '/', heading: /ઓછું કાગળકામ/ },
   { path: '/features', heading: /વાસ્તવિક કામ માટે/ },
   { path: '/pricing', heading: /કિંમત હજી જાહેર કરી નથી/ },
-  { path: '/faq', heading: /વારંવાર પુછાતા પ્રશ્નો/ },
+  { path: '/faq', heading: /વારંવાર પૂછાતા પ્રશ્નો/ },
   { path: '/contact', heading: /પ્રાંગણવન બનાવવા અમને મદદ કરો/ },
   { path: '/privacy', heading: /પ્રાઇવસી પોલિસી/ },
   { path: '/terms', heading: /સેવાની શરતો/ },
@@ -237,7 +237,7 @@ test.describe('demo role entry points load their panels error-free', () => {
     await page.goto('/demo')
     await page.getByText('હું કમિટી મેમ્બર છું').click()
     await reachedApp(page, /\/admin$/)
-    await expect(page.getByRole('heading', { name: /ઓછું કાગળકામ/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /કમિટી ડેશબોર્ડ/ })).toBeVisible()
     await expectNoErrorBoundary(page, 'demo committee')
     expectNoRuntimeErrors(sink, 'demo committee')
   })
