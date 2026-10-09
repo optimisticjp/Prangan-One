@@ -78,6 +78,7 @@ describe('generate-seo-html', () => {
 
   it('keeps static SEO route metadata aligned with runtime public-page English copy', () => {
     const byPath = Object.fromEntries(PUBLIC_ROUTES.map(route => [route.path, route]))
+    expect(byPath['/tools/enquiries'].description).toBe('Track customer requests and follow-ups locally in your browser. No account or cloud syncing.')
     expect(byPath['/'].description).toBe('Prangan One is building multilingual AI business tools for Indian service businesses: customer enquiries, quotation drafts and follow-ups. Join early access.')
     expect(byPath['/features'].description).toBe('Explore the small-business workflows Prangan One is developing: enquiries, quotation drafts, customer replies and follow-up tracking.')
     expect(byPath['/pricing'].description).toBe('Prangan One small-business AI tools are in development. Pricing is not yet available. Contact us to discuss early access.')

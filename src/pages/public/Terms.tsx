@@ -7,7 +7,7 @@ const copy = {
     title: 'Terms of Service', desc: 'The plain-language terms for using Prangan One.',
     h1: 'Terms of Service',
     updated: 'Last updated: October 2026',
-    intro: 'The free browser-only Quotation Studio beta is available for editable drafts, not for tax invoices or legal advice; review all details before sharing. Claude-powered business tools are still in development and have no paid plans currently. The terms below describe the separate existing society-management application.',
+    intro: 'The free browser-only Quotation Studio beta and optional local-only Enquiry Tracker are available for testing. Customer enquiries stored on shared browsers may be visible to other users, and backups are your responsibility. Quotation drafts are not tax invoices or legal advice; review all details before sharing. Claude-powered business tools are still in development and have no paid plans currently. The terms below describe the separate existing society-management application.',
     sections: [
       ['The service', 'Prangan One is software for running a housing society\u2019s billing, complaints, notices, and related operations. Setup is done personally by us, not through a self-serve signup form.'],
       ['Trial and pricing', 'New societies get 90 days free, starting the day your society is actually set up and ready to use, not the day you first contact us. No card is required to start the trial. After the trial, pricing is \u20b910 per flat per month, with a \u20b9499 minimum per society per month, whichever is higher. There is no online payment gateway for resident maintenance dues; payments are recorded manually by your committee.'],

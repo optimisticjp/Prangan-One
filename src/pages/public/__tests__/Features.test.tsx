@@ -14,12 +14,12 @@ describe('Features page reflects the small-business roadmap', () => {
   it('presents connected workflow stages without claiming they are launched', () => {
     renderFeatures('en')
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Useful business tools')
-    expect(screen.getByText(/our first release will focus/i)).toBeInTheDocument()
+    expect(screen.getByText(/Enquiry Tracker and Quotation Studio betas are ready/i)).toBeInTheDocument()
     expect(screen.getByText(/AI will help draft, organize and translate/i)).toBeInTheDocument()
   })
   it('keeps the Gujarati copy scope-accurate', () => {
     renderFeatures('gu')
-    expect(screen.getByText(/આ યોજના છે, હજી તૈયાર થયેલી સુવિધાઓ નથી/)).toBeInTheDocument()
+    expect(screen.getByText(/મફત પૂછપરછ ટ્રેકર અને ક્વોટેશન સ્ટુડિયો બેટા/)).toBeInTheDocument()
     expect(screen.getByText(/વિગતો ચકાસીને શું મોકલવું તે આપ નક્કી કરશો/)).toBeInTheDocument()
   })
 })

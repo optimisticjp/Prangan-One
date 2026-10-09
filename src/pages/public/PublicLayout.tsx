@@ -15,6 +15,7 @@ const baseNavByLang: Record<PublicLang, { to: string; label: string; needsDemo?:
   en: [
     { to: '/features', label: 'Planned tools' },
     { to: '/tools/quote', label: 'Quote Studio' },
+    { to: '/tools/enquiries', label: 'Enquiries' },
     { to: '/pricing', label: 'Pricing' },
     { to: '/faq', label: 'FAQ' },
     { to: '/contact', label: 'Contact' },
@@ -22,6 +23,7 @@ const baseNavByLang: Record<PublicLang, { to: string; label: string; needsDemo?:
   gu: [
     { to: '/features', label: 'આગામી ટૂલ્સ' },
     { to: '/tools/quote', label: 'ક્વોટેશન ટૂલ' },
+    { to: '/tools/enquiries', label: 'પૂછપરછ' },
     { to: '/pricing', label: 'કિંમત' },
     { to: '/faq', label: 'FAQ' },
     { to: '/contact', label: 'સંપર્ક' },
@@ -56,7 +58,7 @@ export function PublicLayout({ lang, setLang, children }: {
           <Link to="/" className="flex items-center shrink-0 min-w-0 rounded-lg">
             <PranganBrand variant="wordmark-navy" height={24} className="max-w-[150px] sm:max-w-none" />
           </Link>
-          <nav className="hidden md:flex items-center gap-6 flex-1">
+          <nav className="hidden lg:flex items-center gap-4 flex-1">
             {nav.map(n => <Link key={n.to} to={n.to} className="rounded-lg text-[14.5px] font-medium text-navy-600 hover:text-saffron-600">{n.label}</Link>)}
           </nav>
           <div className="ml-auto flex items-center gap-2">
@@ -67,13 +69,13 @@ export function PublicLayout({ lang, setLang, children }: {
             <Link to="/contact" className="hidden sm:inline-flex rounded-xl bg-saffron-500 text-navy-900 px-3.5 py-2 text-[13.5px] font-bold hover:bg-saffron-400">
               {lang === 'en' ? 'Early access' : 'અર્લી એક્સેસ'}
             </Link>
-            <button onClick={() => setOpen(!open)} className="sm:hidden h-9 w-9 shrink-0 flex items-center justify-center rounded-lg bg-cream-200" aria-label={menuLabel} aria-expanded={open} aria-controls={menuId}>
+            <button onClick={() => setOpen(!open)} className="lg:hidden h-9 w-9 shrink-0 flex items-center justify-center rounded-lg bg-cream-200" aria-label={menuLabel} aria-expanded={open} aria-controls={menuId}>
               {open ? <X size={18} /> : <Menu size={18} />}
             </button>
           </div>
         </div>
         {open && (
-          <div id={menuId} className="sm:hidden max-w-5xl mx-auto mt-3 pb-2 flex flex-col gap-1">
+          <div id={menuId} className="lg:hidden max-w-5xl mx-auto mt-3 pb-2 flex flex-col gap-1">
             {/* Login is the very first thing in the mobile menu, not an
                 afterthought - on a phone, this menu is the ONLY way in,
                 there is no separate always-visible login button at this
@@ -100,7 +102,7 @@ export function PublicLayout({ lang, setLang, children }: {
             <PranganBrand variant="wordmark-navy" height={22} />
             <div className="text-[11.5px] text-navy-400 border-l border-cream-300 pl-3">Small business tools, in progress</div>
           </div>
-          <div className="flex gap-5 text-[13px] text-navy-500">
+          <div className="flex flex-wrap justify-center gap-4 text-[13px] text-navy-500">
             {nav.map(n => <Link key={n.to} to={n.to} className="rounded hover:text-saffron-600">{n.label}</Link>)}
           </div>
           <div className="flex items-center gap-4 flex-wrap justify-center">

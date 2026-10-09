@@ -45,7 +45,7 @@ describe('Prangan early-access positioning and public metadata', () => {
 
   it('marks roadmap tools as planned, not already available', () => {
     renderPublic(<Features />, 'en')
-    expect(screen.getByText(/This is the plan, not a list of features already available/)).toBeInTheDocument()
+    expect(screen.getByText(/Multilingual AI assistance and connected customer workflows are still in development/)).toBeInTheDocument()
     expect(screen.getByText(/You will review details and choose what to send/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Join early access/ })).toHaveAttribute('href', '/contact')
   })

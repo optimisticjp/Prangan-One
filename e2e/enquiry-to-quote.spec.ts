@@ -1,0 +1,26 @@
+import { expect, test } from '@playwright/test'
+
+test('tracks an enquiry locally, carries it into a quote and downloads a PDF', async ({page})=>{
+  await page.goto('/tools/enquiries')
+  await expect(page.getByRole('heading',{level:1})).toBeVisible()
+  await page.getByRole('textbox',{name:'ગ્રાહકનું નામ'}).fill('Ravi')
+  await page.getByRole('textbox',{name:'કઈ સેવા જોઈએ'}).fill('AC servicing')
+  await page.getByRole('textbox',{name:'કામની વિગતો (વૈકલ્પિક)'}).fill('Three AC units')
+  await page.getByRole('checkbox',{name:/મને સમજાયું છે/}).check()
+  await page.getByRole('button',{name:'પૂછપરછ સેવ કરો'}).click()
+  await expect(page.getByText('Ravi')).toBeVisible()
+  await page.reload()
+  await expect(page.getByText('Ravi')).toBeVisible()
+  await page.getByRole('button',{name:'ક્વોટેશન બનાવો'}).click()
+  await expect(page).toHaveURL(/\/tools\/quote$/)
+  await expect(page.getByRole('textbox',{name:'ગ્રાહકનું નામ'})).toHaveValue('Ravi')
+  await expect(page.getByRole('textbox',{name:'સેવા \/ કામ'})).toHaveValue('AC servicing')
+  await page.getByRole('textbox',{name:'આપના વ્યવસાયનું નામ'}).fill('Alpha Repairs')
+  await page.getByRole('spinbutton',{name:'કુલ કિંમત (INR)'}).fill('4500')
+  await page.getByRole('button',{name:'ડ્રાફ્ટ બનાવો'}).click()
+  await expect(page.getByTestId('formatted-quote')).toContainText('Alpha Repairs')
+  const downloadPromise=page.waitForEvent('download',{timeout:30000})
+  await page.getByRole('button',{name:'PDF ડાઉનલોડ કરો'}).click()
+  const download=await downloadPromise
+  expect(download.suggestedFilename()).toMatch(/^quotation-Alpha-Repairs\.pdf$/)
+})

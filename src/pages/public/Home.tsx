@@ -21,6 +21,7 @@ const copy = {
     draft: 'AI-assisted draft', draftText: 'Service details, pricing and terms ready for your review.',
     followup: 'Follow-up', followupText: 'A clear, friendly message in your customer’s language.',
     tryQuote: 'Try Quotation Studio (free beta)',
+    tryEnquiries: 'Try Enquiry Tracker (free beta)',
     stages: 'Our first planned tools',
     stageSub: 'Focused on connected work, not a directory of disconnected prompts.',
     principles: 'Built for the way small businesses actually work',
@@ -44,6 +45,7 @@ const copy = {
     draft: 'AIની મદદથી ડ્રાફ્ટ', draftText: 'સર્વિસ, કિંમત અને શરતોનો ડ્રાફ્ટ. મોકલતાં પહેલાં આપ ચકાસો.',
     followup: 'ફોલોઅપ', followupText: 'ગ્રાહકની ભાષામાં સ્પષ્ટ અને મૈત્રીપૂર્ણ સંદેશ.',
     tryQuote: 'ક્વોટેશન સ્ટુડિયો અજમાવો (મફત બેટા)',
+    tryEnquiries: 'ગ્રાહક પૂછપરછ ટ્રેકર અજમાવો (મફત બેટા)',
     stages: 'સૌપ્રથમ બનાવવાના ટૂલ્સ',
     stageSub: 'અલગ અલગ પ્રોમ્પ્ટ નહીં, પણ જોડાયેલાં રોજિંદાં કામ.',
     principles: 'નાના વ્યવસાયની રોજની જરૂરિયાત માટે',
@@ -123,7 +125,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto">
           <h2 className="text-[26px] font-bold">{t.stages}</h2>
           <p className="mt-2 text-navy-500 max-w-2xl">{t.stageSub}</p>
-          <Link to="/tools/quote" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-navy-900 text-cream-50 px-4 py-3 text-[13px] font-semibold hover:bg-navy-800">{t.tryQuote}<ArrowRight size={16}/></Link>
+          <div className="mt-4 flex flex-wrap gap-3"><Link to="/tools/enquiries" className="inline-flex items-center gap-2 rounded-xl bg-saffron-500 px-4 py-3 text-[13px] font-semibold text-navy-900 hover:bg-saffron-400">{t.tryEnquiries}<ArrowRight size={16}/></Link><Link to="/tools/quote" className="inline-flex items-center gap-2 rounded-xl bg-navy-900 text-cream-50 px-4 py-3 text-[13px] font-semibold hover:bg-navy-800">{t.tryQuote}<ArrowRight size={16}/></Link></div>
           <div className="mt-7 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {tools.map(item => { const [title, body] = lang === 'en' ? item.en : item.gu; return (
               <article key={title} className="rounded-2xl border border-cream-200 bg-cream-50 p-5">

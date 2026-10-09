@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Check, Copy, FileText, Printer, Sparkles } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { ArrowLeft, Check, Copy, Download, FileText, Printer, Sparkles } from 'lucide-react'
 import { PublicLayout } from './PublicLayout'
 import { usePageMeta } from './usePageMeta'
 import { usePublicLang } from './usePublicLang'
@@ -18,7 +18,7 @@ const copy = {
     details: 'Work details (optional)', amount: 'Your quoted total (INR)', validity: 'Validity (days)',
     language: 'Quotation language', create: 'Create draft', preview: 'Editable draft',
     placeholder: 'Your quotation will appear here after you create it.',
-    copy: 'Copy draft', copied: 'Copied', print: 'Print / Save PDF',
+    copy: 'Copy draft', copied: 'Copied', print: 'Print', pdf: 'Download PDF', pdfError: 'Could not create the PDF. Try printing instead.',
     caution: 'This is a draft, not a tax invoice. Enter only details you are comfortable working with. The basic template stays in this browser tab and is not saved to Prangan.',
     aiLabel: 'Optional Claude assistance', aiButton: 'Improve wording with Claude',
     consent: 'I agree to send the service and work details to Anthropic Claude for AI wording suggestions.',
@@ -37,7 +37,7 @@ const copy = {
     details: 'કામની વિગતો (વૈકલ્પિક)', amount: 'કુલ કિંમત (INR)', validity: 'માન્યતા (દિવસ)',
     language: 'ક્વોટેશનની ભાષા', create: 'ડ્રાફ્ટ બનાવો', preview: 'સુધારી શકાય તેવો ડ્રાફ્ટ',
     placeholder: 'વિગતો ભરીને ડ્રાફ્ટ બનાવશો ત્યારે અહીં દેખાશે.',
-    copy: 'ડ્રાફ્ટ કૉપી કરો', copied: 'કૉપી થયું', print: 'પ્રિન્ટ / PDF સેવ કરો',
+    copy: 'ડ્રાફ્ટ કૉપી કરો', copied: 'કૉપી થયું', print: 'પ્રિન્ટ', pdf: 'PDF ડાઉનલોડ કરો', pdfError: 'PDF બની શક્યું નથી. પ્રિન્ટ વિકલ્પ અજમાવો.',
     caution: 'આ ડ્રાફ્ટ છે, ટેક્સ ઇન્વૉઇસ નથી. જરૂરી વિગતો જ નાખો. સામાન્ય ડ્રાફ્ટ આ બ્રાઉઝર ટેબમાં જ રહે છે; Prangan તેને સેવ કરતું નથી.',
     aiLabel: 'Claude ની વૈકલ્પિક મદદ', aiButton: 'Claude થી ભાષા સુધારો',
     consent: 'લખાણ સુધારવા સેવા અને કામની વિગતો Anthropic Claude સુધી મોકલવા માટે હું સંમત છું.',
@@ -55,7 +55,16 @@ export default function QuoteStudio() {
   const [lang, setLang] = usePublicLang()
   const t = copy[lang]
   usePageMeta(t.title, t.desc)
-  const [form, setForm] = useState<QuoteInput>(emptyQuote)
+  const location = useLocation()
+  const source = (location.state as { enquiryQuote?: {customer?: unknown; service?: unknown; details?: unknown}} | null)?.enquiryQuote
+  const [form, setForm] = useState<QuoteInput>(() => ({
+    ...emptyQuote,
+    customer: typeof source?.customer === 'string' ? source.customer.slice(0, 120) : '',
+    service: typeof source?.service === 'string' ? source.service.slice(0, 120) : '',
+    details: typeof source?.details === 'string' ? source.details.slice(0, 1500) : '',
+  }))
+  const pdfRef = useRef<HTMLDivElement>(null)
+  const [downloading, setDownloading] = useState(false)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
@@ -99,6 +108,26 @@ export default function QuoteStudio() {
       setError(err instanceof Error ? err.message : 'Could not send the sign-in link.')
     } finally {
       setWorking(false)
+    }
+  }
+  const downloadPdf = async () => {
+    if (!draft || !pdfRef.current || downloading) return
+    setDownloading(true); setError('')
+    try {
+      const { generateQuotePdf } = await import('../../lib/quotePdf')
+      const {blob,filename} = await generateQuotePdf(pdfRef.current, form.business)
+      const url=URL.createObjectURL(blob)
+      const link=document.createElement('a')
+      link.href=url
+      link.download=filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setTimeout(()=>URL.revokeObjectURL(url),1000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t.pdfError)
+    } finally {
+      setDownloading(false)
     }
   }
   const copyDraft = async () => {
@@ -155,9 +184,22 @@ export default function QuoteStudio() {
             <label htmlFor="quote-preview" className="sr-only">{t.preview}</label>
             <textarea id="quote-preview" data-testid="quote-preview" className="w-full min-h-[500px] rounded-xl bg-cream-50 border border-cream-200 p-5 font-mono text-[13px] leading-relaxed resize-y text-navy-900 print:hidden"
               placeholder={t.placeholder} value={draft} onChange={e => { setDraft(e.target.value); setCopied(false) }} />
-            <div className="hidden print:block whitespace-pre-wrap font-mono text-[12pt] leading-relaxed">{draft}</div>
+            {draft && <div ref={pdfRef} aria-label="Quotation document preview"
+              className="mt-5 bg-white border border-cream-200 rounded-xl overflow-hidden text-navy-900 print:border-0 print:mt-0"
+              style={{fontFamily:"Inter, 'Noto Sans Gujarati', sans-serif",width:'100%'}}>
+              <div className="bg-navy-900 text-white px-6 py-6">
+                <p className="uppercase tracking-[0.22em] text-[11px] font-bold text-saffron-400">Prangan One · Document template</p>
+                <h3 className="mt-2 text-[24px] font-bold">QUOTATION</h3>
+              </div>
+              <div className="px-6 py-7">
+                <p className="text-[12px] text-navy-500 border-b border-cream-200 pb-3">{lang === 'en' ? 'Review before sharing' : 'મોકલતાં પહેલાં ચકાસો'}</p>
+                <div className="whitespace-pre-wrap break-words text-[14px] leading-7 pt-5" data-testid="formatted-quote">{draft}</div>
+                <p className="text-[11px] mt-9 pt-4 border-t border-cream-200 text-navy-500">{lang === 'en' ? 'Draft only · Not a tax invoice' : 'ફક્ત ડ્રાફ્ટ · ટેક્સ ઇન્વૉઇસ નથી'}</p>
+              </div>
+            </div>
             <div className="mt-3 flex flex-wrap gap-3 print:hidden">
               <button onClick={copyDraft} disabled={!draft} className="inline-flex items-center gap-2 rounded-xl bg-navy-900 px-4 py-3 text-cream-50 font-semibold text-[13px] disabled:opacity-40">{copied ? <Check size={16}/> : <Copy size={16}/>} {copied ? t.copied : t.copy}</button>
+              <button onClick={downloadPdf} disabled={!draft || downloading} className="inline-flex items-center gap-2 rounded-xl bg-saffron-500 px-4 py-3 text-navy-900 font-bold text-[13px] disabled:opacity-40"><Download size={16}/>{downloading ? 'Preparing…' : t.pdf}</button>
               <button onClick={() => window.print()} disabled={!draft} className="inline-flex items-center gap-2 rounded-xl border border-cream-300 px-4 py-3 font-semibold text-[13px] disabled:opacity-40"><Printer size={16}/>{t.print}</button>
             </div>
             <p className="mt-5 text-[12px] text-navy-500 leading-relaxed print:hidden">{t.caution}</p>

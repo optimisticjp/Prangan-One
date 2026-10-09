@@ -1,0 +1,38 @@
+name: Dependency security audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/security-audit.yml
+      - scripts/security-audit-report.mjs
+  schedule:
+    - cron: '20 7 * * 1'
+permissions:
+  contents: read
+jobs:
+  audit:
+    name: Classify npm vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Audit all and production dependencies
+        run: |
+          npm audit --json > audit-all.json || true
+          npm audit --omit=dev --json > audit-prod.json || true
+          node scripts/security-audit-report.mjs audit-all.json audit-prod.json | tee audit-summary.md
+          cat audit-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-security-audit
+          path: |
+            audit-all.json
+            audit-prod.json
+            audit-summary.md
+          retention-days: 14
