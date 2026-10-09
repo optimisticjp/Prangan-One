@@ -7,8 +7,8 @@ afterEach(() => {
 
 const samplePayload = {
   name: 'Kiran Patel', phone: '90000 00000', email: 'kiran@example.com',
-  societyName: 'Swastik Apartment', city: 'Surat', flatCount: 32,
-  role: 'Chairman', mainNeed: 'Billing', message: 'We need billing and complaints.',
+  societyName: 'Alpha Repairs', city: 'Surat', flatCount: 0,
+  role: 'Owner', mainNeed: 'Quotations', message: 'We need help preparing quotes.',
 }
 
 describe('submitLeadToFormspree', () => {
@@ -27,9 +27,10 @@ describe('submitLeadToFormspree', () => {
 
     const body = JSON.parse(options.body)
     expect(body.name).toBe('Kiran Patel')
-    expect(body.society_name).toBe('Swastik Apartment') // snake_case for Formspree's own field naming
-    expect(body.flat_count).toBe(32)
-    expect(body._subject).toContain('Swastik Apartment')
+    expect(body.business_name).toBe('Alpha Repairs')
+    expect(body).not.toHaveProperty('society_name')
+    expect(body).not.toHaveProperty('flat_count')
+    expect(body._subject).toContain('Alpha Repairs')
   })
 
   it('throws when Formspree responds with a non-ok status, so the caller can show a real error instead of a fake success', async () => {
