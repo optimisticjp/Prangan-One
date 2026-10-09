@@ -16,8 +16,8 @@ const socialLinks = [
 
 const copy = {
   en: {
-    title: 'Early access', desc: 'Contact Prangan One about early access to AI tools for small businesses in India.'
-    h1: 'Help shape Prangan One', sub: 'Tell us about your business and the everyday task you would most like to simplify. Business AI tools are still in development.'
+    title: 'Early access', desc: 'Contact Prangan One about early access to AI tools for small businesses in India.',
+    h1: 'Help shape Prangan One', sub: 'Tell us about your business and the everyday task you would most like to simplify. Business AI tools are still in development.',
     name: 'Your name', phone: 'Phone number', email: 'Email', businessName: 'Business name',
     city: 'City / locality', flatCount: 'Number of flats', role: 'Your role', mainNeed: 'What would help most?', message: 'Message (optional)',
     roleOptions: ['Owner', 'Team member', 'Freelancer', 'Other'],
@@ -29,8 +29,8 @@ const copy = {
     error: 'Couldn\u2019t send that, please try again, or email us directly at care@pranganone.com.',
   },
   gu: {
-    title: 'અર્લી એક્સેસ', desc: 'નાના વ્યવસાય માટે Prangan Oneના AI ટૂલ્સ અંગે સંપર્ક કરો.'
-    h1: 'પ્રાંગણવન બનાવવા અમને મદદ કરો', sub: 'આપના વ્યવસાય અને રોજનું કયું કામ સરળ કરવું છે તે જણાવો. નવા AI ટૂલ્સ હજી વિકાસમાં છે.'
+    title: 'અર્લી એક્સેસ', desc: 'નાના વ્યવસાય માટે Prangan Oneના AI ટૂલ્સ અંગે સંપર્ક કરો.',
+    h1: 'પ્રાંગણવન બનાવવા અમને મદદ કરો', sub: 'આપના વ્યવસાય અને રોજનું કયું કામ સરળ કરવું છે તે જણાવો. નવા AI ટૂલ્સ હજી વિકાસમાં છે.',
     name: 'આપનું નામ', phone: 'ફોન નંબર', email: 'ઈમેલ', businessName: 'વ્યવસાયનું નામ',
     city: 'શહેર / વિસ્તાર', flatCount: 'ફ્લેટની સંખ્યા', role: 'આપની ભૂમિકા', mainNeed: 'કયા કામમાં મદદ જોઈએ?', message: 'સંદેશ (વૈકલ્પિક)',
     roleOptions: ['માલિક', 'ટીમ સભ્ય', 'ફ્રીલાન્સર', 'અન્ય'],
