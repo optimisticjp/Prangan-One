@@ -78,11 +78,11 @@ describe('generate-seo-html', () => {
 
   it('keeps static SEO route metadata aligned with runtime public-page English copy', () => {
     const byPath = Object.fromEntries(PUBLIC_ROUTES.map(route => [route.path, route]))
-    expect(byPath['/'].description).toBe('Prangan One, Gujarati-first society management software for housing societies in Surat and Gujarat: billing, receipts, complaints, and notices.')
-    expect(byPath['/features'].description).toBe('Core tools for housing society committees and residents, in one place.')
-    expect(byPath['/pricing'].description).toBe('Society maintenance software pricing: 90 days free, no card needed. After that, ₹10 per flat per month, ₹499 minimum per society. No online payment gateway needed to start.')
-    expect(byPath['/faq'].description).toBe('Real answers to the questions a committee actually has before switching.')
-    expect(byPath['/contact'].description).toBe('Request a society setup, or ask a question. We respond directly, no ticket queue.')
+    expect(byPath['/'].description).toBe('Prangan One is building multilingual AI business tools for Indian service businesses: customer enquiries, quotation drafts and follow-ups. Join early access.')
+    expect(byPath['/features'].description).toBe('Explore the small-business workflows Prangan One is developing: enquiries, quotation drafts, customer replies and follow-up tracking.')
+    expect(byPath['/pricing'].description).toBe('Prangan One small-business AI tools are in development. Pricing is not yet available. Contact us to discuss early access.')
+    expect(byPath['/faq'].description).toBe('Answers about Prangan One early access, planned small-business AI tools, languages, pricing and the existing society product.')
+    expect(byPath['/contact'].description).toBe('Contact Prangan One about early access to AI tools for small businesses in India.')
     expect(byPath['/privacy'].description).toBe('What data Prangan One collects, how it is protected, and what control you have over it.')
     expect(byPath['/terms'].description).toBe('The plain-language terms for using Prangan One.')
   })

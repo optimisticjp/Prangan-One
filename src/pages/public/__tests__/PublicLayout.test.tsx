@@ -34,8 +34,8 @@ describe('PublicLayout mobile menu accessibility', () => {
     fireEvent.click(button)
     expect(screen.getByRole('button', { name: 'Close menu' })).toHaveAttribute('aria-expanded', 'true')
     const menu = document.getElementById(button.getAttribute('aria-controls')!)!
-    expect(within(menu).getByText('Features')).toBeInTheDocument()
-    expect(within(menu).getByRole('link', { name: 'Demo' })).toHaveAttribute('href', '/demo')
+    expect(within(menu).getByText('Planned tools')).toBeInTheDocument()
+    expect(within(menu).getByRole('link', { name: 'Existing society demo' })).toHaveAttribute('href', '/demo')
 
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.getByRole('button', { name: 'Open menu' })).toHaveAttribute('aria-expanded', 'false')
@@ -46,7 +46,7 @@ describe('PublicLayout mobile menu accessibility', () => {
     const button = screen.getByRole('button', { name: 'Open menu' })
     fireEvent.click(button)
     const menu = document.getElementById(button.getAttribute('aria-controls')!)!
-    fireEvent.click(within(menu).getByRole('link', { name: 'Log in' }))
+    fireEvent.click(within(menu).getByRole('link', { name: 'Society login' }))
     expect(screen.getByRole('button', { name: 'Open menu' })).toHaveAttribute('aria-expanded', 'false')
   })
 
@@ -55,15 +55,15 @@ describe('PublicLayout mobile menu accessibility', () => {
     renderLayout('gu')
     expect(screen.getAllByRole('button', { name: 'ગુ' })[0]).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByRole('button', { name: 'EN' })[0]).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getAllByRole('link', { name: 'ડેમો' })[0]).toHaveAttribute('href', '/demo')
-    expect(screen.getAllByRole('link', { name: 'લોગિન' })[0]).toHaveAttribute('href', '/login')
+    expect(screen.getAllByRole('link', { name: 'હાલનો સોસાયટી ડેમો' })[0]).toHaveAttribute('href', '/demo')
+    expect(screen.getAllByRole('link', { name: 'સોસાયટી લોગિન' })[0]).toHaveAttribute('href', '/login')
   })
 
   it('removes demo from desktop, mobile, and footer navigation when demo is disabled', () => {
     demoMode.enabled = false
     renderLayout('en')
 
-    expect(screen.queryByRole('link', { name: 'Demo' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Existing society demo' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: 'Log in' })[0]).toHaveAttribute('href', '/login')
 
     const button = screen.getByRole('button', { name: 'Open menu' })

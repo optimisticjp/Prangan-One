@@ -24,7 +24,7 @@ export async function submitLeadToFormspree(payload: LeadFormPayload): Promise<v
       name: payload.name, phone: payload.phone, email: payload.email,
       society_name: payload.societyName, city: payload.city, flat_count: payload.flatCount,
       role: payload.role, main_need: payload.mainNeed, message: payload.message ?? '',
-      _subject: `Prangan One: new society enquiry from ${payload.name} (${payload.societyName})`,
+      _subject: `Prangan One: new business enquiry from ${payload.name} (${payload.societyName})`,
     }),
   })
   if (!res.ok) {

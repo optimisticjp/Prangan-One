@@ -16,26 +16,26 @@ const socialLinks = [
 
 const copy = {
   en: {
-    title: 'Contact', desc: 'Request a society setup, or ask a question. We respond directly, no ticket queue.',
-    h1: 'Request Society Setup', sub: 'Tell us about your society, we\u2019ll reach out directly.',
-    name: 'Your name', phone: 'Phone number', email: 'Email', societyName: 'Society name',
-    city: 'City / locality', flatCount: 'Number of flats', role: 'Your role', mainNeed: 'Main need', message: 'Message (optional)',
-    roleOptions: ['Chairman', 'Secretary', 'Treasurer', 'Resident', 'Other'],
-    needOptions: ['Billing', 'Complaints', 'Notices', 'Full app'],
-    submit: 'Send request', thanks: 'Thanks, we\u2019ve got your request. We\u2019ll reach out shortly.',
+    title: 'Early access', desc: 'Contact Prangan One about early access to AI tools for small businesses in India.'
+    h1: 'Help shape Prangan One', sub: 'Tell us about your business and the everyday task you would most like to simplify. Business AI tools are still in development.'
+    name: 'Your name', phone: 'Phone number', email: 'Email', businessName: 'Business name',
+    city: 'City / locality', flatCount: 'Number of flats', role: 'Your role', mainNeed: 'What would help most?', message: 'Message (optional)',
+    roleOptions: ['Owner', 'Team member', 'Freelancer', 'Other'],
+    needOptions: ['Enquiries', 'Quotations', 'Customer messages', 'Follow-ups', 'Other'],
+    submit: 'Send enquiry', thanks: 'Thanks, we have received your enquiry. We will reply when we can discuss your requirements. This is not a product signup.',
     orEmail: 'Prefer email?',
     follow: 'Follow Prangan One',
     sending: 'Sending...',
     error: 'Couldn\u2019t send that, please try again, or email us directly at care@pranganone.com.',
   },
   gu: {
-    title: 'સંપર્ક', desc: 'સોસાયટી સેટઅપની વિનંતી કરો, અથવા સવાલ પૂછો. અમે આપને સીધો જવાબ આપીશું.',
-    h1: 'સોસાયટી સેટઅપની વિનંતી કરો', sub: 'કૃપા કરીને આપની સોસાયટી વિશે જણાવો. અમે સીધો સંપર્ક કરીશું.',
-    name: 'આપનું નામ', phone: 'ફોન નંબર', email: 'ઈમેલ', societyName: 'સોસાયટીનું નામ',
-    city: 'શહેર / વિસ્તાર', flatCount: 'ફ્લેટની સંખ્યા', role: 'આપની ભૂમિકા', mainNeed: 'મુખ્ય જરૂરિયાત', message: 'સંદેશ (વૈકલ્પિક)',
-    roleOptions: ['પ્રમુખ (ચેરમેન)', 'મંત્રી (સેક્રેટરી)', 'ખજાનચી (ટ્રેઝરર)', 'રહેવાસી', 'અન્ય'],
-    needOptions: ['બિલિંગ', 'ફરિયાદ', 'નોટિસ', 'આખી એપ'],
-    submit: 'વિનંતી મોકલો', thanks: 'વિનંતી મોકલી છે. અમે ટૂંક સમયમાં સંપર્ક કરીશું.',
+    title: 'અર્લી એક્સેસ', desc: 'નાના વ્યવસાય માટે Prangan Oneના AI ટૂલ્સ અંગે સંપર્ક કરો.'
+    h1: 'પ્રાંગણવન બનાવવા અમને મદદ કરો', sub: 'આપના વ્યવસાય અને રોજનું કયું કામ સરળ કરવું છે તે જણાવો. નવા AI ટૂલ્સ હજી વિકાસમાં છે.'
+    name: 'આપનું નામ', phone: 'ફોન નંબર', email: 'ઈમેલ', businessName: 'વ્યવસાયનું નામ',
+    city: 'શહેર / વિસ્તાર', flatCount: 'ફ્લેટની સંખ્યા', role: 'આપની ભૂમિકા', mainNeed: 'કયા કામમાં મદદ જોઈએ?', message: 'સંદેશ (વૈકલ્પિક)',
+    roleOptions: ['માલિક', 'ટીમ સભ્ય', 'ફ્રીલાન્સર', 'અન્ય'],
+    needOptions: ['ગ્રાહક પૂછપરછ', 'ક્વોટેશન', 'ગ્રાહકને મેસેજ', 'ફોલોઅપ', 'અન્ય'],
+    submit: 'પૂછપરછ મોકલો', thanks: 'આપની પૂછપરછ મળી ગઈ છે. જરૂરિયાત વિશે વાત કરવા અમે સંપર્ક કરીશું. આ પ્રોડક્ટ સાઇનઅપ નથી.',
     orEmail: 'ઈમેલ કરવો છે?',
     follow: 'પ્રાંગણવનને ફોલો કરો',
     sending: 'મોકલાય છે...',
@@ -67,7 +67,7 @@ export default function Contact() {
     }
     try {
       await submitLeadToFormspree(payload)
-      addLead(payload) // kept locally too, so the demo/local owner console still shows it
+      addLead(payload) // interim legacy lead schema; stored for owner review
       try {
         await submitPublicLeadToSupabase(payload) // the real, shared record - what the owner console reads when configured, see Leads.tsx
       } catch (err) {
@@ -112,13 +112,12 @@ export default function Contact() {
               <label htmlFor="contact-email" className="sr-only">{t.email}</label>
               <input id="contact-email" className={inputClass} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder={t.email} autoComplete="email" required />
             </div>
-            <label htmlFor="contact-society" className="sr-only">{t.societyName}</label>
+            {/* The existing lead backend still uses society_name for the business name until schema migration. */}
+            <label htmlFor="contact-society" className="sr-only">{t.businessName}</label>
             <input id="contact-society" className={inputClass} value={form.societyName} onChange={e => setForm({ ...form, societyName: e.target.value })} placeholder={t.societyName} required />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label htmlFor="contact-city" className="sr-only">{t.city}</label>
               <input id="contact-city" className={inputClass} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder={t.city} autoComplete="address-level2" />
-              <label htmlFor="contact-flatcount" className="sr-only">{t.flatCount}</label>
-              <input id="contact-flatcount" className={inputClass} type="number" min="1" value={form.flatCount} onChange={e => setForm({ ...form, flatCount: e.target.value })} placeholder={t.flatCount} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label htmlFor="contact-role" className="sr-only">{t.role}</label>

@@ -1,44 +1,41 @@
 import { useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { PublicLayout } from './PublicLayout'
 import { usePublicLang } from './usePublicLang'
 import { usePageMeta } from './usePageMeta'
 
 const copy = {
   en: {
-    title: 'FAQ', desc: 'Real answers to the questions a committee actually has before switching.',
-    h1: 'Frequently asked questions',
+    title: 'FAQ',
+    desc: 'Answers about Prangan One early access, planned small-business AI tools, languages, pricing and the existing society product.',
+    heading: 'Frequently asked questions',
     items: [
-      ['Do residents need to be tech-savvy to use this?', 'No. The resident view is four buttons: bill, complaints, notices, and more. If someone can use WhatsApp, they can use this.'],
-      ['Can tenants use it, not just flat owners?', 'Yes. Each society sets tenant access to disabled, limited, or full, so you decide exactly how much a tenant can see.'],
-      ['Can we start without an online payment gateway?', 'Yes, and that\u2019s the default. Payments are recorded manually by the committee, UPI, cash, or cheque, the same way most societies already work.'],
-      ['Can we export our reports and data?', 'Use the available exports for supported records when you need them. Export scope depends on the module.'],
-      ['Can we disable features we don\u2019t need?', 'Yes. Available modules can be turned off; some societies start with billing and complaints and add the rest later.'],
-      ['Who controls member access?', 'Your committee does. The society decides who gets added, what role they hold, and when access is removed.'],
-      ['What happens if we\u2019re late paying you?', 'You get a quiet heads-up first (grace period), never a public embarrassment in front of your residents. Only after that does the app pause, and history stays visible even then.'],
-      ['How long is the free trial, and do we need a card?', '90 days with available modules. No card is needed to start. The 90 days begins once your society is actually set up and ready to use, not the day you first reach out.'],
-      ['Is our data private from other societies?', 'Yes, and it stays that way. Every society only ever sees its own flats, bills, payments, complaints, notices, documents, and everything else, and a resident only ever sees their own flat\u2019s bills, never a neighbor\u2019s. This is built into how the app works, not just hidden on screen.'],
-      ['Can we use Gujarati?', 'The whole app is Gujarati-first, written the way people actually speak, not translated from English.'],
-      ['Can older residents use this comfortably?', 'That was a design priority from day one: large text, simple navigation, no jargon.'],
-      ['What happens when our committee changes?', 'Records are kept securely online, not on any one committee member\u2019s phone or laptop, so nothing from before is lost. The new admin gets real access, granted by your committee.'],
+      ['What is Prangan One building?', 'An AI-assisted workspace for everyday small-business tasks, beginning with customer enquiries, editable quotation drafts, multilingual replies and follow-up planning.'],
+      ['Can I use the new AI tools today?', 'Not yet. The business-workspace tools shown on this site are a development roadmap, not a live service.'],
+      ['Who is it for?', 'We are starting with small service businesses such as repair services, contractors, agencies and consultants.'],
+      ['Which languages are planned?', 'We are designing workflows for Gujarati, Hindi and English. The public website currently offers Gujarati and English.'],
+      ['Will AI automatically contact my customers?', 'No. Our planned first release requires you to review and approve any draft before sending.'],
+      ['Can I join early access?', 'Yes. Share your business details and the tasks you want to simplify on our contact page. We will reach out when an appropriate pilot is ready.'],
+      ['How much will it cost?', 'Pricing for the new business tools has not been announced. Submitting an enquiry is not a purchase.'],
+      ['Is Prangan One the same as the society management app?', 'Prangan One started as a housing-society management project. That existing application remains separate while we develop the new small-business tools.'],
     ],
+    contact: 'Have another question?', cta: 'Contact us',
   },
   gu: {
-    title: 'FAQ', desc: 'સોસાયટી બદલતા પહેલા જે સવાલ થાય, એના સાચા જવાબ.',
-    h1: 'વારંવાર પુછાતા પ્રશ્નો',
+    title: 'વારંવાર પૂછાતા પ્રશ્નો',
+    desc: 'પ્રાંગણવનના નવા AI ટૂલ્સ, અર્લી એક્સેસ, ભાષા, કિંમત અને જૂની સોસાયટી એપ વિશે જવાબો.',
+    heading: 'વારંવાર પૂછાતા પ્રશ્નો',
     items: [
-      ['રહેવાસીઓને ટેક્નિકલ જ્ઞાન જોઈએ?', 'ના. રહેવાસી માટે ચાર બટન છે: બિલ, ફરિયાદ, નોટિસ, વધુ. WhatsApp વાપરી શકે એ આ પણ વાપરી શકે.'],
-      ['ભાડૂત વાપરી શકે, ફક્ત માલિક નહીં?', 'હા. દરેક સોસાયટી ભાડૂત એક્સેસ બંધ, મર્યાદિત કે પૂરું સેટ કરી શકે.'],
-      ['ઓનલાઈન પેમેન્ટ ગેટવે વગર શરૂ કરી શકાય?', 'હા, અને એ જ ડિફોલ્ટ છે. ચુકવણી કમિટી મેન્યુઅલી નોંધે છે, UPI, રોકડ કે ચેકથી.'],
-      ['રિપોર્ટ અને ડેટા એક્સપોર્ટ કરી શકાય?', 'જરૂર પડે ત્યારે સપોર્ટેડ રેકોર્ડ માટે ઉપલબ્ધ એક્સપોર્ટ વાપરી શકાય. એક્સપોર્ટનો વ્યાપ મોડ્યુલ પ્રમાણે રહે છે.'],
-      ['જે સુવિધા ના જોઈએ એ બંધ કરી શકાય?', 'હા. ઉપલબ્ધ મોડ્યુલ બંધ કરી શકાય.'],
-      ['સભ્યની એક્સેસ કોણ નિયંત્રિત કરે?', 'આપની કમિટી. કોણ ઉમેરાય, શું રોલ મળે અને ક્યારે એક્સેસ દૂર થાય તે સોસાયટી નક્કી કરે છે.'],
-      ['ચુકવણી મોડી થાય તો શું?', 'પહેલા શાંતિથી યાદ અપાવીશું (ગ્રેસ પિરિયડ), રહેવાસીઓ સામે શરમ નહીં. પછી જ એપ થોભે, અને ઇતિહાસ તોય દેખાતો રહે.'],
-      ['ફ્રી ટ્રાયલ કેટલા દિવસનો છે, કાર્ડ જોઈએ?', '90 દિવસ, ઉપલબ્ધ મોડ્યુલ સાથે. શરૂ કરવા કાર્ડની જરૂર નથી. 90 દિવસ ત્યારે શરૂ થાય જ્યારે આપની સોસાયટી ખરેખર સેટ થઈને વાપરવા તૈયાર થાય, પહેલો સંપર્ક કરો એ દિવસે નહીં.'],
-      ['અમારો ડેટા બીજી સોસાયટીથી અલગ છે?', 'હા. દરેક સોસાયટીની માહિતી અલગ અને સુરક્ષિત રહે છે; આ ફક્ત સ્ક્રીન પર છુપાવવાની વાત નથી, સિસ્ટમ સ્તરે જ લાગુ છે. દરેક સોસાયટી ફક્ત પોતાના ફ્લેટ, બિલ, ચુકવણી, ફરિયાદ, નોટિસ, દસ્તાવેજો અને બાકી બધું જુએ, અને રહેવાસી ફક્ત પોતાના ફ્લેટનું બિલ જુએ, પડોશીનું ક્યારેય નહીં.'],
-      ['ગુજરાતીમાં વાપરી શકાય?', 'આખી એપ ગુજરાતી-પ્રથમ છે, બોલાતી ભાષામાં લખાયેલી.'],
-      ['વૃદ્ધ સભ્યો સહેલાઈથી વાપરી શકે?', 'આ શરૂઆતથી જ ડિઝાઈનનું ધ્યાન હતું: મોટા અક્ષર, સાદું નેવિગેશન.'],
-      ['કમિટી બદલાય તો શું થાય?', 'રેકોર્ડ સુરક્ષિત રીતે ઓનલાઈન સચવાય છે, કોઈ એક કમિટી મેમ્બરના ફોન કે લેપટોપ પર નહીં, એટલે પહેલાનું કંઈ ખોવાય નહીં. નવા એડમિનને આપની કમિટી તરફથી યોગ્ય એક્સેસ મળે.'],
+      ['પ્રાંગણવન શું બનાવી રહ્યું છે?', 'નાના વ્યવસાય માટે AIની મદદથી ગ્રાહક પૂછપરછ, ક્વોટેશન ડ્રાફ્ટ, ભાષા પ્રમાણે જવાબ અને ફોલોઅપનું આયોજન કરવાના ટૂલ્સ.'],
+      ['નવા AI ટૂલ્સ હમણાં વાપરી શકાય?', 'હજી નહીં. આ વેબસાઇટ પર બતાવેલી વ્યવસાય માટેની સુવિધાઓ વિકાસની યોજના છે, લાઇવ સેવા નથી.'],
+      ['આ કોના માટે છે?', 'અમે રિપેર સર્વિસ, કોન્ટ્રાક્ટર, એજન્સી અને કન્સલ્ટન્ટ જેવા નાના સર્વિસ વ્યવસાયથી શરૂઆત કરીએ છીએ.'],
+      ['કઈ ભાષાઓ માટે યોજના છે?', 'ગુજરાતી, હિન્દી અને અંગ્રેજીમાં કામકાજ માટે. જાહેર વેબસાઇટ હાલમાં ગુજરાતી અને અંગ્રેજીમાં છે.'],
+      ['AI ગ્રાહકને આપમેળે મેસેજ કરશે?', 'ના. પહેલા વર્ઝનની યોજનામાં કોઈ ડ્રાફ્ટ મોકલતાં પહેલાં આપની ચકાસણી અને મંજૂરી જરૂરી છે.'],
+      ['અર્લી એક્સેસમાં રસ જણાવી શકું?', 'હા. સંપર્ક પેજ પર આપના વ્યવસાયની માહિતી અને કયું કામ સરળ કરવું છે તે જણાવો. યોગ્ય પાઇલટ તૈયાર થશે ત્યારે સંપર્ક કરીશું.'],
+      ['કિંમત કેટલી હશે?', 'નવા વ્યવસાય ટૂલ્સની કિંમત હજી જાહેર કરી નથી. પૂછપરછ મોકલવી એટલે ખરીદી કરવી નહીં.'],
+      ['જૂની સોસાયટી એપનું શું?', 'પ્રાંગણવનની શરૂઆત સોસાયટી મેનેજમેન્ટ પ્રોજેક્ટથી થઈ હતી. નવી વ્યવસાય સુવિધાઓ બનતી રહે ત્યાં સુધી તે અલગ છે.'],
     ],
+    contact: 'બીજો સવાલ છે?', cta: 'અમારો સંપર્ક કરો',
   },
 }
 
@@ -46,34 +43,21 @@ export default function Faq() {
   const [lang, setLang] = usePublicLang()
   const t = copy[lang]
   usePageMeta(t.title, t.desc)
-
   useEffect(() => {
     const script = document.createElement('script')
     script.type = 'application/ld+json'
-    script.text = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      mainEntity: t.items.map(([q, a]) => ({
-        '@type': 'Question', name: q,
-        acceptedAnswer: { '@type': 'Answer', text: a },
-      })),
-    })
+    script.text = JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: t.items.map(([q,a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) })
     document.head.appendChild(script)
     return () => { document.head.removeChild(script) }
   }, [t])
-
   return (
     <PublicLayout lang={lang} setLang={setLang}>
-      <section className="px-5 pt-14 pb-16 max-w-2xl mx-auto">
-        <h1 className="text-[30px] font-bold text-center mb-8">{t.h1}</h1>
-        <div className="space-y-4">
-          {t.items.map(([q, a]) => (
-            <div key={q} className="rounded-xl border border-cream-200 bg-white p-4">
-              <div className="font-bold text-[15px] text-navy-800">{q}</div>
-              <p className="text-[13.5px] text-navy-500 mt-1.5 leading-relaxed">{a}</p>
-            </div>
-          ))}
+      <section className="px-5 pt-16 pb-16 max-w-3xl mx-auto">
+        <h1 className="text-[32px] sm:text-[40px] font-bold text-center mb-9">{t.heading}</h1>
+        <div className="space-y-3">
+          {t.items.map(([q,a]) => <div key={q} className="rounded-2xl border border-cream-200 bg-white p-5"><h2 className="font-bold text-[16px]">{q}</h2><p className="mt-2 text-[14px] text-navy-500 leading-relaxed">{a}</p></div>)}
         </div>
+        <div className="text-center mt-10"><p className="text-navy-600">{t.contact}</p><Link to="/contact" className="inline-block mt-2 font-bold text-saffron-700 hover:underline">{t.cta} →</Link></div>
       </section>
     </PublicLayout>
   )

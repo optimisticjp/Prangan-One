@@ -13,15 +13,13 @@ const socialLinks = [
 
 const baseNavByLang: Record<PublicLang, { to: string; label: string; needsDemo?: boolean }[]> = {
   en: [
-    { to: '/features', label: 'Features' },
-    { to: '/demo', label: 'Demo', needsDemo: true },
+    { to: '/features', label: 'Planned tools' },
     { to: '/pricing', label: 'Pricing' },
     { to: '/faq', label: 'FAQ' },
     { to: '/contact', label: 'Contact' },
   ],
   gu: [
-    { to: '/features', label: 'સુવિધાઓ' },
-    { to: '/demo', label: 'ડેમો', needsDemo: true },
+    { to: '/features', label: 'આગામી ટૂલ્સ' },
     { to: '/pricing', label: 'કિંમત' },
     { to: '/faq', label: 'FAQ' },
     { to: '/contact', label: 'સંપર્ક' },
@@ -34,7 +32,7 @@ export function PublicLayout({ lang, setLang, children }: {
   const [open, setOpen] = useState(false)
   const menuId = useId()
   const demoEnabled = isDemoModeEnabled()
-  const nav = baseNavByLang[lang].filter(item => demoEnabled || !item.needsDemo)
+  const nav = baseNavByLang[lang]
   const menuLabel = open ? (lang === 'en' ? 'Close menu' : 'મેનુ બંધ કરો') : (lang === 'en' ? 'Open menu' : 'મેનુ ખોલો')
 
   useEffect(() => {
@@ -64,8 +62,8 @@ export function PublicLayout({ lang, setLang, children }: {
               <button onClick={() => setLang('en')} aria-pressed={lang === 'en'} className={`px-2.5 py-1 rounded-full ${lang === 'en' ? 'bg-navy-900 text-cream-50' : 'text-navy-500'}`}>EN</button>
               <button onClick={() => setLang('gu')} aria-pressed={lang === 'gu'} className={`px-2.5 py-1 rounded-full ${lang === 'gu' ? 'bg-navy-900 text-cream-50' : 'text-navy-500'}`}>ગુ</button>
             </div>
-            <Link to="/login" className="hidden sm:inline-flex rounded-xl bg-saffron-500 text-navy-900 px-3.5 py-2 text-[13.5px] font-bold hover:bg-saffron-400">
-              {lang === 'en' ? 'Log in' : 'લોગિન'}
+            <Link to="/contact" className="hidden sm:inline-flex rounded-xl bg-saffron-500 text-navy-900 px-3.5 py-2 text-[13.5px] font-bold hover:bg-saffron-400">
+              {lang === 'en' ? 'Early access' : 'અર્લી એક્સેસ'}
             </Link>
             <button onClick={() => setOpen(!open)} className="sm:hidden h-9 w-9 shrink-0 flex items-center justify-center rounded-lg bg-cream-200" aria-label={menuLabel} aria-expanded={open} aria-controls={menuId}>
               {open ? <X size={18} /> : <Menu size={18} />}
@@ -80,9 +78,10 @@ export function PublicLayout({ lang, setLang, children }: {
                 width. */}
             <Link to="/login" onClick={() => setOpen(false)}
               className="flex items-center justify-center gap-2 rounded-xl bg-saffron-500 text-navy-900 px-4 py-3 text-[15px] font-bold mb-2">
-              <LogIn size={17} /> {lang === 'en' ? 'Log in' : 'લોગિન'}
+              <LogIn size={17} /> {lang === 'en' ? 'Society login' : 'સોસાયટી લોગિન'}
             </Link>
             {nav.map(n => <Link key={n.to} to={n.to} onClick={() => setOpen(false)} className="rounded-lg text-[15px] font-medium text-navy-600 py-2">{n.label}</Link>)}
+            {demoEnabled && <Link to="/demo" onClick={() => setOpen(false)} className="text-[13px] text-navy-400 py-2">{lang === 'en' ? 'Existing society demo' : 'હાલનો સોસાયટી ડેમો'}</Link>}
             <div className="flex gap-2 mt-2">
               <button onClick={() => setLang('en')} aria-pressed={lang === 'en'} className={`px-3 py-1.5 rounded-full text-[13px] font-semibold ${lang === 'en' ? 'bg-navy-900 text-cream-50' : 'bg-cream-200 text-navy-500'}`}>EN</button>
               <button onClick={() => setLang('gu')} aria-pressed={lang === 'gu'} className={`px-3 py-1.5 rounded-full text-[13px] font-semibold ${lang === 'gu' ? 'bg-navy-900 text-cream-50' : 'bg-cream-200 text-navy-500'}`}>ગુ</button>
@@ -97,12 +96,14 @@ export function PublicLayout({ lang, setLang, children }: {
         <div className="max-w-5xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <PranganBrand variant="wordmark-navy" height={22} />
-            <div className="text-[11.5px] text-navy-400 border-l border-cream-300 pl-3">The Society OS</div>
+            <div className="text-[11.5px] text-navy-400 border-l border-cream-300 pl-3">Small business tools, in progress</div>
           </div>
           <div className="flex gap-5 text-[13px] text-navy-500">
             {nav.map(n => <Link key={n.to} to={n.to} className="rounded hover:text-saffron-600">{n.label}</Link>)}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap justify-center">
+            <Link to="/login" className="text-[13px] text-navy-500 hover:text-saffron-600">{lang === 'en' ? 'Society login' : 'સોસાયટી લોગિન'}</Link>
+            {demoEnabled && <Link to="/demo" className="text-[13px] text-navy-500 hover:text-saffron-600">{lang === 'en' ? 'Society demo' : 'સોસાયટી ડેમો'}</Link>}
             <a href="mailto:care@pranganone.com" className="text-[13px] text-navy-500 hover:text-saffron-600">care@pranganone.com</a>
             <div className="flex items-center gap-2.5">
               {socialLinks.map(s => (
@@ -119,7 +120,7 @@ export function PublicLayout({ lang, setLang, children }: {
           <span>·</span>
           <Link to="/terms" className="rounded hover:text-saffron-600">{lang === 'en' ? 'Terms' : 'શરતો'}</Link>
         </div>
-        <div className="text-center text-[11.5px] text-navy-400 pb-6">© Prangan One. The Society OS.</div>
+        <div className="text-center text-[11.5px] text-navy-400 pb-6">© Prangan One. Small business tools, in progress.</div>
       </footer>
     </div>
   )

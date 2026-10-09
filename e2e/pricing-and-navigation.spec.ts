@@ -22,11 +22,11 @@ import { attachErrorSink, expectNoErrorBoundary, expectNoRuntimeErrors } from '.
  */
 
 const PUBLIC_ROUTES: { path: string; heading: RegExp }[] = [
-  { path: '/', heading: /કમિટી ડેશબોર્ડ/ },
-  { path: '/features', heading: /સોસાયટી ચલાવવા માટે/ },
-  { path: '/pricing', heading: /સાદી કિંમત/ },
+  { path: '/', heading: /ઓછું કાગળકામ/ },
+  { path: '/features', heading: /વાસ્તવિક કામ માટે/ },
+  { path: '/pricing', heading: /કિંમત હજી જાહેર કરી નથી/ },
   { path: '/faq', heading: /વારંવાર પુછાતા પ્રશ્નો/ },
-  { path: '/contact', heading: /સોસાયટી સેટઅપની વિનંતી/ },
+  { path: '/contact', heading: /પ્રાંગણવન બનાવવા અમને મદદ કરો/ },
   { path: '/privacy', heading: /પ્રાઇવસી પોલિસી/ },
   { path: '/terms', heading: /સેવાની શરતો/ },
 ]
@@ -42,7 +42,7 @@ test.describe('Pricing is reachable from every entry point, error-free', () => {
     await page.goto('/')
     await page.getByRole('banner').getByRole('link', { name: 'કિંમત' }).click()
     await expect(page).toHaveURL(/\/pricing$/)
-    await expect(page.getByRole('heading', { level: 1, name: /સાદી કિંમત/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /કિંમત હજી જાહેર કરી નથી/ })).toBeVisible()
     await expectNoErrorBoundary(page, 'nav -> pricing')
     expectNoRuntimeErrors(sink, 'nav -> pricing')
   })
@@ -54,7 +54,7 @@ test.describe('Pricing is reachable from every entry point, error-free', () => {
     await page.getByRole('button', { name: /મેનુ ખોલો/ }).click()
     await page.getByRole('banner').getByRole('link', { name: 'કિંમત' }).click()
     await expect(page).toHaveURL(/\/pricing$/)
-    await expect(page.getByRole('heading', { level: 1, name: /સાદી કિંમત/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /કિંમત હજી જાહેર કરી નથી/ })).toBeVisible()
     await expectNoErrorBoundary(page, 'mobile menu -> pricing')
     expectNoRuntimeErrors(sink, 'mobile menu -> pricing')
   })
@@ -64,7 +64,7 @@ test.describe('Pricing is reachable from every entry point, error-free', () => {
     await page.goto('/')
     await page.getByRole('contentinfo').getByRole('link', { name: 'કિંમત' }).click()
     await expect(page).toHaveURL(/\/pricing$/)
-    await expect(page.getByRole('heading', { level: 1, name: /સાદી કિંમત/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /કિંમત હજી જાહેર કરી નથી/ })).toBeVisible()
     await expectNoErrorBoundary(page, 'footer -> pricing')
     expectNoRuntimeErrors(sink, 'footer -> pricing')
   })
@@ -72,9 +72,9 @@ test.describe('Pricing is reachable from every entry point, error-free', () => {
   test('direct navigation and hard refresh on /pricing', async ({ page }) => {
     const sink = await attachErrorSink(page)
     await page.goto('/pricing')
-    await expect(page.getByRole('heading', { level: 1, name: /સાદી કિંમત/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /કિંમત હજી જાહેર કરી નથી/ })).toBeVisible()
     await page.reload()
-    await expect(page.getByRole('heading', { level: 1, name: /સાદી કિંમત/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /કિંમત હજી જાહેર કરી નથી/ })).toBeVisible()
     await expectNoErrorBoundary(page, 'direct + refresh pricing')
     expectNoRuntimeErrors(sink, 'direct + refresh pricing')
   })
@@ -89,7 +89,7 @@ test.describe('Pricing is reachable from every entry point, error-free', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await page.goForward()
     await expect(page).toHaveURL(/\/pricing$/)
-    await expect(page.getByRole('heading', { level: 1, name: /સાદી કિંમત/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /કિંમત હજી જાહેર કરી નથી/ })).toBeVisible()
     await expectNoErrorBoundary(page, 'back/forward pricing')
     expectNoRuntimeErrors(sink, 'back/forward pricing')
   })
@@ -121,7 +121,7 @@ test.describe('invalid persisted public language falls back to gu, never crashes
         try { localStorage.setItem('prangan_public_lang', value as string) } catch { /* ignore */ }
       }, bad)
       await page.goto('/pricing')
-      await expect(page.getByRole('heading', { level: 1, name: /સાદી કિંમત/ })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: /કિંમત હજી જાહેર કરી નથી/ })).toBeVisible()
       // Falls back to Gujarati rather than a broken English/undefined render.
       await expect(page.locator('html')).toHaveAttribute('lang', 'gu')
       await expectNoErrorBoundary(page, `bad lang ${JSON.stringify(bad)}`)
@@ -157,7 +157,7 @@ test.describe('a stale Pricing chunk recovers automatically', () => {
     await page.goto('/pricing', { waitUntil: 'commit' })
 
     // Appears only after the automatic reload re-fetches the chunk successfully.
-    await expect(page.getByRole('heading', { level: 1, name: /સાદી કિંમત/ })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('heading', { level: 1, name: /કિંમત હજી જાહેર કરી નથી/ })).toBeVisible({ timeout: 15_000 })
     await expectNoErrorBoundary(page, 'stale chunk recovery')
 
     // Positive proof a full-document reload happened: the document loaded twice.
@@ -237,7 +237,7 @@ test.describe('demo role entry points load their panels error-free', () => {
     await page.goto('/demo')
     await page.getByText('હું કમિટી મેમ્બર છું').click()
     await reachedApp(page, /\/admin$/)
-    await expect(page.getByRole('heading', { name: /કમિટી ડેશબોર્ડ/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /ઓછું કાગળકામ/ })).toBeVisible()
     await expectNoErrorBoundary(page, 'demo committee')
     expectNoRuntimeErrors(sink, 'demo committee')
   })

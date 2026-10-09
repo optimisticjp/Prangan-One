@@ -5,21 +5,21 @@ test.beforeEach(async ({ context }) => {
 })
 
 test.describe('public homepage', () => {
-  test('defaults to Gujarati and presents the primary demo conversion path', async ({ page }) => {
+  test('defaults to Gujarati and presents the early-access conversion path', async ({ page }) => {
     await page.goto('/')
 
     await expect(page.locator('html')).toHaveAttribute('lang', 'gu')
-    await expect(page.getByRole('heading', { level: 1, name: /હાઉસિંગ સોસાયટી.*કમિટી ડેશબોર્ડ/i })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /ઓછું કાગળકામ.*વધુ વ્યવસાય/i })).toBeVisible()
 
-    const demoActions = page.getByRole('link', { name: /ડેમો ખોલો/i })
+    const demoActions = page.getByRole('link', { name: /અર્લી એક્સેસ માટે સંપર્ક કરો/i })
     await expect(demoActions).toHaveCount(1)
-    await expect(demoActions.first()).toHaveAttribute('href', '/demo')
-    await expect(page.getByRole('link', { name: /લોગિન/i }).first()).toBeVisible()
+    await expect(demoActions.first()).toHaveAttribute('href', '/contact')
+    await expect(page.getByRole('link', { name: /અર્લી એક્સેસ/i }).first()).toBeVisible()
 
-    await expect(page.getByRole('heading', { name: /કમિટી માટે કંટ્રોલ/i })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /કેવી રીતે ચાલે છે/i })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /વાસ્તવિક અપેક્ષા/i })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /રોજ ઉપયોગી/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /ગ્રાહકના મેસેજથી તૈયાર ક્વોટેશન સુધી/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /સૌપ્રથમ બનાવવાના ટૂલ્સ/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /નાના વ્યવસાયની રોજની જરૂરિયાત/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /એક ઉપયોગી કામથી શરૂઆત/i })).toBeVisible()
   })
 
   test('switches to English and persists the public language preference', async ({ page }) => {
@@ -27,12 +27,12 @@ test.describe('public homepage', () => {
 
     await page.getByRole('button', { name: 'EN' }).click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-    await expect(page.getByRole('heading', { level: 1, name: /Run your housing society from one clear committee dashboard/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /Open the demo/i })).toHaveAttribute('href', '/demo')
+    await expect(page.getByRole('heading', { level: 1, name: /Less busywork. More business./i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Join early access/i })).toHaveAttribute('href', '/contact')
 
     await page.reload()
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-    await expect(page.getByRole('heading', { level: 1, name: /Run your housing society from one clear committee dashboard/i })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /Less busywork. More business./i })).toBeVisible()
   })
 
   test('supports the mobile menu without horizontal page overflow', async ({ page }) => {
@@ -43,15 +43,15 @@ test.describe('public homepage', () => {
     const menuToggle = page.locator('button[aria-controls]').first()
     await menuButton.click()
     await expect(menuToggle).toHaveAttribute('aria-expanded', 'true')
-    await expect(page.getByRole('link', { name: /લોગિન/i }).first()).toBeVisible()
-    await expect(page.getByRole('banner').getByRole('link', { name: /^ડેમો$/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /સોસાયટી લોગિન/i }).first()).toBeVisible()
+    await expect(page.getByRole('banner').getByRole('link', { name: /હાલનો સોસાયટી ડેમો/i })).toBeVisible()
     await expect(page.getByRole('banner').getByRole('link', { name: /કિંમત/i })).toBeVisible()
 
     await page.keyboard.press('Escape')
     await expect(menuToggle).toHaveAttribute('aria-expanded', 'false')
 
     await menuButton.click()
-    await page.getByRole('banner').getByRole('link', { name: /^ડેમો$/i }).click()
+    await page.getByRole('banner').getByRole('link', { name: /હાલનો સોસાયટી ડેમો/i }).click()
     await expect(page).toHaveURL(/\/demo$/)
 
     await page.goto('/')

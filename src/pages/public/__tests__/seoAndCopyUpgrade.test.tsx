@@ -6,10 +6,7 @@ import Faq from '../Faq'
 import Pricing from '../Pricing'
 import Features from '../Features'
 
-afterEach(() => {
-  cleanup()
-  localStorage.clear()
-})
+afterEach(() => { cleanup(); localStorage.clear() })
 
 function renderPublic(page: React.ReactElement, lang: 'en' | 'gu' = 'gu') {
   localStorage.setItem('prangan_public_lang', lang)
@@ -20,103 +17,49 @@ function metaDescription() {
   return document.querySelector('meta[name="description"]')?.getAttribute('content') ?? ''
 }
 
-describe('FAQ page exposes valid FAQPage JSON-LD from its own question data', () => {
-  it('injects one FAQPage schema whose questions/answers reuse the visible items', () => {
+describe('Prangan early-access positioning and public metadata', () => {
+  it('describes the new direction accurately without claiming a live product', () => {
+    renderPublic(<Home />, 'en')
+    expect(screen.getByRole('heading', { level: 1, name: 'Less busywork. More business.' })).toBeInTheDocument()
+    expect(screen.getByText(/NOT A LIVE PRODUCT/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Join early access/ })).toHaveAttribute('href', '/contact')
+    expect(metaDescription()).toMatch(/multilingual AI business tools/)
+    expect(metaDescription()).toMatch(/quotation drafts/)
+  })
+
+  it('keeps Gujarati messaging and early-access copy available', () => {
+    renderPublic(<Home />, 'gu')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ઓછું કાગળકામ')
+    expect(metaDescription()).toContain('પ્રાંગણવન')
+    expect(metaDescription()).toContain('વ્યવસાય')
+    expect(screen.getByRole('link', { name: /અર્લી એક્સેસ માટે સંપર્ક કરો/ })).toHaveAttribute('href', '/contact')
+  })
+
+  it('does not advertise nonexistent subscription prices', () => {
+    renderPublic(<Pricing />, 'en')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Pricing is not announced yet.')
+    expect(screen.getByText(/no paid subscription/i)).toBeInTheDocument()
+    expect(screen.queryByText(/₹10 per flat/i)).not.toBeInTheDocument()
+    expect(metaDescription()).toContain('Pricing is not yet available')
+  })
+
+  it('marks roadmap tools as planned, not already available', () => {
+    renderPublic(<Features />, 'en')
+    expect(screen.getByText(/This is the plan, not a list of features already available/)).toBeInTheDocument()
+    expect(screen.getByText(/People review every/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Join early access/ })).toHaveAttribute('href', '/contact')
+  })
+})
+
+describe('FAQ structured metadata', () => {
+  it('uses the exact visible questions/answers in FAQPage JSON-LD', () => {
     renderPublic(<Faq />)
     const scripts = [...document.querySelectorAll('script[type="application/ld+json"]')]
       .map(s => JSON.parse(s.textContent ?? '{}'))
     const faq = scripts.find(s => s['@type'] === 'FAQPage')
     expect(faq).toBeDefined()
-    expect(Array.isArray(faq.mainEntity)).toBe(true)
-    // Same count as the rendered questions - the schema reuses the page data,
-    // it is not a second hand-maintained list.
-    expect(faq.mainEntity.length).toBe(12)
-    const first = faq.mainEntity[0]
-    expect(first['@type']).toBe('Question')
-    expect(first.acceptedAnswer['@type']).toBe('Answer')
-    // The first Gujarati question and answer both flow into the schema.
-    expect(first.name).toContain('રહેવાસીઓને ટેક્નિકલ જ્ઞાન જોઈએ?')
-    expect(first.acceptedAnswer.text).toContain('ચાર બટન')
-  })
-})
-
-describe('Home SEO metadata carries brand, Surat/Gujarat relevance and product terms', () => {
-  it('sets a Gujarati meta description with the brand, region and core modules', () => {
-    renderPublic(<Home />, 'gu')
-    const desc = metaDescription()
-    expect(desc).toContain('પ્રાંગણવન')
-    expect(desc).toContain('સુરત')
-    expect(desc).toContain('ગુજરાતી-પ્રથમ')
-    expect(desc).toMatch(/બિલિંગ|રસીદ|ફરિયાદ|નોટિસ/)
-    expect(document.title).toContain('Prangan One')
-  })
-
-  it('sets an English meta description with the brand, region and product terms', () => {
-    renderPublic(<Home />, 'en')
-    const desc = metaDescription()
-    expect(desc).toContain('Prangan One')
-    expect(desc).toMatch(/Surat/)
-    expect(desc).toMatch(/billing|receipts|complaints|notices/i)
-  })
-})
-
-describe('Home pricing line is an informational caption, not tappable content', () => {
-  it('renders the pricing sentence as plain text with no link or button ancestor', () => {
-    renderPublic(<Home />, 'gu')
-    const line = screen.getByText(/ફ્લેટ દીઠ મહિને ₹10, સોસાયટી દીઠ ઓછામાં ઓછું ₹499\./)
-    // The exact figures are preserved verbatim.
-    expect(line.textContent).toContain('₹10')
-    expect(line.textContent).toContain('₹499')
-    // The informational sentence must NOT be inside any interactive element.
-    expect(line.closest('a')).toBeNull()
-    expect(line.closest('button')).toBeNull()
-  })
-
-  it('exposes a single separate CTA that links to /pricing, without the pricing figures in its name', () => {
-    renderPublic(<Home />, 'gu')
-    const cta = screen.getByRole('link', { name: /કિંમત જુઓ/ })
-    expect(cta).toHaveAttribute('href', '/pricing')
-    // The pricing sentence is not part of the link's accessible name.
-    expect(cta.textContent).not.toContain('₹10')
-    expect(cta.textContent).not.toContain('₹499')
-  })
-})
-
-describe('Pricing metadata and CTA', () => {
-  it('meta description includes society-maintenance-software pricing keywords and the exact figures', () => {
-    renderPublic(<Pricing />, 'gu')
-    const desc = metaDescription()
-    expect(desc).toContain('સોસાયટી મેન્ટેનન્સ સોફ્ટવેર')
-    expect(desc).toContain('₹499')
-    expect(desc).toContain('₹10')
-  })
-
-  it('keeps the full pricing CTA wording unchanged (the audit did not shorten Pricing), with the note intact', () => {
-    renderPublic(<Pricing />, 'gu')
-    expect(screen.getByText('સોસાયટી સેટઅપની વિનંતી કરો')).toBeInTheDocument()
-    // Pricing must NOT adopt the Features/onboarding short CTA.
-    expect(screen.queryByText('સેટઅપ વિનંતી કરો')).not.toBeInTheDocument()
-    // The explanatory pricing note is preserved.
-    expect(screen.getByText(/અમે આપની સોસાયટીને સીધા ઓનબોર્ડ કરીએ છીએ/)).toBeInTheDocument()
-  })
-
-  it('shows the owner-approved daily cost comparison as per-flat supporting copy, not a whole-society claim', () => {
-    renderPublic(<Pricing />, 'gu')
-    const line = screen.getByText(/પ્રતિ ફ્લેટ રોજના ₹1 કરતાં પણ ઓછું/)
-    expect(line).toBeInTheDocument()
-    // Accuracy rules: always per-flat, always after the trial, exact figures kept.
-    expect(line.textContent).toContain('પ્રતિ ફ્લેટ')
-    expect(line.textContent).toContain('ટ્રાયલ પછી')
-    expect(line.textContent).toContain('₹10')
-    expect(line.textContent).toContain('₹499')
-  })
-})
-
-describe('Features CTA is shortened with supporting context', () => {
-  it('shows the short button and keeps the full invitation as supporting text', () => {
-    renderPublic(<Features />, 'gu')
-    expect(screen.getByText('સેટઅપ વિનંતી કરો')).toBeInTheDocument()
-    expect(screen.queryByText('સોસાયટી સેટઅપની વિનંતી કરો')).not.toBeInTheDocument()
-    expect(screen.getByText(/આપની સોસાયટી વિશે જણાવો/)).toBeInTheDocument()
+    expect(faq.mainEntity.length).toBe(8)
+    expect(faq.mainEntity[0].name).toContain('પ્રાંગણવન શું બનાવી રહ્યું છે?')
+    expect(faq.mainEntity[0].acceptedAnswer.text).toContain('ક્વોટેશન')
   })
 })
