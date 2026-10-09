@@ -31,6 +31,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const NoAccess = lazy(() => import('./pages/NoAccess'))
 const Join = lazy(() => import('./pages/Join'))
 const Features = lazy(() => import('./pages/public/Features'))
+const QuoteStudio = lazy(() => import('./pages/public/QuoteStudio'))
 const Pricing = lazy(() => import('./pages/public/Pricing'))
 const Faq = lazy(() => import('./pages/public/Faq'))
 const Contact = lazy(() => import('./pages/public/Contact'))
@@ -123,6 +124,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/home" element={<Navigate to="/" replace />} />
         <Route path="/features" element={<Lazy><Features /></Lazy>} />
+        <Route path="/tools/quote" element={<Lazy><QuoteStudio /></Lazy>} />
         <Route path="/pricing" element={<Lazy><Pricing /></Lazy>} />
         <Route path="/faq" element={<Lazy><Faq /></Lazy>} />
         <Route path="/contact" element={<Lazy><Contact /></Lazy>} />

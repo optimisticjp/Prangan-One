@@ -14,12 +14,14 @@ const socialLinks = [
 const baseNavByLang: Record<PublicLang, { to: string; label: string; needsDemo?: boolean }[]> = {
   en: [
     { to: '/features', label: 'Planned tools' },
+    { to: '/tools/quote', label: 'Quote Studio' },
     { to: '/pricing', label: 'Pricing' },
     { to: '/faq', label: 'FAQ' },
     { to: '/contact', label: 'Contact' },
   ],
   gu: [
     { to: '/features', label: 'આગામી ટૂલ્સ' },
+    { to: '/tools/quote', label: 'ક્વોટેશન ટૂલ' },
     { to: '/pricing', label: 'કિંમત' },
     { to: '/faq', label: 'FAQ' },
     { to: '/contact', label: 'સંપર્ક' },
@@ -46,7 +48,7 @@ export function PublicLayout({ lang, setLang, children }: {
 
   return (
     <div className="min-h-screen bg-cream-50 text-navy-900">
-      <header className="sticky top-0 z-40 bg-cream-50/90 backdrop-blur border-b border-cream-200 px-4 sm:px-5 py-3">
+      <header className="print:hidden sticky top-0 z-40 bg-cream-50/90 backdrop-blur border-b border-cream-200 px-4 sm:px-5 py-3">
         <div className="max-w-5xl mx-auto flex items-center gap-3 sm:gap-4">
           {/* Full wordmark at every size, mobile included - the whole point of
               the brand is name recognition, a mark with no name defeats that
@@ -92,7 +94,7 @@ export function PublicLayout({ lang, setLang, children }: {
 
       <main>{children}</main>
 
-      <footer className="border-t border-cream-200 mt-16">
+      <footer className="print:hidden border-t border-cream-200 mt-16">
         <div className="max-w-5xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <PranganBrand variant="wordmark-navy" height={22} />

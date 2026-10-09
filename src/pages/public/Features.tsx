@@ -13,6 +13,7 @@ const copy = {
     sub: 'Our first release will focus on the work between a new enquiry and the next customer conversation. This is the plan, not a list of features already available.',
     reviewTitle: 'You stay in control',
     review: 'AI will help draft, organize and translate. You will review details and choose what to send. We are not launching autonomous payments, automated tax advice or unsupervised customer messaging.',
+    toolCta: 'Open the free Quotation Studio beta',
     cta: 'Join early access', ctaSupport: 'Tell us which everyday task would make your business easier.',
   },
   gu: {
@@ -23,6 +24,7 @@ const copy = {
     sub: 'અમારું પહેલું વર્ઝન નવી પૂછપરછથી આગળના ગ્રાહક સંદેશ સુધીની પ્રક્રિયા પર રહેશે. આ યોજના છે, હજી તૈયાર થયેલી સુવિધાઓ નથી.',
     reviewTitle: 'અંતિમ નિર્ણય આપનો',
     review: 'AI ડ્રાફ્ટ, ગોઠવણી અને ભાષાંતરમાં મદદ કરશે. વિગતો ચકાસીને શું મોકલવું તે આપ નક્કી કરશો. આપમેળે ચુકવણી, ટેક્સ સલાહ કે મંજૂરી વગર ગ્રાહકને મેસેજ મોકલવાના ટૂલ્સ હજી નથી.',
+    toolCta: 'મફત ક્વોટેશન સ્ટુડિયો બેટા ખોલો',
     cta: 'અર્લી એક્સેસ માટે સંપર્ક કરો', ctaSupport: 'આપના વ્યવસાયનું કયું રોજનું કામ સરળ કરવું છે, અમને જણાવો.',
   },
 }
@@ -61,7 +63,8 @@ export default function Features() {
           <LockKeyhole size={24} className="shrink-0 text-saffron-400"/>
           <div><h2 className="text-[20px] font-bold">{t.reviewTitle}</h2><p className="mt-2 text-[14px] leading-relaxed text-cream-100/80">{t.review}</p></div>
         </div>
-        <div className="text-center mt-10">
+        <div className="text-center mt-10"><Link to="/tools/quote" className="mb-6 inline-flex items-center gap-2 rounded-xl bg-navy-900 text-cream-50 px-5 py-3 font-semibold hover:bg-navy-800">{t.toolCta}<ArrowRight size={16}/></Link></div>
+        <div className="text-center mt-2">
           <p className="text-[14px] text-navy-500 mb-4">{t.ctaSupport}</p>
           <Link to="/contact" className="inline-flex gap-2 items-center rounded-xl bg-saffron-500 px-5 py-3 font-bold hover:bg-saffron-400">{t.cta}<ArrowRight size={16}/></Link>
         </div>

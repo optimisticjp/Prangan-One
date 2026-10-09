@@ -1,0 +1,4 @@
+# quote-assist validates the signed-in user JWT inside the handler.
+# Turn off gateway JWT checking so unauthenticated CORS OPTIONS can succeed.
+[functions.quote-assist]
+verify_jwt = false

@@ -22,7 +22,7 @@ export async function submitLeadToFormspree(payload: LeadFormPayload): Promise<v
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
       name: payload.name, phone: payload.phone, email: payload.email,
-      society_name: payload.societyName, city: payload.city, flat_count: payload.flatCount,
+      business_name: payload.societyName, city: payload.city,
       role: payload.role, main_need: payload.mainNeed, message: payload.message ?? '',
       _subject: `Prangan One: new business enquiry from ${payload.name} (${payload.societyName})`,
     }),

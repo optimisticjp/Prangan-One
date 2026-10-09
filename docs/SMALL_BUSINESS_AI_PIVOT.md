@@ -69,3 +69,11 @@ Research goals before major backend work: ten interviews, three opt-in pilot use
 - [ ] Update the old OG image if it depicts society-only content.
 - [ ] Migrate leads table/forms to business-friendly field names.
 - [ ] Establish real pricing after customer validation.
+
+## October 9 beta work
+
+- Quotation Studio is a **browser-only manual quotation draft tool**. It does not require login, save user inputs, call Claude, send customer messages or calculate taxes. Users explicitly review/edit before copying or printing.
+- `supabase/functions/quote-assist` is **source code only**, behind `VITE_AI_QUOTE_ENABLED=true`, waiting for an API secret and database usage-quota migration to be activated. Do not claim AI is live yet.
+- The quote-assist server validates Supabase Auth, bounds inputs, reserves a 5/day quota and requests a JSON-only wording suggestion. It never lets Claude modify the amount or validity.
+- The **production database remains unchanged** in this step. Existing `business_*` tables in Supabase may be unrelated; do not reuse or alter without identifying their purpose and owner.
+- Before enabling: review API and model availability, cap Console spend, apply quota migration, install Claude secret in Supabase Edge secrets, deploy function, set Auth redirect URL, enable frontend flag in Cloudflare and run authenticated production smoke checks.

@@ -11,7 +11,7 @@ const copy = {
     heading: 'Frequently asked questions',
     items: [
       ['What is Prangan One building?', 'An AI-assisted workspace for everyday small-business tasks, beginning with customer enquiries, editable quotation drafts, multilingual replies and follow-up planning.'],
-      ['Can I use the new AI tools today?', 'Not yet. The business-workspace tools shown on this site are a development roadmap, not a live service.'],
+      ['Can I use the new AI tools today?', 'The free browser-only Quotation Studio beta is available now. Claude-powered rewriting and the connected business workspace are still in development.'],
       ['Who is it for?', 'We are starting with small service businesses such as repair services, contractors, agencies and consultants.'],
       ['Which languages are planned?', 'We are designing workflows for Gujarati, Hindi and English. The public website currently offers Gujarati and English.'],
       ['Will AI automatically contact my customers?', 'No. Our planned first release requires you to review and approve any draft before sending.'],
@@ -27,7 +27,7 @@ const copy = {
     heading: 'વારંવાર પૂછાતા પ્રશ્નો',
     items: [
       ['પ્રાંગણવન શું બનાવી રહ્યું છે?', 'નાના વ્યવસાય માટે AIની મદદથી ગ્રાહક પૂછપરછ, ક્વોટેશન ડ્રાફ્ટ, ભાષા પ્રમાણે જવાબ અને ફોલોઅપનું આયોજન કરવાના ટૂલ્સ.'],
-      ['નવા AI ટૂલ્સ હમણાં વાપરી શકાય?', 'હજી નહીં. આ વેબસાઇટ પર બતાવેલી વ્યવસાય માટેની સુવિધાઓ વિકાસની યોજના છે, લાઇવ સેવા નથી.'],
+      ['નવા AI ટૂલ્સ હમણાં વાપરી શકાય?', 'મફત બ્રાઉઝર-આધારિત ક્વોટેશન સ્ટુડિયો બેટા હવે ઉપલબ્ધ છે. Claude ની મદદથી લખાણ સુધારવું અને બાકીના વ્યવસાય ટૂલ્સ હજી વિકાસમાં છે.'],
       ['આ કોના માટે છે?', 'અમે રિપેર સર્વિસ, કોન્ટ્રાક્ટર, એજન્સી અને કન્સલ્ટન્ટ જેવા નાના સર્વિસ વ્યવસાયથી શરૂઆત કરીએ છીએ.'],
       ['કઈ ભાષાઓ માટે યોજના છે?', 'ગુજરાતી, હિન્દી અને અંગ્રેજીમાં કામકાજ માટે. જાહેર વેબસાઇટ હાલમાં ગુજરાતી અને અંગ્રેજીમાં છે.'],
       ['AI ગ્રાહકને આપમેળે મેસેજ કરશે?', 'ના. પહેલા વર્ઝનની યોજનામાં કોઈ ડ્રાફ્ટ મોકલતાં પહેલાં આપની ચકાસણી અને મંજૂરી જરૂરી છે.'],
