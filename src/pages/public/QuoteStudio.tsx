@@ -196,7 +196,7 @@ export default function QuoteStudio() {
                 <div className="whitespace-pre-wrap break-words text-[14px] leading-7 pt-5" data-testid="formatted-quote">{draft}</div>
                 <p className="text-[11px] mt-9 pt-4 border-t border-cream-200 text-navy-500">{lang === 'en' ? 'Draft only · Not a tax invoice' : 'ફક્ત ડ્રાફ્ટ · ટેક્સ ઇન્વૉઇસ નથી'}</p>
               </div>
-            </div>
+            </div>}
             <div className="mt-3 flex flex-wrap gap-3 print:hidden">
               <button onClick={copyDraft} disabled={!draft} className="inline-flex items-center gap-2 rounded-xl bg-navy-900 px-4 py-3 text-cream-50 font-semibold text-[13px] disabled:opacity-40">{copied ? <Check size={16}/> : <Copy size={16}/>} {copied ? t.copied : t.copy}</button>
               <button onClick={downloadPdf} disabled={!draft || downloading} className="inline-flex items-center gap-2 rounded-xl bg-saffron-500 px-4 py-3 text-navy-900 font-bold text-[13px] disabled:opacity-40"><Download size={16}/>{downloading ? 'Preparing…' : t.pdf}</button>
