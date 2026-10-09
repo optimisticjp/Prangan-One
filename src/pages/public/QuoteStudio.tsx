@@ -21,7 +21,8 @@ const copy = {
     copy: 'Copy draft', copied: 'Copied', print: 'Print / Save PDF',
     caution: 'This is a draft, not a tax invoice. Enter only details you are comfortable working with. The basic template stays in this browser tab and is not saved to Prangan.',
     aiLabel: 'Optional Claude assistance', aiButton: 'Improve wording with Claude',
-    aiNote: 'When enabled, AI drafting requires a verified sign-in and sends the entered details to Claude for wording suggestions. Your price and validity never change automatically.',
+    consent: 'I agree to send the service and work details to Anthropic Claude for AI wording suggestions.',
+    aiNote: 'When enabled, AI drafting requires a verified sign-in and sends only the service and work details to Claude. Business name, customer name and price are not sent. Your price and validity never change automatically.',
     email: 'Email for AI sign-in', send: 'Email sign-in link', sent: 'Check your email for a sign-in link, then return to this page.',
     aiNotConfigured: 'Claude drafting is not yet enabled. The free quotation builder works without it.',
     back: 'Back to planned tools',
@@ -39,7 +40,8 @@ const copy = {
     copy: 'ડ્રાફ્ટ કૉપી કરો', copied: 'કૉપી થયું', print: 'પ્રિન્ટ / PDF સેવ કરો',
     caution: 'આ ડ્રાફ્ટ છે, ટેક્સ ઇન્વૉઇસ નથી. જરૂરી વિગતો જ નાખો. સામાન્ય ડ્રાફ્ટ આ બ્રાઉઝર ટેબમાં જ રહે છે; Prangan તેને સેવ કરતું નથી.',
     aiLabel: 'Claude ની વૈકલ્પિક મદદ', aiButton: 'Claude થી ભાષા સુધારો',
-    aiNote: 'ચાલુ થાય ત્યારે AI માટે વેરિફાઇડ લોગિન જરૂરી રહેશે અને વિગતો Claude સુધી જશે. કિંમત અને માન્યતા આપમેળે નહીં બદલાય.',
+    consent: 'લખાણ સુધારવા સેવા અને કામની વિગતો Anthropic Claude સુધી મોકલવા માટે હું સંમત છું.',
+    aiNote: 'ચાલુ થાય ત્યારે AI માટે વેરિફાઇડ લોગિન જરૂરી રહેશે. Claude સુધી ફક્ત સેવા અને કામની વિગતો જશે, વ્યવસાયનું નામ, ગ્રાહકનું નામ કે કિંમત નહીં. કિંમત અને માન્યતા આપમેળે નહીં બદલાય.',
     email: 'AI લોગિન માટે ઈમેલ', send: 'લોગિન લિંક ઈમેલ કરો', sent: 'લોગિન લિંક માટે ઈમેલ જુઓ અને આ પેજ પર પાછા આવો.',
     aiNotConfigured: 'Claude હાલમાં ચાલુ નથી. મફત ક્વોટેશન ટૂલ તેના વગર ચાલે છે.',
     back: 'આગામી ટૂલ્સ પર પાછા',
@@ -60,6 +62,7 @@ export default function QuoteStudio() {
   const [copied, setCopied] = useState(false)
   const [loginEmail, setLoginEmail] = useState('')
   const [loginSent, setLoginSent] = useState(false)
+  const [aiConsent, setAiConsent] = useState(false)
 
   const set = (key: keyof QuoteInput, value: string) => {
     setForm(old => ({ ...old, [key]: value }))
@@ -76,6 +79,7 @@ export default function QuoteStudio() {
   const enhance = async () => {
     const issue = validateQuote(form)
     if (issue) { setError(issue); return }
+    if (!aiConsent) { setError(t.consent); return }
     setWorking(true); setError('')
     try {
       const polish = await requestQuotePolish(form)
@@ -135,7 +139,8 @@ export default function QuoteStudio() {
               <p className="mt-2 text-[12.5px] text-navy-500 leading-relaxed">{t.aiNote}</p>
               {AI_ENABLED ? (
                 <div className="mt-4 space-y-3">
-                  <button onClick={enhance} disabled={working} className="w-full rounded-xl border border-saffron-400 text-navy-800 font-semibold px-4 py-3 hover:bg-saffron-500/10 disabled:opacity-50">{working ? 'Working…' : t.aiButton}</button>
+                  <label className="flex items-start gap-2 text-[12.5px] text-navy-600"><input type="checkbox" className="mt-1" checked={aiConsent} onChange={e => setAiConsent(e.target.checked)}/>{t.consent}</label>
+                  <button onClick={enhance} disabled={working || !aiConsent} className="w-full rounded-xl border border-saffron-400 text-navy-800 font-semibold px-4 py-3 hover:bg-saffron-500/10 disabled:opacity-50">{working ? 'Working…' : t.aiButton}</button>
                   <form onSubmit={e => { e.preventDefault(); signIn() }} className="flex flex-wrap gap-2">
                     <input type="email" aria-label={t.email} placeholder={t.email} className={inputClass + ' flex-1 min-w-0'} value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required/>
                     <button type="submit" disabled={working} className="px-3 py-2 bg-cream-200 rounded-xl text-[13px] font-semibold">{t.send}</button>
