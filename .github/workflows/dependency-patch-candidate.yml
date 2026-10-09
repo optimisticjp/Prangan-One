@@ -21,8 +21,8 @@ jobs:
           cache: npm
       - name: Upgrade only patched production dependencies
         run: |
-          npm install react-router-dom@6.30.6 --save-exact --package-lock-only --ignore-scripts
-          npm pkg set "overrides.dompurify=3.4.15"
+          npm install react-router-dom@7.18.4 --save-exact --package-lock-only --ignore-scripts
+          npm pkg set "overrides.dompurify=3.4.16"
           npm install --package-lock-only --ignore-scripts
           npm ci
       - name: Require zero moderate-or-higher production advisories
