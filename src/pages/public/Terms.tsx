@@ -8,7 +8,6 @@ const copy = {
     h1: 'Terms of Service',
     updated: 'Last updated: October 2026',
     intro: 'The new small-business AI tools described on this site are in development, with no paid plans currently offered. The terms below describe the existing society-management application and its separate arrangements.',
-    intro: 'નાના વ્યવસાયના નવા AI ટૂલ્સ વિકાસમાં છે અને હાલ કોઈ પેઇડ પ્લાન નથી. નીચેની શરતો હાલની સોસાયટી મેનેજમેન્ટ એપ અને તેની અલગ વ્યવસ્થા માટે છે.',
     sections: [
       ['The service', 'Prangan One is software for running a housing society\u2019s billing, complaints, notices, and related operations. Setup is done personally by us, not through a self-serve signup form.'],
       ['Trial and pricing', 'New societies get 90 days free, starting the day your society is actually set up and ready to use, not the day you first contact us. No card is required to start the trial. After the trial, pricing is \u20b910 per flat per month, with a \u20b9499 minimum per society per month, whichever is higher. There is no online payment gateway for resident maintenance dues; payments are recorded manually by your committee.'],
@@ -25,6 +24,7 @@ const copy = {
     title: 'સેવાની શરતો', desc: 'પ્રાંગણવન વાપરવા માટેની સાદી ભાષામાં શરતો.',
     h1: 'સેવાની શરતો',
     updated: 'છેલ્લે અપડેટ: ઑક્ટોબર 2026',
+    intro: 'નાના વ્યવસાયના નવા AI ટૂલ્સ વિકાસમાં છે અને હાલ કોઈ પેઇડ પ્લાન નથી. નીચેની શરતો હાલની સોસાયટી મેનેજમેન્ટ એપ અને તેની અલગ વ્યવસ્થા માટે છે.',
     sections: [
       ['સેવા', 'પ્રાંગણવન હાઉસિંગ સોસાયટીનું બિલિંગ, ફરિયાદ, નોટિસ અને સંબંધિત કામકાજ ચલાવવા માટેનું સોફ્ટવેર છે. સેટઅપ અમે સીધું અને વ્યક્તિગત રીતે કરીએ છીએ; આ સેલ્ફ-સર્વ સાઇનઅપ ફોર્મથી શરૂ થતી સેવા નથી.'],
       ['ટ્રાયલ અને કિંમત', 'નવી સોસાયટીને 90 દિવસ મફત મળે છે. આ સમયગાળો આપની સોસાયટી ખરેખર સેટ થઈને વાપરવા તૈયાર થાય ત્યારથી શરૂ થાય છે, પ્રથમ સંપર્કના દિવસથી નહીં. ટ્રાયલ શરૂ કરવા કાર્ડની જરૂર નથી. ટ્રાયલ પછી કિંમત ફ્લેટ દીઠ મહિને ₹10 છે, સોસાયટી દીઠ ઓછામાં ઓછું ₹499 મહિને, બેમાંથી જે વધારે હોય તે. રહેવાસીની મેન્ટેનન્સ ચુકવણી માટે ઓનલાઈન ચુકવણી ગેટવે નથી; ચુકવણીઓ આપની કમિટી મેન્યુઅલી નોંધે છે.'],
