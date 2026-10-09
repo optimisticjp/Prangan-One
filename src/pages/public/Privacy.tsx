@@ -8,7 +8,6 @@ const copy = {
     h1: 'Privacy Policy',
     updated: 'Last updated: October 2026',
     intro: 'The site now accepts small-business early-access enquiries (contact details, business name and stated interests). Those enquiries are delivered through Formspree and may also be stored in our Supabase lead inbox for follow-up. The sections below describe how the existing society-management application handles society data; new business AI tools are not live.',
-    intro: 'વેબસાઇટ પર હવે નાના વ્યવસાયના અર્લી એક્સેસ માટે નામ, સંપર્ક, વ્યવસાયનું નામ અને રસની માહિતી લઈએ છીએ. માહિતી Formspree મારફતે પહોંચે છે અને સંપર્ક માટે Supabase લીડ રેકોર્ડમાં પણ રહી શકે છે. નીચેની માહિતી હાલની સોસાયટી મેનેજમેન્ટ એપ માટે છે; નવા AI ટૂલ્સ લાઇવ નથી.',
     sections: [
       ['What we collect', 'To run your society, we hold: resident and committee contact details (name, phone, email), flat and ownership records, maintenance bills and payment history, complaints and their internal notes, notices, and documents you upload. For committee and finance roles, we also log account activity relevant to those actions (like a receipt cancellation and its stated reason).'],
       ['How we use it', 'We use society data to provide, maintain, secure, support, and communicate about Prangan One for the society.'],
@@ -25,6 +24,7 @@ const copy = {
     title: 'પ્રાઇવસી પોલિસી', desc: 'પ્રાંગણવન કયો ડેટા રાખે છે, કેવી રીતે સુરક્ષિત છે, અને આપનું નિયંત્રણ શું છે.',
     h1: 'પ્રાઇવસી પોલિસી',
     updated: 'છેલ્લે અપડેટ: ઑક્ટોબર 2026',
+    intro: 'વેબસાઇટ પર હવે નાના વ્યવસાયના અર્લી એક્સેસ માટે નામ, સંપર્ક, વ્યવસાયનું નામ અને રસની માહિતી લઈએ છીએ. માહિતી Formspree મારફતે પહોંચે છે અને સંપર્ક માટે Supabase લીડ રેકોર્ડમાં પણ રહી શકે છે. નીચેની માહિતી હાલની સોસાયટી મેનેજમેન્ટ એપ માટે છે; નવા AI ટૂલ્સ લાઇવ નથી.',
     sections: [
       ['અમે શું રાખીએ છીએ', 'આપની સોસાયટી ચલાવવા માટે અમે રાખીએ છીએ: રહેવાસી અને કમિટીની સંપર્ક વિગત (નામ, ફોન, ઈમેલ), ફ્લેટ અને માલિકીના રેકોર્ડ, બિલ અને ચુકવણીનો ઇતિહાસ, ફરિયાદ અને એની આંતરિક નોંધ, નોટિસ, અને આપ અપલોડ કરેલા દસ્તાવેજો.'],
       ['અમે તેનો ઉપયોગ કેવી રીતે કરીએ છીએ', 'અમે સોસાયટીનો ડેટા પ્રાંગણવન સેવા આપવા, જાળવવા, સુરક્ષિત રાખવા, સપોર્ટ આપવા અને સેવા સંબંધિત જરૂરી સંપર્ક માટે વાપરીએ છીએ.'],
